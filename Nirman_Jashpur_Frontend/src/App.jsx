@@ -15,7 +15,7 @@ import WorkOrderPage from './After_Login_pages/WorkOrderPage.jsx';
 import WorkProgressPage from './After_Login_pages/WorkProgressPage.jsx';
 import ReportsPage from './After_Login_pages/ReportsPage.jsx';
 import WorkDetails from './After_Login_pages/WorkDetails.jsx';
-
+// this is my first react project. 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -24,6 +24,7 @@ const App = () => {
   // Removed standalone early return; WorkPage will be embedded so navigation remains functional.
   const renderPageContent = () => {
     if (!isLoggedIn) {
+      const pages = ['home', 'login', 'download'];
       switch (currentPage) {
         case 'home':
           return <HomePage />;
