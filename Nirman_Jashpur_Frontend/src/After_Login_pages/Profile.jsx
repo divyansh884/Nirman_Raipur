@@ -112,10 +112,6 @@ const Profile = () => {
             </form>
           </div>
         </div>
-        <footer>
-          <span>Copyright © 2025 निर्माण</span>
-          <span>Version 1.0</span>
-        </footer>
       </div>
     </div>
   );

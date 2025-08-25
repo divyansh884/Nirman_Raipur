@@ -1,6 +1,6 @@
 // src/components/AgencyReportTable.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import "./Table.css"; // reuse same CSS
+import "./ReportsPage.css"; // reuse same CSS
 
 const STORAGE_KEY = "agency_report_data_v1";
 const defaultRows = [

@@ -1,6 +1,6 @@
 // src/pages/AgencyReports.jsx
 import React from "react";
-import AgencyReportTable from "../components/AgencyReportTable";
+import AgencyReportTable from "./Reports/AgencyReportTable";
 
 const AgencyReports = () => {
   const agencyData = [

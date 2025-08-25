@@ -287,7 +287,7 @@
 }
 
 
-footer {
+.Profile-footer {
   background: #0b2f4b;
   color: #fff;
   /* padding: 8px 0 4px 0; */
@@ -299,7 +299,7 @@ footer {
   line-height: 1.2;
 }
 
-footer span {
+.Profile-footer span {
   color: #d2e6ff;
   font-weight: 600;
 }

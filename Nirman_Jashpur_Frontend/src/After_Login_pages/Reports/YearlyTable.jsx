@@ -1,6 +1,6 @@
 // src/Components/YearlyTable.jsx
 import React, { useState, useEffect } from "react";
-import "./Table.css"; // reuse same CSS
+import "./ReportsPage.css"; 
 
 
 const YearlyTable = ({ title, rows }) => {
