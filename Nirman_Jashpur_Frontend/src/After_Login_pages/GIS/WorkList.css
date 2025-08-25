@@ -1,0 +1,164 @@
+.worklist-page {
+  padding: 15px;
+  font-family: Arial, sans-serif;
+}
+
+/* Header */
+.worklist-header {
+  background: #063970;
+  padding: 10px 15px;
+  color: #fff;
+  border-radius: 6px 6px 0 0;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+/* Filters */
+.worklist-filters {
+  display: flex;
+  gap: 10px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.worklist-filters select {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.btn-search,
+.btn-reset,
+.btn-add {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-search { background: #007bff; color: white; }
+.btn-reset { background: #6c757d; color: white; }
+.btn-add { background: #28a745; color: white; }
+
+/* Table */
+.worklist-table-section {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.worklist-table-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.search-box input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.worklist-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.worklist-table th,
+.worklist-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+
+.worklist-table th {
+  background: #c9a743;
+  color: white;
+}
+
+.worklist-table tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+/* Buttons */
+.btn-edit {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  margin-right: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-delete {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Pagination */
+.worklist-pagination {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.pagination-controls button {
+  margin: 0 3px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pagination-controls .active {
+  background: #007bff;
+  color: white;
+}
+.work-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.filters {
+  margin-bottom: 15px;
+}
+
+.filters select {
+  margin-right: 10px;
+  padding: 5px;
+  font-size: 14px;
+}
+
+.work-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.work-table th,
+.work-table td {
+  border: 1px solid #ddd; /* separation lines */
+  padding: 8px;
+  text-align: left;
+}
+
+.work-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+.work-table tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.work-table tr:hover {
+  background-color: #f1f1f1;
+}

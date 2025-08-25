@@ -469,7 +469,6 @@ exports.updateWorkProgress = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 exports.deleteWorkProgress = async (req, res) => {
   try {
     const workProgress = await WorkProgress.findByIdAndDelete(req.params.id);
@@ -477,7 +476,6 @@ exports.deleteWorkProgress = async (req, res) => {
     if (!workProgress) {
       return res.status(404).json({ message: 'Work progress record not found' });
     }
-    
     res.json({ message: 'Work progress record deleted successfully' });
   } catch (error) {
     if (error.name === 'CastError') {

@@ -1,0 +1,62 @@
+.category-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #003f91; /* Blue top bar */
+  color: #fff;
+  padding: 10px 15px;
+  border-radius: 6px 6px 0 0;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+}
+
+.category-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.category-table th {
+  background: goldenrod;
+  color: #fff;
+  padding: 8px;
+}
+
+.category-table td {
+  padding: 8px;
+  border-top: 1px solid #ddd;
+}
+
+.btn {
+  padding: 5px 10px;
+  border: none;
+  margin: 0 3px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.btn.green {
+  background: #28a745;
+  color: #fff;
+}
+.btn.blue {
+  background: #007bff;
+  color: #fff;
+}
+.btn.red {
+  background: #dc3545;
+  color: #fff;
+}
+.btn.small {
+  font-size: 0.8rem;
+  padding: 3px 6px;
+}

@@ -239,7 +239,7 @@ const workProposalSchema = new mongoose.Schema({
   serialNumber: {
     type: String,
     unique: true,
-    required: true
+    required: false
   },
   
   // Image/Photo of work location
