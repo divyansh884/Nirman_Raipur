@@ -1,0 +1,2 @@
+const defaultProfileAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><circle cx='60' cy='60' r='60' fill='%23e6eaf3'/><circle cx='60' cy='50' r='28' fill='%23bfc9d9'/><ellipse cx='60' cy='100' rx='38' ry='24' fill='%23bfc9d9'/><circle cx='60' cy='54' r='20' fill='%23fff'/><ellipse cx='60' cy='98' rx='28' ry='16' fill='%23fff'/></svg>";
+export default defaultProfileAvatar;

@@ -37,6 +37,7 @@ import TechnicalApprovalForm from "./Forms/TechnicalApprovalForm.jsx";
 import TenderForm from "./Forms/TenderForm.jsx";
 import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
+import Profile from "./After_Login_pages/Profile.jsx";
 
 // import ReportSub3 from "./After_Login_pages/ReportSub3.jsx";
 // import ReportSub4 from "./After_Login_pages/ReportSub4.jsx";
@@ -134,6 +135,7 @@ const App = () => {
                   path="/Work-In-Progress-Form/:workId"
                   element={<WorkInProgressForm />}
                 />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/gis/category" element={<GISCategory />} />
                 <Route path="/gis/type" element={<GISType />} />
                 <Route path="/gis/work-list" element={<GISWorkList />} />

@@ -226,20 +226,35 @@ const Table = ({
             </div>
           </div>
           <div className="user">
-            <div className="ic" tabIndex={0} aria-label="User profile">
-              <i className="fa-solid fa-user" />
-            </div>
+
             <button
-              className="logout"
-              aria-label="Logout"
+              className="ic"
+              tabIndex={0}
+              aria-label="User profile"
               type="button"
-              onClick={
-                onLogout ||
-                (() => {
-                  if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-                    window.location.href = "/";
-                  }
-                })
+              onClick={() => navigate('/profile')}
+            >
+              <i className="fa-solid fa-user" />
+            </button>
+            <button className="logout" aria-label="Logout" type="button" onClick={onLogout || (() => {
+              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
+                window.location.href = '/';
+
+//             <div className="ic" tabIndex={0} aria-label="User profile">
+//               <i className="fa-solid fa-user" />
+//             </div>
+//             <button
+//               className="logout"
+//               aria-label="Logout"
+//               type="button"
+//               onClick={
+//                 onLogout ||
+//                 (() => {
+//                   if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
+//                     window.location.href = "/";
+//                   }
+//                 })
+
               }
             >
               <i className="fa-solid fa-power-off" />
@@ -583,9 +598,12 @@ const Table = ({
           </div>
         </section>
       </div>
-      <div className={"toast" + (toast ? " show" : "")}>
-        {toast || "\u00a0"}
-      </div>
+      <footer>
+          <span>Copyright © 2025 निर्माण</span>
+          <span>Version 1.0</span>
+        </footer>
+  <div className={"toast" + (toast? ' show':'')}>{toast||'\u00a0'}</div>
+
     </div>
   );
 };
