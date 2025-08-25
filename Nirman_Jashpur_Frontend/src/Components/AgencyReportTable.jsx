@@ -155,17 +155,17 @@ const AgencyReportTable = () => {
 
   return (
     <div className="work-ref">
-      <div className="header">
-        <div className="table-top">
-          <div className="title">
-            <h1>एजेंसीवार रिपोर्ट</h1>
-          </div>
-        </div>
-        <div className="subbar">
-          <span className="dot" />
-          <h2>एजेंसी सूची</h2>
-        </div>
-      </div>
+  <div className="header-bar">
+    <h1 id="pageTitle">एजेंसीवार दस्तावेजों की संख्या सूची</h1>
+    <div className="actions">
+      <button className="btn" type="button">
+        <i className="fa-solid fa-file-excel" /> Excel Export
+      </button>
+      <button className="btn" type="button">
+        <i className="fa-solid fa-download" /> Download
+      </button>
+    </div>
+  </div>
 
       <div className="wrap">
         <section className="panel table-card">

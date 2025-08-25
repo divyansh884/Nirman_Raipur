@@ -137,3 +137,13 @@ tbody tr:hover { background:#eaf5ff; }
 .btn:hover {
   background: #ddd;
 }
+
+
+.work-ref table thead th {
+  background-color: #003366 !important; /* Dark Blue */
+  color: #ffffff !important;           /* White text */
+  font-weight: bold;
+  text-align: center;
+  padding: 10px;
+  border: 1px solid #ddd;
+}
