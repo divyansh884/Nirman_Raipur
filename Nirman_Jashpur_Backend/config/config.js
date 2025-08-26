@@ -32,6 +32,12 @@ module.exports = {
     uploadPath: process.env.UPLOAD_PATH || './uploads'
   },
   
+  // Google Drive configuration
+  googleDrive: {
+    serviceAccountKeyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || './config/google-service-account.json',
+    projectFolderName: process.env.GOOGLE_DRIVE_PROJECT_FOLDER || 'Nirman_Jashpur_Documents'
+  },
+  
   // API configuration
   api: {
     version: process.env.API_VERSION || 'v1',

@@ -1,25 +1,38 @@
 const mongoose = require('mongoose');
 
+// Updated Document Schema for Google Drive integration
 const documentSchema = new mongoose.Schema({
-  fileName: {
-    type: String,
-    required: true
-  },
   originalName: {
     type: String,
     required: true
   },
-  filePath: {
+  filename: {
     type: String,
     required: true
   },
-  fileSize: {
+  fileId: {
+    type: String,
+    required: true
+  },
+  viewLink: {
+    type: String,
+    required: true
+  },
+  downloadLink: {
+    type: String,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  },
+  size: {
     type: Number,
     required: true
   },
-  mimeType: {
+  category: {
     type: String,
-    required: true
+    default: 'general'
   },
   uploadedAt: {
     type: Date,
@@ -483,6 +496,46 @@ const workProposalSchema = new mongoose.Schema({
     ],
     default: 'Pending Technical Approval'
   },
+  
+  // Attachments for general document uploads
+  attachments: [{
+    originalName: {
+      type: String,
+      required: true
+    },
+    filename: {
+      type: String,
+      required: true
+    },
+    fileId: {
+      type: String,
+      required: true
+    },
+    viewLink: {
+      type: String,
+      required: true
+    },
+    downloadLink: {
+      type: String,
+      required: true
+    },
+    mimetype: {
+      type: String,
+      required: true
+    },
+    size: {
+      type: Number,
+      required: true
+    },
+    category: {
+      type: String,
+      default: 'workProposals'
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
   // Timestamps
   lastStatusUpdate: {

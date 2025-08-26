@@ -20,7 +20,8 @@ const createWorkProposal = async (req, res) => {
       ...req.body,
       submittedBy: req.user.id,
       currentStatus: 'Pending Technical Approval',
-      workProgressStage: 'Pending Technical Approval'
+      workProgressStage: 'Pending Technical Approval',
+      initialDocuments: req.uploadedFiles || [] // Store in initialDocuments
     });
 
     await workProposal.save();
@@ -28,7 +29,8 @@ const createWorkProposal = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Work proposal created successfully',
-      data: workProposal
+      data: workProposal,
+      uploadedFiles: req.uploadedFiles || []
     });
   } catch (error) {
     console.error('Error creating work proposal:', error);
@@ -321,7 +323,8 @@ const technicalApproval = async (req, res) => {
         amountOfTechnicalSanction,
         forwardingDate: new Date(),
         remarks,
-        approvedBy: req.user.id
+        approvedBy: req.user.id,
+        attachedFile: req.uploadedFiles || []
       };
 
       workProposal.currentStatus = 'Pending Administrative Approval';
@@ -331,7 +334,8 @@ const technicalApproval = async (req, res) => {
         status: 'Rejected',
         rejectionReason,
         remarks,
-        approvedBy: req.user.id
+        approvedBy: req.user.id,
+        attachedFile: req.uploadedFiles || []
       };
 
       workProposal.currentStatus = 'Rejected Technical Approval';
@@ -343,7 +347,8 @@ const technicalApproval = async (req, res) => {
     res.json({
       success: true,
       message: `Technical approval ${action}d successfully`,
-      data: workProposal
+      data: workProposal,
+      uploadedFiles: req.uploadedFiles || []
     });
   } catch (error) {
     console.error('Error in technical approval:', error);
@@ -400,7 +405,8 @@ const administrativeApproval = async (req, res) => {
         approvalDate: new Date(),
         approvedAmount,
         remarks,
-        approvedBy: req.user.id
+        approvedBy: req.user.id,
+        attachedFile: req.uploadedFiles || []
       };
 
       // Determine next stage based on tender requirement
@@ -416,7 +422,8 @@ const administrativeApproval = async (req, res) => {
         status: 'Rejected',
         rejectionReason,
         remarks,
-        approvedBy: req.user.id
+        approvedBy: req.user.id,
+        attachedFile: req.uploadedFiles || []
       };
 
       workProposal.currentStatus = 'Rejected Administrative Approval';
@@ -428,7 +435,8 @@ const administrativeApproval = async (req, res) => {
     res.json({
       success: true,
       message: `Administrative approval ${action}d successfully`,
-      data: workProposal
+      data: workProposal,
+      uploadedFiles: req.uploadedFiles || []
     });
   } catch (error) {
     console.error('Error in administrative approval:', error);

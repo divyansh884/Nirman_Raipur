@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { upload, uploadToGoogleDrive } = require('../middleware/upload');
 const {
   createWorkProposal,
   getWorkProposals,
@@ -44,7 +45,13 @@ const administrativeApprovalValidation = [
 // @route   POST /api/work-proposals
 // @desc    Create new work proposal
 // @access  Private (Department User)
-router.post('/', auth, workProposalValidation, createWorkProposal);
+router.post('/', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workProposals'),
+  workProposalValidation, 
+  createWorkProposal
+);
 
 // @route   GET /api/work-proposals
 // @desc    Get all work proposals with filtering and pagination
@@ -59,7 +66,12 @@ router.get('/:id', auth, getWorkProposal);
 // @route   PUT /api/work-proposals/:id
 // @desc    Update work proposal (basic info only, before technical approval)
 // @access  Private (Only submitter)
-router.put('/:id', auth, updateWorkProposal);
+router.put('/:id', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workProposals'),
+  updateWorkProposal
+);
 
 // @route   DELETE /api/work-proposals/:id
 // @desc    Delete work proposal (before technical approval)
@@ -69,11 +81,23 @@ router.delete('/:id', auth, deleteWorkProposal);
 // @route   POST /api/work-proposals/:id/technical-approval
 // @desc    Technical approval/rejection
 // @access  Private (Technical Approver)
-router.post('/:id/technical-approval', auth, technicalApprovalValidation, technicalApproval);
+router.post('/:id/technical-approval', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('technicalApprovals'),
+  technicalApprovalValidation, 
+  technicalApproval
+);
 
 // @route   POST /api/work-proposals/:id/administrative-approval
 // @desc    Administrative approval/rejection
 // @access  Private (Administrative Approver)
-router.post('/:id/administrative-approval', auth, administrativeApprovalValidation, administrativeApproval);
+router.post('/:id/administrative-approval', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('administrativeApprovals'),
+  administrativeApprovalValidation, 
+  administrativeApproval
+);
 
 module.exports = router;

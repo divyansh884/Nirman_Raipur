@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { upload, uploadToGoogleDrive } = require('../middleware/upload');
 const {
   updateWorkProgress,
   addInstallment,
@@ -30,17 +31,35 @@ const completeWorkValidation = [
 // @route   POST /api/work-proposals/:id/progress
 // @desc    Update work progress
 // @access  Private (Progress Monitor)
-router.post('/:id/progress', auth, updateProgressValidation, updateWorkProgress);
+router.post('/:id/progress', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workProgress'),
+  updateProgressValidation, 
+  updateWorkProgress
+);
 
 // @route   POST /api/work-proposals/:id/progress/installment
 // @desc    Add installment payment
 // @access  Private (Progress Monitor, Admin)
-router.post('/:id/progress/installment', auth, addInstallmentValidation, addInstallment);
+router.post('/:id/progress/installment', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workProgress'),
+  addInstallmentValidation, 
+  addInstallment
+);
 
 // @route   POST /api/work-proposals/:id/progress/complete
 // @desc    Complete work
 // @access  Private (Progress Monitor, Admin)
-router.post('/:id/progress/complete', auth, completeWorkValidation, completeWork);
+router.post('/:id/progress/complete', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workProgress'),
+  completeWorkValidation, 
+  completeWork
+);
 
 // @route   GET /api/work-proposals/:id/progress/history
 // @desc    Get work progress history

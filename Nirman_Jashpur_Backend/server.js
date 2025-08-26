@@ -37,6 +37,7 @@ app.use('/api/tenders', require('./routes/tenders')); // General tender routes
 app.use('/api/work-orders', require('./routes/workOrders')); // General work order routes
 app.use('/api/work-progress', require('./routes/workProgress')); // General progress routes
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/uploads', require('./routes/uploads')); // File upload routes
 
 // Health check endpoint
 app.get('/health', (req, res) => {

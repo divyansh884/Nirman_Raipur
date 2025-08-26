@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query, validationResult } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { upload, uploadToGoogleDrive } = require('../middleware/upload');
 
 const reportsController = require('../controllers/reportsController');
 const {

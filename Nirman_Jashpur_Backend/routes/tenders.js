@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { upload, uploadToGoogleDrive } = require('../middleware/upload');
 const {
   startTenderProcess,
   updateTenderStatus,
@@ -29,17 +30,35 @@ const awardTenderValidation = [
 // @route   POST /api/work-proposals/:id/tender/start
 // @desc    Start tender process
 // @access  Private (Tender Manager)
-router.post('/:id/tender/start', auth, startTenderValidation, startTenderProcess);
+router.post('/:id/tender/start', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('tenders'),
+  startTenderValidation, 
+  startTenderProcess
+);
 
 // @route   PUT /api/work-proposals/:id/tender/status
 // @desc    Update tender status
 // @access  Private (Tender Manager)
-router.put('/:id/tender/status', auth, updateTenderStatusValidation, updateTenderStatus);
+router.put('/:id/tender/status', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('tenders'),
+  updateTenderStatusValidation, 
+  updateTenderStatus
+);
 
 // @route   POST /api/work-proposals/:id/tender/award
 // @desc    Award tender to contractor
 // @access  Private (Tender Manager)
-router.post('/:id/tender/award', auth, awardTenderValidation, awardTender);
+router.post('/:id/tender/award', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('tenders'),
+  awardTenderValidation, 
+  awardTender
+);
 
 // @route   GET /api/tenders
 // @desc    Get all tenders with filtering

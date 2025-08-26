@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { upload, uploadToGoogleDrive } = require('../middleware/upload');
 const {
   createWorkOrder,
   updateWorkOrder,
@@ -26,17 +27,34 @@ const updateWorkOrderValidation = [
 // @route   POST /api/work-proposals/:id/work-order
 // @desc    Create work order
 // @access  Private (Work Order Manager)
-router.post('/:id/work-order', auth, createWorkOrderValidation, createWorkOrder);
+router.post('/:id/work-order', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workOrders'),
+  createWorkOrderValidation, 
+  createWorkOrder
+);
 
 // @route   PUT /api/work-proposals/:id/work-order
 // @desc    Update work order
 // @access  Private (Work Order Manager)
-router.put('/:id/work-order', auth, updateWorkOrderValidation, updateWorkOrder);
+router.put('/:id/work-order', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workOrders'),
+  updateWorkOrderValidation, 
+  updateWorkOrder
+);
 
 // @route   POST /api/work-proposals/:id/work-order/start-work
 // @desc    Start work (change status to Work In Progress)
 // @access  Private (Work Order Manager, Progress Monitor)
-router.post('/:id/work-order/start-work', auth, startWork);
+router.post('/:id/work-order/start-work', 
+  auth, 
+  upload.array('files', 5),
+  uploadToGoogleDrive('workOrders'),
+  startWork
+);
 
 // @route   GET /api/work-proposals/:id/work-order
 // @desc    Get work order by ID
