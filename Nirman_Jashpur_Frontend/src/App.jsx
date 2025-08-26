@@ -29,8 +29,7 @@ import TechnicalApprovalPage from "./After_Login_pages/TechnicalApprovalPage.jsx
 import AdministrativeApprovalPage from "./After_Login_pages/AdministrativeApprovalPage.jsx";
 import TenderPage from "./After_Login_pages/TenderPage.jsx";
 import WorkOrderPage from "./After_Login_pages/WorkOrderPage.jsx";
-import WorkProgressPage from "./After_Login_pages/WorkProgressPage.jsx";
-import ReportsPage from "./After_Login_pages/ReportsPage.jsx";
+import WorkProgressPage from "./After_Login_pages/WorkProgressPage.jsx";;
 import WorkDetailsPage from "./After_Login_pages/WorkDetails.jsx";
 import AdministrativeApprovalForm from "./Forms/AdministrativeApprovalForm.jsx";
 import TechnicalApprovalForm from "./Forms/TechnicalApprovalForm.jsx";
@@ -38,8 +37,6 @@ import TenderForm from "./Forms/TenderForm.jsx";
 import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
 import Profile from "./After_Login_pages/Profile.jsx";
-import Yearly from "./After_Login_pages/Yearly.jsx";
-import AgencyReport from "./After_Login_pages/AgencyReport.jsx";
 import GISCategory from "./After_Login_pages/GIS/Category.jsx";
 import GISType from "./After_Login_pages/GIS/Type.jsx";
 import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
@@ -100,9 +97,6 @@ const App = () => {
                   element={<WorkProgressPage />}
                 />
                 {/*Report Routes*/}
-                <Route path="/Report" element={<ReportsPage />} />
-                <Route path="/Yearly" element={<Yearly />} />
-                <Route path="/agency-report" element={<AgencyReport />} />
                 <Route path="/add-work" element={<WorkForm />} />
                 <Route path="/work/:workId" element={<WorkDetailsPage />} />
                 <Route
