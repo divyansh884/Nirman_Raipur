@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import ic1 from "../../assets/Icons/Dug_Well.webp";
 import ic2 from "../../assets/Icons/Post_Office2.webp";
 import ic3 from "../../assets/Icons/shed.webp";
-import ic4 from "../../assets/Icons/community_center.webp";
+import ic4 from "../../assets/Icons/road_construction.webp";
 import ic5 from "../../assets/Icons/pond_deepening1.webp";
 
 const defaultCategories = [
