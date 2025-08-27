@@ -89,8 +89,69 @@ tbody tr:hover { background:#eaf5ff; }
 
 .select { color:#1a1f29; }
 .select option { color:#1a1f29; background:#fff; }
+
+.table-footer {
+  background: #0b2f4b;
+  color: #fff;
+  /* padding: 8px 0 4px 0; */
+  font-size: 13px;
+  text-align: center;
+  border-top: 4px solid rgba(0,0,0,0.06);
+  min-height: 0;
+  height: 60px;
+  line-height: 1.2;
+}
+
+.table-footer span {
+  color: #d2e6ff;
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
   .filters-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
   thead th { font-size:12px; }
   table { font-size:12px; }
+}
+
+/* Header bar styling */
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, #083a7a, #0d2f57);
+  padding: 10px 20px;
+  border-radius: 10px;
+  color: #fff;
+  margin-bottom: 15px;
+}
+
+/* Title */
+.header-bar h1 {
+  font-size: 18px;
+  margin: 0;
+  color: #fff;
+}
+
+/* Buttons container */
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Buttons */
+.btn {
+  background: #f5f5f5;
+  color: #000;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: #ddd;
 }

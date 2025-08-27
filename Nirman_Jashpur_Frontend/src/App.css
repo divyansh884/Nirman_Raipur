@@ -188,9 +188,9 @@ main {
   overflow: auto;
   flex: 1;
 }
-.menu button {
+/* .menu button {
   all: unset;
-}
+} */
 .menu a,
 .menu button {
   display: flex;
@@ -210,7 +210,7 @@ main {
 }
 .menu a i,
 .menu button i {
-  width: 26px;
+  /* width: 26px; */
   text-align: center;
   font-size: 15px;
 }

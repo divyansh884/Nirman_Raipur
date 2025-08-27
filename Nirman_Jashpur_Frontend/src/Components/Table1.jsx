@@ -6,38 +6,41 @@ const STORAGE_KEY = "tribal_work_data_v1";
 const defaultRows = [
   {
     id: 1,
-    type: "सीसी रोड",
-    year: "2024-25",
-    vname: "Bagicha",
-    name: "सी.सी.रोड निर्माण, पंचायत भवन से देवघर के घर तक, ग्राम पंचायत बुढ़ाढांड",
-    agency: "Janpad पंचायत",
+    name: "आर.सी.सी. पुलिया निर्माण कार्य",
+    area: "कुनकुरी",
+    agency: "जनपद पंचायत कुनकुरी",
     plan: "Suguja Chhetra Pradhikaran",
-    amount: "10.00",
-    status: "कार्य आदेश लम्बित",
-    modified: "14-08-2025",
+    techApproval: "TS NO - 1193",
+    adminApproval: "AS NO - 135",
+    tenderApproval: "निविदा लागू नहीं है",
+    progress: "-",
+    details: "कार्य आदेश लंबित",
+    modified: "25-08-2025",
   },
   {
     id: 2,
-    type: "सड़क निर्माण कार्य",
-    year: "2024-25",
-    vname: "Bagicha",
-    name: "सड़क जीर्णोद्धार कार्य",
-    agency: "Janpad पंचायत",
-    plan: "Suguja",
-    amount: "12.00",
-    status: "कार्य आदेश लम्बित",
-    modified: "14-08-2025",
+    name: "सड़क निर्माण कार्य",
+    area: "जशपुर",
+    agency: "लोक निर्माण विभाग",
+    plan: "Block Plan",
+    techApproval: "TS NO - 889",
+    adminApproval: "AS NO - 78",
+    tenderApproval: "निविदा स्वीकृत",
+    progress: "30%",
+    details: "कार्य प्रगति पर है",
+    modified: "20-08-2025",
   },
   {
     id: 3,
-    type: "पंचायती भवन",
-    year: "2023-24",
-    vname: "Budhadand",
     name: "पंचायत भवन निर्माण",
-    agency: "Gram Panchayat",
-    plan: "Block Plan",
-    amount: "5.00",
-    status: "समाप्त",
+    area: "बगीचा",
+    agency: "ग्राम पंचायत बुढ़ाढांड",
+    plan: "जिला पंचायत योजना",
+    techApproval: "TS NO - 456",
+    adminApproval: "AS NO - 102",
+    tenderApproval: "निविदा स्वीकृत",
+    progress: "पूर्ण",
+    details: "कार्य पूर्ण हो चुका है",
     modified: "10-06-2024",
   },
 ];
@@ -56,7 +59,7 @@ function saveData(rows) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
 }
 
-const Table = ({
+const Table1 = ({
   onLogout,
   onAddNew,
   addButtonLabel,
@@ -125,20 +128,22 @@ const Table = ({
     setFilters({ type: "", plan: "", q: "" });
     setPage(1);
   }
-  function exportCSV() {
+    function exportCSV() {
     const rows = filtered.map((r) => [
       r.id,
-      r.type,
-      r.year,
-      r.vname,
       r.name,
+      r.area,
       r.agency,
       r.plan,
-      r.amount,
-      r.status,
+      r.techApproval,
+      r.adminApproval,
+      r.tenderApproval,
+      r.progress,
+      r.details,
       r.modified,
     ]);
-    let csv = "ID,Type,Year,Village,Name,Agency,Plan,Amount,Status,Modified\n";
+    let csv =
+      "ID,कार्य का नाम,क्षेत्र,कार्य एजेंसी,योजना,तकनीकी स्वीकृति,प्रशासकीय स्वीकृति,निविदा स्वीकृति,कार्य प्रगति चरण,कार्य विवरण,अंतिम संशोधन\n";
     rows.forEach((r) => {
       csv +=
         r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(",") +
@@ -159,15 +164,15 @@ const Table = ({
 
   const keyMap = [
     "id",
-    null,
-    "type",
-    "year",
-    "vname",
     "name",
+    "area",
     "agency",
     "plan",
-    "amount",
-    "status",
+    "techApproval",
+    "adminApproval",
+    "tenderApproval",
+    "progress",
+    "details",
     "modified",
     null,
   ];
@@ -445,23 +450,22 @@ const Table = ({
               />
             </div>
             <div className="tbl-wrap">
-              <table>
+             <table>
                 <thead>
                   <tr>
                     {[
-                      "क्र.",
-                      "इमेज",
-                      "कार्य के प्रकार",
-                      "स्वी. वर्ष",
-                      "ज. प./वि. ख. का नाम",
-                      "ग्रा.प/वार्ड का नाम",
+                      "क्रम",
                       "कार्य का नाम",
+                      "क्षेत्र",
                       "कार्य एजेंसी",
-                      "योजना | राशि (₹)",
+                      "योजना",
+                      "तकनीकी स्वीकृति",
+                      "प्रशासकीय स्वीकृति",
+                      "निविदा स्वीकृति",
+                      "कार्य प्रगति चरण",
                       "कार्य विवरण",
-                      "कार्य की भौतिक स्थिति",
                       "अंतिम संशोधन",
-                      "कार्रवाई",
+                      "कार्यवाही",
                     ].map((h, i) => (
                       <th
                         key={i}
@@ -478,39 +482,15 @@ const Table = ({
                   {pageRows.map((r, i) => (
                     <tr key={r.id}>
                       <td>{start + i + 1}</td>
-                      <td>
-                        <div
-                          style={{
-                            width: 58,
-                            height: 38,
-                            border: "1px dashed #cfe2f0",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          IMG
-                        </div>
-                      </td>
-                      <td>{r.type}</td>
-                      <td>{r.year}</td>
-                      <td>{r.city}</td>
-                      <td>{r.vname}</td>
                       <td>{r.name}</td>
+                      <td>{r.area}</td>
                       <td>{r.agency}</td>
-                      <td>
-                        <div className="plan-multiline">
-                          <div className="plan-name">
-                            {r.plan.split(" ").map((word, idx) => (
-                              <div key={idx}>{word}</div>
-                            ))}
-                          </div>
-                          <div className="plan-amount">{r.amount}</div>
-                        </div>
-                      </td>
-                      <td>{r.status}</td>
-                      <td>-</td>
+                      <td>{r.plan}</td>
+                      <td>{r.techApproval}</td>
+                      <td>{r.adminApproval}</td>
+                      <td>{r.tenderApproval}</td>
+                      <td>{r.progress}</td>
+                      <td>{r.details}</td>
                       <td>{r.modified}</td>
                       <td>
                         <div className="row-actions">
@@ -591,5 +571,5 @@ const Table = ({
   );
 };
 
-export default Table;
+export default Table1;
 

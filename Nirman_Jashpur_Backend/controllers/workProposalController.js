@@ -68,14 +68,14 @@ const getWorkProposals = async (req, res) => {
     }
     
     // Filter by user's submitted proposals (for Department Users)
-    if (req.user.role === 'Department User') {
-      filter.submittedBy = req.user.id;
-    }
+    // if (req.user.role === 'Department User') {
+    //   filter.submittedBy = req.user.id;
+    // }
     
     // Filter by approving department (for approvers)
-    if (req.user.role === 'Technical Approver' || req.user.role === 'Administrative Approver') {
-      filter.approvingDepartment = req.user.department;
-    }
+    // if (req.user.role === 'Technical Approver' || req.user.role === 'Administrative Approver') {
+    //   filter.approvingDepartment = req.user.department;
+    // }
 
     // Search functionality
     if (req.query.search) {

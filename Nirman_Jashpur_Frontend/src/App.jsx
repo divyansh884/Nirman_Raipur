@@ -29,17 +29,18 @@ import TechnicalApprovalPage from "./After_Login_pages/TechnicalApprovalPage.jsx
 import AdministrativeApprovalPage from "./After_Login_pages/AdministrativeApprovalPage.jsx";
 import TenderPage from "./After_Login_pages/TenderPage.jsx";
 import WorkOrderPage from "./After_Login_pages/WorkOrderPage.jsx";
-import WorkProgressPage from "./After_Login_pages/WorkProgressPage.jsx";
-import ReportsPage from "./After_Login_pages/ReportsPage.jsx";
+import WorkProgressPage from "./After_Login_pages/WorkProgressPage.jsx";;
 import WorkDetailsPage from "./After_Login_pages/WorkDetails.jsx";
 import AdministrativeApprovalForm from "./Forms/AdministrativeApprovalForm.jsx";
 import TechnicalApprovalForm from "./Forms/TechnicalApprovalForm.jsx";
 import TenderForm from "./Forms/TenderForm.jsx";
 import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
+import Profile from "./After_Login_pages/Profile.jsx";
 import GISCategory from "./After_Login_pages/GIS/Category.jsx";
 import GISType from "./After_Login_pages/GIS/Type.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
+import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -96,7 +97,7 @@ const App = () => {
                   path="/Work-In-Progress"
                   element={<WorkProgressPage />}
                 />
-                <Route path="/Report" element={<ReportsPage />} />
+                {/*Report Routes*/}
                 <Route path="/add-work" element={<WorkForm />} />
                 <Route path="/work/:workId" element={<WorkDetailsPage />} />
                 <Route
@@ -116,9 +117,11 @@ const App = () => {
                   path="/Work-In-Progress-Form/:workId"
                   element={<WorkInProgressForm />}
                 />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/gis/category" element={<GISCategory />} />
                 <Route path="/gis/type" element={<GISType />} />
                 <Route path="/gis/map" element={<MyMap />} />
+                <Route path="/gis/work-list" element={<GISWorkList />} />
               </>
             )}
           </Routes>
@@ -181,7 +184,7 @@ const SideNavbar = ({ onLogout }) => {
       children: [
         { to: "/gis/category", label: "GIS Category" },
         { to: "/gis/type", label: "GIS Work Type" },
-        { to: "/gis/list", label: "GIS Work List" },
+        { to: "/gis/work-list", label: "GIS Work List" },
         { to: "/gis/map", label: "Map" },
       ],
     },
@@ -194,7 +197,14 @@ const SideNavbar = ({ onLogout }) => {
     { to: "/Tender", label: "निविदा", icon: <FileText /> },
     { to: "/Work-Order", label: "कार्य आदेश", icon: <ClipboardList /> },
     { to: "/Work-In-Progress", label: "कार्य प्रगति", icon: <BarChart /> },
-    { to: "/Report", label: "रिपोर्ट", icon: <FileText /> },
+    {
+      label: "रिपोर्ट",
+      icon: <FileText />,
+      children: [
+        { to: "/Yearly", label: "वार्षिक रिपोर्ट" },
+        { to: "/agency-report", label: "कार्य एजेंसीवार रिपोर्ट" },
+      ],
+    },
   ];
 
   return (
@@ -223,8 +233,9 @@ const SideNavbar = ({ onLogout }) => {
               <span>{it.label}</span>
             </button>
           ) : (
-            <div>
+            <div className="w-full" key={it.label}>
               <button
+                className={`w-full`}
                 onClick={() =>
                   setOpenMenu((prev) => (prev === it.label ? null : it.label))
                 }
@@ -250,7 +261,7 @@ const SideNavbar = ({ onLogout }) => {
                 ))}
               </div>
             </div>
-          ),
+          )
         )}
         <button className="logout-btn" onClick={onLogout}>
           <i

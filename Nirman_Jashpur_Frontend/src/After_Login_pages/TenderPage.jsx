@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Table from '../Components/Table.jsx';
+import Table1 from '../Components/Table1.jsx';
 const TenderPage = () => {
   return (
-    <Table 
+    <Table1
   addButtonLabel="निविदा"
   onAddNew= "/add-work"
   showAddButton={false}

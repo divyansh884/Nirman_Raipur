@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './WorkForm.css';
 
-const STORAGE_KEY = 'tribal_work_data_v1';
-
 const initialState = {
   workYear: '',
   dept: '',
@@ -23,28 +21,12 @@ const initialState = {
   startDate: ''
 };
 
-
-function loadWorkData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch { 
-    return []; 
-  }
-}
-
-function saveWorkData(rows) { 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); 
-}
-
-export default function AddToWork({ onWorkAdded, prefilledData }){
+export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
   const [form, setForm] = useState(initialState);
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  
   useEffect(() => {
     if (prefilledData) {
       setForm({
@@ -72,10 +54,15 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
   function update(e){
     const { name, value } = e.target;
     setForm(f=>({...f,[name]:value}));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({...prev, [name]: ''}));
+    }
   }
 
   function validate(){
-    const req = ['workYear','dept','subDept','centralDept','scheme','workType','workCategory','workName'];
+    const req = ['workYear','dept','subDept','centralDept','scheme','workType','workCategory','workName', 'startDate'];
     const err = {};
     
     // Check required fields
@@ -86,8 +73,8 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
     });
     
     // Additional validations
-    if (form.amount && isNaN(parseFloat(form.amount))) {
-      err.amount = '* वैध राशि दर्ज करें';
+    if (form.amount && (isNaN(parseFloat(form.amount)) || parseFloat(form.amount) < 0)) {
+      err.amount = '* वैध राशि दर्ज करें (0 या अधिक)';
     }
     
     if (form.longitude && (isNaN(parseFloat(form.longitude)) || Math.abs(parseFloat(form.longitude)) > 180)) {
@@ -103,6 +90,13 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
       const datePattern = /^\d{2}-\d{2}-\d{4}$/;
       if (!datePattern.test(form.startDate)) {
         err.startDate = '* तिथि dd-mm-yyyy प्रारूप में दर्ज करें';
+      } else {
+        // Validate if it's a valid date
+        const [day, month, year] = form.startDate.split('-');
+        const dateObj = new Date(year, month - 1, day);
+        if (dateObj.getDate() != day || dateObj.getMonth() != month - 1 || dateObj.getFullYear() != year) {
+          err.startDate = '* वैध तिथि दर्ज करें';
+        }
       }
     }
     
@@ -110,54 +104,140 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
     return Object.keys(err).length===0;
   }
 
-  function submit(e){
+  // Convert dd-mm-yyyy to Date object
+  function convertDateToISO(dateString) {
+    if (!dateString) return null;
+    const [day, month, year] = dateString.split('-');
+    return new Date(year, month - 1, day).toISOString();
+  }
+
+  // Get authentication token from localStorage
+  function getAuthToken() {
+    return localStorage.getItem("authToken");
+  }
+
+  // Get user data from localStorage
+  function getUserData() {
+    try {
+      const userData = localStorage.getItem("userData");
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+      return null;
+    }
+  }
+
+  async function submit(e){
     e.preventDefault();
     if(!validate()) return;
     
-    // Load existing work data
-    const existingData = loadWorkData();
+    // Check if user is authenticated
+    const authToken = getAuthToken();
+    if (!authToken) {
+      alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
+      // Redirect to login or call logout function
+      return;
+    }
+
+    setIsSubmitting(true);
     
-    // Create new work entry with data mapping to match WorkPage format
-    const newId = (existingData.reduce((max, item) => Math.max(max, item.id || 0), 0)) + 1;
-    const today = new Date().toLocaleDateString('en-GB'); // dd/mm/yyyy format
-    
-    const newWorkEntry = {
-      id: newId,
-      type: form.workType || 'कार्य प्रकार',
-      year: form.workYear || new Date().getFullYear() + '-' + (new Date().getFullYear() + 1).toString().slice(-2),
-      vname: form.ward || form.block || form.areaType || 'क्षेत्र',
-      city: form.city || '',
-      name: form.workName || 'कार्य का नाम',
-      agency: form.dept || 'कार्य एजेंसी', 
-      plan: form.scheme || 'योजना',
-      amount: form.amount ? parseFloat(form.amount).toFixed(2) : '0.00',
-      status: 'कार्य आदेश लम्बित',
-      modified: today,
-      // Store additional details that might be useful later
-      details: {
-        workCategory: form.workCategory,
-        subDept: form.subDept,
-        centralDept: form.centralDept,
-        longitude: form.longitude,
-        latitude: form.latitude,
-        engineer: form.engineer,
-        sdo: form.sdo,
-        startDate: form.startDate
+    try {
+      // Get user data for submittedBy field
+      const userData = getUserData();
+      
+      // Prepare data according to schema
+      const workProposalData = {
+        // Required fields
+        typeOfWork: form.workType,
+        nameOfWork: form.workName,
+        workAgency: form.dept,
+        scheme: form.scheme,
+        workDescription: form.workName, // Using workName as description, you might want to add a separate field
+        financialYear: form.workYear,
+        workDepartment: form.dept,
+        userDepartment: form.subDept,
+        approvingDepartment: form.centralDept,
+        sanctionAmount: parseFloat(form.amount) || 0,
+        estimatedCompletionDateOfWork: convertDateToISO(form.startDate),
+        
+        // Optional fields
+        nameOfJPDBT: form.block || null,
+        nameOfGPWard: form.ward || null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        typeOfLocation: form.areaType || null,
+        city: form.city || null,
+        ward: form.ward || null,
+        workType: form.workCategory || null,
+        workName: form.workName,
+        appointedEngineer: form.engineer || null,
+        appointedSDO: form.sdo || null,
+        
+        // Default values
+        workProgressStage: 'Pending Technical Approval',
+        currentStatus: 'Pending Technical Approval',
+        isDPROrNot: false,
+        isTenderOrNot: false,
+        
+        // Get submittedBy from stored user data
+        submittedBy: userData?.id || currentUser?.id || null,
+      };
+
+      const response = await fetch('http://localhost:3000/api/work-proposals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}` // Add the authentication token
+        },
+        body: JSON.stringify(workProposalData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Handle authentication errors specifically
+        if (response.status === 401) {
+          alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
+          // Clear stored tokens
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
+          // Redirect to login or call logout function
+          return;
+        } else if (response.status === 403) {
+          alert('आपको इस कार्य को करने की अनुमति नहीं है।');
+          return;
+        }
+        
+        throw new Error(result.message || 'Failed to create work proposal');
       }
-    };
-    
-    // Add new entry to the beginning of the array (latest first)
-    const updatedData = [newWorkEntry, ...existingData];
-    
-    // Save updated data
-    saveWorkData(updatedData);
-    
-    // Show success modal
-    setShowSuccessModal(true);
-    
-    // Reset form
-    setForm(initialState);
-    setErrors({});
+
+      // Success
+      console.log('Work proposal created successfully:', result);
+      setShowSuccessModal(true);
+      
+      // Reset form
+      setForm(initialState);
+      setErrors({});
+      
+    } catch (error) {
+      console.error('Error creating work proposal:', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('validation')) {
+        alert('कृपया सभी आवश्यक फ़ील्ड भरें और वैध डेटा दर्ज करें।');
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        alert('नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।');
+      } else if (error.message.includes('unauthorized') || error.message.includes('token')) {
+        alert('प्राधिकरण त्रुटि। कृपया पुनः लॉगिन करें।');
+        // Clear stored tokens
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
+      } else {
+        alert('कार्य प्रस्ताव बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function cancel(){
@@ -187,7 +267,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
           <div className="atw-grid">
             <div className="fld">
               <label>वित्तीय वर्ष <span className="req">*</span></label>
-              <select name="workYear" value={form.workYear} onChange={update}>
+              <select name="workYear" value={form.workYear} onChange={update} disabled={isSubmitting}>
                 <option value="">-- वित्तीय वर्ष चुने --</option>
                 <option>2024-25</option>
                 <option>2023-24</option>
@@ -196,7 +276,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>कार्य विभाग <span className="req">*</span></label>
-              <select name="dept" value={form.dept} onChange={update}>
+              <select name="dept" value={form.dept} onChange={update} disabled={isSubmitting}>
                 <option value="">-- कार्य विभाग चुने --</option>
                 <option>आदिवासी विकास विभाग, जशपुर</option>
                 <option>जनपद पंचायत</option>
@@ -205,7 +285,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>उपविभागीय विभाग <span className="req">*</span></label>
-              <select name="subDept" value={form.subDept} onChange={update}>
+              <select name="subDept" value={form.subDept} onChange={update} disabled={isSubmitting}>
                 <option value="">-- उपविभागीय विभाग चुने --</option>
                 <option>उपविभाग A</option>
                 <option>उपविभाग B</option>
@@ -214,7 +294,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>स्वीकृतकर्ता विभाग <span className="req">*</span></label>
-              <select name="centralDept" value={form.centralDept} onChange={update}>
+              <select name="centralDept" value={form.centralDept} onChange={update} disabled={isSubmitting}>
                 <option value="">-- स्वीकृतकर्ता विभाग चुने --</option>
                 <option>स्वीकृतकर्ता विभाग A</option>
                 <option>स्वीकृतकर्ता विभाग B</option>
@@ -224,13 +304,9 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
           </div>
           {/* Row 2 */}
           <div className="atw-grid">
-            <div className="fld span2">
-              <label>अभिकरण (Agency) नोट</label>
-              <div className="atw-inline-note">अभिकरण नहीं है</div>
-            </div>
             <div className="fld">
               <label>योजना <span className="req">*</span></label>
-              <select name="scheme" value={form.scheme} onChange={update}>
+              <select name="scheme" value={form.scheme} onChange={update} disabled={isSubmitting}>
                 <option value="">-- योजना चुने --</option>
                 <option>CM योजना</option>
                 <option>Block Plan</option>
@@ -238,22 +314,43 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
               {errors.scheme && <small className="err">{errors.scheme}</small>}
             </div>
             <div className="fld amt">
-              <label>राशि (₹)</label>
-              <input name="amount" value={form.amount} onChange={update} placeholder="राशि" type="number" step="0.01" min="0" />
+              <label>राशि (₹) <span className="req">*</span></label>
+              <input 
+                name="amount" 
+                value={form.amount} 
+                onChange={update} 
+                placeholder="राशि" 
+                type="number" 
+                step="0.01" 
+                min="0"
+                disabled={isSubmitting}
+              />
               {errors.amount && <small className="err">{errors.amount}</small>}
-            </div>
-            <div className="fld file-up">
-              <label style={{visibility:'hidden'}}>फ़ाइल</label>
-              <button className="atw-file-btn" type="button" title="अपलोड">📄</button>
             </div>
             <div className="fld">
               <label>देशान्तर (Longitude)</label>
-              <input name="longitude" value={form.longitude} onChange={update} placeholder="देशान्तर(Longitude)" type="number" step="any" />
+              <input 
+                name="longitude" 
+                value={form.longitude} 
+                onChange={update} 
+                placeholder="देशान्तर(Longitude)" 
+                type="number" 
+                step="any"
+                disabled={isSubmitting}
+              />
               {errors.longitude && <small className="err">{errors.longitude}</small>}
             </div>
             <div className="fld">
               <label>अक्षांश (Latitude)</label>
-              <input name="latitude" value={form.latitude} onChange={update} placeholder="अक्षांश(Latitude)" type="number" step="any" />
+              <input 
+                name="latitude" 
+                value={form.latitude} 
+                onChange={update} 
+                placeholder="अक्षांश(Latitude)" 
+                type="number" 
+                step="any"
+                disabled={isSubmitting}
+              />
               {errors.latitude && <small className="err">{errors.latitude}</small>}
             </div>
           </div>
@@ -261,7 +358,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
           <div className="atw-grid">
             <div className="fld">
               <label>क्षेत्र का प्रकार</label>
-              <select name="areaType" value={form.areaType} onChange={update}>
+              <select name="areaType" value={form.areaType} onChange={update} disabled={isSubmitting}>
                 <option value="">-- प्रकार चुनें --</option>
                 <option>ग्राम</option>
                 <option>शहर</option>
@@ -269,7 +366,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>शहर / नगर</label>
-              <select name="city" value={form.city} onChange={update}>
+              <select name="city" value={form.city} onChange={update} disabled={isSubmitting}>
                 <option value="">-- शहर चुने --</option>
                 <option>बगीचा</option>
                 <option>दुलदुला</option>
@@ -284,7 +381,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>वार्ड / ग्राम</label>
-              <select name="ward" value={form.ward} onChange={update}>
+              <select name="ward" value={form.ward} onChange={update} disabled={isSubmitting}>
                 <option value="">-- वार्ड चुने --</option>
                 <option>Ward 1</option>
                 <option>Ward 2</option>
@@ -292,7 +389,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>कार्य के प्रकार <span className="req">*</span></label>
-              <select name="workType" value={form.workType} onChange={update}>
+              <select name="workType" value={form.workType} onChange={update} disabled={isSubmitting}>
                 <option value="">-- कार्य के प्रकार चुने --</option>
                 <option>सीसी रोड</option>
                 <option>भवन निर्माण</option>
@@ -301,7 +398,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>कार्य श्रेणी <span className="req">*</span></label>
-              <select name="workCategory" value={form.workCategory} onChange={update}>
+              <select name="workCategory" value={form.workCategory} onChange={update} disabled={isSubmitting}>
                 <option value="">-- श्रेणी चुने --</option>
                 <option>नई</option>
                 <option>मरम्मत</option>
@@ -310,12 +407,18 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>कार्य का नाम <span className="req">*</span></label>
-              <input name="workName" value={form.workName} onChange={update} placeholder="कार्य नाम" />
+              <input 
+                name="workName" 
+                value={form.workName} 
+                onChange={update} 
+                placeholder="कार्य नाम"
+                disabled={isSubmitting}
+              />
               {errors.workName && <small className="err">{errors.workName}</small>}
             </div>
             <div className="fld">
               <label>इंजीनियर अधिकारी</label>
-              <select name="engineer" value={form.engineer} onChange={update}>
+              <select name="engineer" value={form.engineer} onChange={update} disabled={isSubmitting}>
                 <option value="">-- इंजीनियर चुने --</option>
                 <option>Engineer A</option>
                 <option>Engineer B</option>
@@ -323,7 +426,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
             </div>
             <div className="fld">
               <label>नियुक्त एसडीओ</label>
-              <select name="sdo" value={form.sdo} onChange={update}>
+              <select name="sdo" value={form.sdo} onChange={update} disabled={isSubmitting}>
                 <option value="">-- एसडीओ चुनें --</option>
                 <option>SDO A</option>
                 <option>SDO B</option>
@@ -331,19 +434,27 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
               </select>
             </div>
             <div className="fld">
-              <label>कार्य आरंभ तिथि</label>
-              <input name="startDate" value={form.startDate} onChange={update} placeholder="dd-mm-yyyy" />
+              <label>कार्य आरंभ तिथि <span className="req">*</span></label>
+              <input 
+                name="startDate" 
+                value={form.startDate} 
+                onChange={update} 
+                placeholder="dd-mm-yyyy"
+                disabled={isSubmitting}
+              />
               {errors.startDate && <small className="err">{errors.startDate}</small>}
             </div>
             <div className="fld checkbox-col span2">
-              <label className="chk"><input type="checkbox" /> डी.पी.आर. प्राप्त नहीं है</label>
-              <label className="chk"><input type="checkbox" /> निविदा है</label>
-              <label className="chk"><input type="checkbox" /> निविदा प्राप्त नहीं है</label>
+              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> डी.पी.आर. प्राप्त नहीं है</label>
+              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> निविदा है</label>
+              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> निविदा प्राप्त नहीं है</label>
             </div>
           </div>
           <div className="atw-form-actions">
-            <button type="submit" className="atw-btn primary">SUBMIT</button>
-            <button type="button" className="atw-btn" onClick={cancel}>CANCEL</button>
+            <button type="submit" className="atw-btn primary" disabled={isSubmitting}>
+              {isSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
+            </button>
+            <button type="button" className="atw-btn" onClick={cancel} disabled={isSubmitting}>CANCEL</button>
           </div>
         </form>
       </div>
@@ -361,7 +472,7 @@ export default function AddToWork({ onWorkAdded, prefilledData }){
                 <i className="fas fa-check-circle"></i>
               </div>
               <h3>कार्य सफलतापूर्वक अपडेट हुआ!</h3>
-              <p>Work Updated Successfully!</p>
+              <p>Work Proposal Created Successfully!</p>
               <button 
                 className="modal-btn"
                 onClick={() => {
