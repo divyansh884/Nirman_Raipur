@@ -39,6 +39,7 @@ import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
 import GISCategory from "./After_Login_pages/GIS/Category.jsx";
 import GISType from "./After_Login_pages/GIS/Type.jsx";
+import MyMap from "./After_Login_pages/GIS/Map.jsx";
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -117,6 +118,7 @@ const App = () => {
                 />
                 <Route path="/gis/category" element={<GISCategory />} />
                 <Route path="/gis/type" element={<GISType />} />
+                <Route path="/gis/map" element={<MyMap />} />
               </>
             )}
           </Routes>

@@ -18,7 +18,12 @@
   --ink: #1b2330;
   --ink-2: #455269;
   --shadow: 0 10px 30px rgba(6, 18, 36, 0.08);
-  font-family: "Noto Sans Devanagari", system-ui, Segoe UI, Arial, sans-serif;
+  font-family:
+    "Noto Sans Devanagari",
+    system-ui,
+    Segoe UI,
+    Arial,
+    sans-serif;
   overflow-x: hidden;
 }
 
@@ -39,7 +44,6 @@ main {
   padding: 20px;
   overflow-x: hidden;
   overflow-y: auto;
- 
 }
 .logged-in-main {
   margin-left: 260px;
@@ -200,7 +204,9 @@ main {
   font-size: 14px;
   cursor: pointer;
   position: relative;
-  transition: background 0.18s, box-shadow 0.18s;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s;
 }
 .menu a i,
 .menu button i {
@@ -225,7 +231,8 @@ main {
   width: 100%;
   height: 120px;
   opacity: 0.22;
-  background: radial-gradient(
+  background:
+    radial-gradient(
       circle at 80% 20%,
       rgba(255, 255, 255, 0.12),
       transparent 40%
