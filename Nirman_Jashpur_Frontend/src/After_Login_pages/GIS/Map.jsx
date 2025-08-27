@@ -3,9 +3,13 @@ import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// ✅ Dynamically load icons from /src/assets/Icons
 const getIcon = (type) =>
   L.icon({
-    iconUrl: `../../assets/Icons/${type.replace(/\s+/g, "_").toLowerCase()}.webp`,
+    iconUrl: new URL(
+      `../../assets/Icons/${type.replace(/\s+/g, "_").toLowerCase()}.webp`,
+      import.meta.url
+    ).href,
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
@@ -15,7 +19,6 @@ export default function WorksMap() {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // form state
   const [filters, setFilters] = useState({
     block: "",
     gramPanchayat: "",
@@ -23,12 +26,17 @@ export default function WorksMap() {
     workType: "",
   });
 
+  const authToken = localStorage.getItem("authToken");
+
   const fetchWorks = async () => {
     setLoading(true);
     try {
-      // 🔹 build query string from filters
-      const params = new URLSearchParams(filters).toString();
-      const res = await fetch(`http://localhost:5000/api/work-proposals?${params}`);
+      const res = await fetch("http://localhost:3000/api/work-proposals", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
       const json = await res.json();
       setWorks(json.data || []);
     } catch (err) {
@@ -38,20 +46,22 @@ export default function WorksMap() {
     }
   };
 
-  // optional: fetch initial works on mount
   useEffect(() => {
     fetchWorks();
   }, []);
 
   return (
-    <div>
-      {/* Top Filter Bar */}
-      <div className="bg-blue-50 p-4 rounded-xl shadow mb-4">
+    <div className="p-4">
+      {/* 🔹 Top Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-md mb-6 border border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">
+          🔍 Filter Works
+        </h2>
         <div className="flex flex-wrap gap-3">
           <select
             value={filters.block}
             onChange={(e) => setFilters({ ...filters, block: e.target.value })}
-            className="px-3 py-2 rounded-lg border border-gray-800 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
           >
             <option value="">Select Block</option>
             <option value="Block A">Block A</option>
@@ -64,7 +74,7 @@ export default function WorksMap() {
             onChange={(e) =>
               setFilters({ ...filters, gramPanchayat: e.target.value })
             }
-            className="px-3 py-2 rounded-lg border border-gray-800 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
           >
             <option value="">Select Gram Panchayat</option>
             <option value="GP 1">Gram Panchayat 1</option>
@@ -77,7 +87,7 @@ export default function WorksMap() {
             onChange={(e) =>
               setFilters({ ...filters, category: e.target.value })
             }
-            className="px-3 py-2 rounded-lg border border-gray-800 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
           >
             <option value="">Select Category</option>
             <option value="Road">Road</option>
@@ -90,7 +100,7 @@ export default function WorksMap() {
             onChange={(e) =>
               setFilters({ ...filters, workType: e.target.value })
             }
-            className="px-3 py-2 rounded-lg border border-gray-800 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
           >
             <option value="">Select Work Type</option>
             <option value="Construction">Construction</option>
@@ -102,7 +112,7 @@ export default function WorksMap() {
         <div className="flex gap-3 mt-4">
           <button
             onClick={fetchWorks}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition shadow"
           >
             Search
           </button>
@@ -115,69 +125,71 @@ export default function WorksMap() {
                 workType: "",
               })
             }
-            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+            className="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition shadow"
           >
             Reset
           </button>
         </div>
       </div>
 
-      {/* Map + Legend */}
-      <div style={{ display: "flex" }}>
-        {loading ? (
-          <p>Loading map data...</p>
-        ) : (
-          <MapContainer
-            center={[21.25, 81.62]} // default Raipur
-            zoom={12}
-            style={{ height: "600px", width: "100%" }}
-          >
-            <TileLayer
-              attribution="&copy; OpenStreetMap"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+      {/* 🔹 Map + Legend */}
+      <div className="flex">
+        <div className="flex-1 rounded-xl overflow-hidden shadow-md border border-gray-200">
+          {loading ? (
+            <div className="flex items-center justify-center h-[600px] text-gray-600">
+              Loading map data...
+            </div>
+          ) : (
+            <MapContainer
+              center={[21.25, 81.62]} // Raipur default
+              zoom={12}
+              style={{ height: "600px", width: "100%" }}
+            >
+              <TileLayer
+                attribution="&copy; OpenStreetMap"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
 
-            {works.map((work) => (
-              <Marker
-                key={work._id}
-                position={[work.latitude, work.longitude]}
-                icon={getIcon(work.typeOfWork)}
-              >
-                <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-                  <div style={{ maxWidth: "220px" }}>
-                    <strong>{work.nameOfWork}</strong>
-                    <br />
-                    <em>{work.typeOfWork}</em>
-                    <br />
-                    Status: {work.currentStatus}
-                    <br />
-                    Agency: {work.workAgency}
-                    <br />₹ {work.sanctionAmount?.toLocaleString()}
-                  </div>
-                </Tooltip>
-              </Marker>
-            ))}
-          </MapContainer>
-        )}
+              {works.map((work) => (
+                <Marker
+                  key={work._id}
+                  position={[work.latitude, work.longitude]}
+                  icon={getIcon(work.typeOfWork)}
+                >
+                  <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
+  <div className="max-w-[220px] max-h-[150px] overflow-y-auto break-words text-sm p-1">
+    <p className="font-bold">{work.nameOfWork}</p>
+    <p className="italic text-gray-600">{work.typeOfWork}</p>
+    <p>Status: {work.currentStatus}</p>
+    <p>Agency: {work.workAgency}</p>
+    <p className="font-semibold text-blue-700">
+      ₹ {work.sanctionAmount?.toLocaleString()}
+    </p>
+  </div>
+</Tooltip>
+                </Marker>
+              ))}
+            </MapContainer>
+          )}
+        </div>
 
-        {/* Legend */}
-        <div style={{ marginLeft: "10px", width: "250px" }}>
-          <h4>Legend</h4>
+        {/* 🔹 Legend */}
+        <div className="ml-4 w-60 p-4 bg-white rounded-xl shadow-md border border-gray-200">
+          <h4 className="text-lg font-semibold mb-3">📌 Legend</h4>
           {[...new Set(works.map((w) => w.typeOfWork))].map((type) => (
             <div
               key={type}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "6px",
-              }}
+              className="flex items-center gap-2 mb-2 text-sm font-medium text-gray-700"
             >
               <img
-                src={`/icons/${type.replace(/\s+/g, "_").toLowerCase()}.png`}
+                src={
+                  new URL(
+                    `../../assets/Icons/${type.replace(/\s+/g, "_").toLowerCase()}.webp`,
+                    import.meta.url
+                  ).href
+                }
                 alt={type}
-                width={20}
-                height={20}
-                style={{ marginRight: "6px" }}
+                className="w-6 h-6"
               />
               {type}
             </div>
