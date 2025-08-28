@@ -41,7 +41,7 @@ import Profile from "./After_Login_pages/Profile.jsx";
 // import GISType from "./After_Login_pages/GIS/Type.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
 // import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
-
+import Report1 from "./After_Login_pages/Reports/Report1.jsx";
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -122,6 +122,7 @@ const App = () => {
                 <Route path="/gis/type" element={<GISType />} /> */}
                 <Route path="/gis/map" element={<MyMap />} />
                 {/* <Route path="/gis/work-list" element={<GISWorkList />} /> */}
+                <Route path="/Report/Report1" element={<Report1 />} />
               </>
             )}
           </Routes>
@@ -202,7 +203,7 @@ const SideNavbar = ({ onLogout }) => {
       label: "रिपोर्ट",
       icon: <FileText />,
       children: [
-        { to: "/Yearly", label: "वार्षिक रिपोर्ट" },
+        { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
         { to: "/agency-report", label: "कार्य एजेंसीवार रिपोर्ट" },
       ],
     },
