@@ -1,36 +1,51 @@
 const mongoose = require('mongoose');
 
-const documentSchema = new mongoose.Schema({
-  fileName: {
-    type: String,
-    required: true
+const documentSchema = new mongoose.Schema(
+  {
+    key: {
+      type: String,
+      required: true,
+      unique: true, // each object key is unique in S3
+    },
+    size: {
+      type: Number,
+      required: true,
+    },
+    lastModified: {
+      type: Date,
+      required: true,
+    },
+    storageClass: {
+      type: String,
+      default: "STANDARD",
+    },
+    eTag: {
+      type: String,
+      required: true,
+    },
+    url: {
+      type: String,
+      required: true,
+    },
   },
-  originalName: {
-    type: String,
-    required: true
+  { timestamps: true }
+);
+
+const imageSchema = new mongoose.Schema(
+  {
+    images: [
+      {
+        url: { type: String, required: true },
+        key: { type: String, required: true },
+        bucket: { type: String, required: true },
+        contentType: { type: String, required: true },
+        size: { type: Number, required: true },
+      },
+    ],
   },
-  filePath: {
-    type: String,
-    required: true
-  },
-  fileSize: {
-    type: Number,
-    required: true
-  },
-  mimeType: {
-    type: String,
-    required: true
-  },
-  uploadedAt: {
-    type: Date,
-    default: Date.now
-  },
-  uploadedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  }
-});
+  { timestamps: true }
+);
+
 
 // Technical Approval Schema
 const technicalApprovalSchema = new mongoose.Schema({
@@ -60,7 +75,7 @@ const technicalApprovalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: [documentSchema],
+  attachedFile: documentSchema,
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -100,7 +115,7 @@ const administrativeApprovalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: [documentSchema],
+  attachedFile: documentSchema,
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -126,7 +141,7 @@ const tenderProcessSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedDocument: [documentSchema],
+  attachedDocument: documentSchema,
   issuedDates: {
     type: Date,
     default: null
@@ -170,7 +185,7 @@ const workOrderSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: [documentSchema],
+  attachedFile: documentSchema,
   issuedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -180,6 +195,10 @@ const workOrderSchema = new mongoose.Schema({
 
 // Work Progress Schema
 const workProgressSchema = new mongoose.Schema({
+  desc: {
+    type: String,
+    default: null
+  },
   sanctionedAmount: {
     type: Number,
     min: 0,
@@ -224,8 +243,8 @@ const workProgressSchema = new mongoose.Schema({
     max: 100,
     default: 0
   },
-  progressDocuments: [documentSchema],
-  progressImages: [documentSchema],
+  progressDocuments: documentSchema,
+  progressImages: imageSchema,
   lastUpdatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -243,7 +262,7 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   // Image/Photo of work location
-  workLocationImage: [documentSchema],
+  workLocationImage: imageSchema,
   
   // Type of work
   typeOfWork: {
@@ -443,7 +462,7 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   // Initial documents uploaded during proposal creation
-  initialDocuments: [documentSchema],
+  initialDocuments: documentSchema,
   
   // All approval stages
   technicalApproval: technicalApprovalSchema,
@@ -458,7 +477,7 @@ const workProposalSchema = new mongoose.Schema({
     default: null
   },
   
-  completionDocuments: [documentSchema],
+  completionDocuments: documentSchema,
   
   finalCost: {
     type: Number,

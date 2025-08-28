@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -9,9 +8,8 @@ const connectDB = require('./utils/database');
 const config = require('./config/config');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
+
 const app = express();
-
-
 
 // Connect to database
 connectDB();
@@ -39,6 +37,12 @@ app.use('/api/tenders', require('./routes/tenders')); // General tender routes
 app.use('/api/work-orders', require('./routes/workOrders')); // General work order routes
 app.use('/api/work-progress', require('./routes/workProgress')); // General progress routes
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/upload', require('./routes/upload')); // Upload routes (images + documents)
+
+
+
+
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {
