@@ -37,10 +37,10 @@ import TenderForm from "./Forms/TenderForm.jsx";
 import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
 import Profile from "./After_Login_pages/Profile.jsx";
-import GISCategory from "./After_Login_pages/GIS/Category.jsx";
-import GISType from "./After_Login_pages/GIS/Type.jsx";
+// import GISCategory from "./After_Login_pages/GIS/Category.jsx";
+// import GISType from "./After_Login_pages/GIS/Type.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
-import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
+// import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -118,10 +118,10 @@ const App = () => {
                   element={<WorkInProgressForm />}
                 />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/gis/category" element={<GISCategory />} />
-                <Route path="/gis/type" element={<GISType />} />
+                {/* <Route path="/gis/category" element={<GISCategory />} />
+                <Route path="/gis/type" element={<GISType />} /> */}
                 <Route path="/gis/map" element={<MyMap />} />
-                <Route path="/gis/work-list" element={<GISWorkList />} />
+                {/* <Route path="/gis/work-list" element={<GISWorkList />} /> */}
               </>
             )}
           </Routes>
@@ -155,9 +155,9 @@ const TopNavbar = ({ setIsLoggedIn }) => {
         <div className="logo-group">
           <div className="logo-text">
             <span className="logo-cg">CG</span>
-            <span className="logo-name">निर्माण जशपुर</span>
+            <span className="logo-name">निर्माण रायपुर</span>
           </div>
-          <span className="jashpur-text">Jashpur</span>
+          <span className="jashpur-text">Raipur</span>
         </div>
 
         <nav className="nav-desktop ">
@@ -178,16 +178,17 @@ const SideNavbar = ({ onLogout }) => {
   const items = [
     { to: "/dashboard", label: "डैशबोर्ड", icon: <Home /> },
     { to: "/work", label: "कार्य", icon: <ClipboardList /> },
-    {
-      label: "GIS Fencing (Map)",
-      icon: <Map />,
-      children: [
-        { to: "/gis/category", label: "GIS Category" },
-        { to: "/gis/type", label: "GIS Work Type" },
-        { to: "/gis/work-list", label: "GIS Work List" },
-        { to: "/gis/map", label: "Map" },
-      ],
-    },
+    // {
+    //   label: "GIS Fencing (Map)",
+    //   icon: <Map />,
+    //   children: [
+    //     { to: "/gis/category", label: "GIS Category" },
+    //     { to: "/gis/type", label: "GIS Work Type" },
+    //     { to: "/gis/work-list", label: "GIS Work List" },
+    //     { to: "/gis/map", label: "Map" },
+    //   ],
+    // },
+     { to: "/gis/map", label: "GIS Fencing (Map)", icon: <Map  /> },
     { to: "/Technical-Approval", label: "तकनीकी स्वीकृति", icon: <FileText /> },
     {
       to: "/Administrative-Approval",
@@ -214,7 +215,7 @@ const SideNavbar = ({ onLogout }) => {
           <i className="fa-solid fa-certificate" style={{ color: "#fff" }}></i>
         </div>
         <div className="hide-sm">
-          <div className="s-name">Jashpur — निर्माण</div>
+          <div className="s-name">Raipur — निर्माण</div>
           <div className="s-sub">आदिवासी विकास विभाग</div>
         </div>
       </div>

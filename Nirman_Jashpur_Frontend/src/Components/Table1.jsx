@@ -1,72 +1,19 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./Table.css";
 import { useNavigate, useLocation } from "react-router-dom";
-
-const STORAGE_KEY = "tribal_work_data_v1";
-const defaultRows = [
-  {
-    id: 1,
-    name: "आर.सी.सी. पुलिया निर्माण कार्य",
-    area: "कुनकुरी",
-    agency: "जनपद पंचायत कुनकुरी",
-    plan: "Suguja Chhetra Pradhikaran",
-    techApproval: "TS NO - 1193",
-    adminApproval: "AS NO - 135",
-    tenderApproval: "निविदा लागू नहीं है",
-    progress: "-",
-    details: "कार्य आदेश लंबित",
-    modified: "25-08-2025",
-  },
-  {
-    id: 2,
-    name: "सड़क निर्माण कार्य",
-    area: "जशपुर",
-    agency: "लोक निर्माण विभाग",
-    plan: "Block Plan",
-    techApproval: "TS NO - 889",
-    adminApproval: "AS NO - 78",
-    tenderApproval: "निविदा स्वीकृत",
-    progress: "30%",
-    details: "कार्य प्रगति पर है",
-    modified: "20-08-2025",
-  },
-  {
-    id: 3,
-    name: "पंचायत भवन निर्माण",
-    area: "बगीचा",
-    agency: "ग्राम पंचायत बुढ़ाढांड",
-    plan: "जिला पंचायत योजना",
-    techApproval: "TS NO - 456",
-    adminApproval: "AS NO - 102",
-    tenderApproval: "निविदा स्वीकृत",
-    progress: "पूर्ण",
-    details: "कार्य पूर्ण हो चुका है",
-    modified: "10-06-2024",
-  },
-];
-
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...defaultRows];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [...defaultRows];
-  } catch {
-    return [...defaultRows];
-  }
-}
-function saveData(rows) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-}
-
+import TopBar from "../Components/TopBar.jsx";
 const Table1 = ({
   onLogout,
   onAddNew,
   addButtonLabel,
   showAddButton,
   onView,
+  workStage = null, // Filter by work stage
+  pageTitle = "कार्य की सूची",
 }) => {
-  const [data, setData] = useState(loadData());
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filters, setFilters] = useState({
     type: "",
     plan: "",
@@ -78,25 +25,154 @@ const Table1 = ({
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
   const [toast, setToast] = useState("");
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pages: 1,
+    total: 0,
+    limit: 10
+  });
+  
   const navigate = useNavigate();
+  const location = useLocation();
   const pathParts = location.pathname.split("/").filter(Boolean);
 
+  // Get authentication token
+  function getAuthToken() {
+    return localStorage.getItem("authToken");
+  }
+
+  // NEW: Check if delete button should be shown based on page
+  function canShowDeleteButton() {
+    const allowedPages = [
+      "प्रशासकीय स्वीकृति",
+      "तकनीकी स्वीकृति",
+      "Add New Work"
+    ];
+    return allowedPages.includes(addButtonLabel);
+  }
+
+  // Transform API response data to match table format
+  function transformApiData(apiData) {
+    return apiData.map((item) => ({
+      id: item._id || item.id,
+      name: item.nameOfWork || '',
+      area: item.city || item.nameOfGPWard || item.ward || '',
+      agency: item.workAgency || '',
+      plan: item.scheme || '',
+      techApproval: item.technicalApproval?.approvalNumber || item.technicalApproval?.status || "लंबित",
+      adminApproval: item.administrativeApproval?.approvalNumber || item.administrativeApproval?.status || "लंबित", 
+      tenderApproval: item.tenderProcess?.status || (item.isTenderOrNot ? "निविदा स्वीकृत" : "निविदा लागू नहीं है"),
+      progress: item.workProgress?.progressPercentage ? `${item.workProgress.progressPercentage}%` : "-",
+      details: item.currentStatus || item.workProgressStage || '',
+      modified: item.lastRevision 
+        ? new Date(item.lastRevision).toLocaleDateString('en-GB') 
+        : new Date(item.updatedAt).toLocaleDateString('en-GB'),
+      originalData: item
+    }));
+  }
+
+  // Fetch data from API
+  async function fetchWorkProposals() {
+    const authToken = getAuthToken();
+    if (!authToken) {
+      setError("Authentication required. Please login.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      
+      const response = await fetch(`http://localhost:3000/api/work-proposals?page=${page}&limit=${size}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
+          setError("Session expired. Please login again.");
+          return;
+        }
+        throw new Error(result.message || 'Failed to fetch work proposals');
+      }
+
+      if (result.success && result.data) {
+        const transformedData = transformApiData(result.data);
+        setData(transformedData);
+        
+        if (result.pagination) {
+          setPagination(result.pagination);
+        }
+      } else {
+        throw new Error('Invalid response format');
+      }
+
+    } catch (error) {
+      console.error('Error fetching work proposals:', error);
+      setError(error.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    saveData(data);
-  }, [data]);
+    fetchWorkProposals();
+  }, [page, size]);
+
+  function refreshData() {
+    fetchWorkProposals();
+  }
+
+  const getStageTitle = () => {
+    const stageTitles = {
+      "दर्ज कार्य": "दर्ज कार्य की स्वीकृति सूची",
+      "आरंभ": "आरंभित कार्य की स्वीकृति सूची",
+      "तकनीकी स्वीकृति": "तकनीकी स्वीकृति की सूची",
+      "प्रशासकीय स्वीकृति": "प्रशासकीय स्वीकृति की सूची",
+      "निविदा स्तर पर": "निविदा स्तर पर कार्य की स्वीकृति सूची",
+      "कार्य आदेश लंबित": "कार्य आदेश लंबित की स्वीकृति सूची",
+      "कार्य आदेश जारी": "कार्य आदेश जारी की स्वीकृति सूची",
+      "कार्य प्रगति पर": "कार्य प्रगति पर की स्वीकृति सूची",
+      "कार्य पूर्ण": "कार्य पूर्ण की स्वीकृति सूची",
+      "कार्य निरस्त": "कार्य निरस्त की स्वीकृति सूची",
+      "कार्य बंद": "कार्य बंद की स्वीकृति सूची",
+      "30 दिनों से लंबित कार्य": "30 दिनों से लंबित कार्य की स्वीकृति सूची",
+      "फोटो रहित कार्य": "फोटो रहित कार्य की स्वीकृति सूची",
+    };
+    
+    return workStage ? stageTitles[workStage] || `${workStage} की स्वीकृति सूची` : pageTitle;
+  };
+
+  const stageFiltered = useMemo(() => {
+    if (!workStage) {
+      return data;
+    }
+
+    return data.filter((item) => {
+      return item.details === workStage;
+    });
+  }, [data, workStage]);
 
   const filtered = useMemo(() => {
-    return data.filter((d) => {
-      if (filters.type && d.type.indexOf(filters.type) === -1) return false;
-      if (filters.plan && (d.plan || "").indexOf(filters.plan) === -1)
-        return false;
+    return stageFiltered.filter((d) => {
+      if (filters.type && d.type && d.type.indexOf(filters.type) === -1) return false;
+      if (filters.plan && (d.plan || "").indexOf(filters.plan) === -1) return false;
+      if (filters.city && d.area && d.area.indexOf(filters.city) === -1) return false;
       if (filters.q) {
         const hay = Object.values(d).join(" ").toLowerCase();
         if (hay.indexOf(filters.q.toLowerCase()) === -1) return false;
       }
       return true;
     });
-  }, [data, filters]);
+  }, [stageFiltered, filters]);
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered;
@@ -116,6 +192,8 @@ const Table1 = ({
   const pages = Math.max(1, Math.ceil(sorted.length / size));
   const start = (page - 1) * size;
   const pageRows = sorted.slice(start, start + size);
+  const totalFilteredItems = sorted.length;
+
   useEffect(() => {
     if (page > pages) setPage(pages);
   }, [pages, page]);
@@ -124,11 +202,13 @@ const Table1 = ({
     setToast(msg);
     setTimeout(() => setToast(""), 2000);
   }
+
   function resetFilters() {
-    setFilters({ type: "", plan: "", q: "" });
+    setFilters({ type: "", plan: "", q: "", city: "" });
     setPage(1);
   }
-    function exportCSV() {
+
+  function exportCSV() {
     const rows = filtered.map((r) => [
       r.id,
       r.name,
@@ -152,14 +232,63 @@ const Table1 = ({
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "work_list.csv";
+    a.download = `work_approval_list_${workStage ? workStage.replace(/\s+/g, '_') : 'all'}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
-  function deleteRow(id) {
-    if (!window.confirm("क्या आप हटाना चाहते हैं?")) return;
-    setData(data.filter((r) => r.id !== id));
-    showToast("कार्य हटाया गया");
+
+  // ENHANCED: Improved delete function with proper error handling
+  async function deleteRow(id) {
+    if (!window.confirm("क्या आप वाकई इस कार्य को हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।")) return;
+    
+    const authToken = getAuthToken();
+    if (!authToken) {
+      showToast("प्रमाणीकरण आवश्यक है। कृपया पुनः लॉगिन करें।");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`http://localhost:3000/api/work-proposals/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
+          setError("Session expired. Please login again.");
+          return;
+        }
+        if (response.status === 403) {
+          showToast("आपको इस कार्य को हटाने की अनुमति नहीं है।");
+          return;
+        }
+        if (response.status === 404) {
+          showToast("कार्य नहीं मिला। यह पहले से हटाया जा चुका हो सकता है।");
+          refreshData(); // Refresh to update the list
+          return;
+        }
+        
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || `Failed to delete work proposal (Status: ${response.status})`);
+      }
+
+      // Success - refresh data
+      await refreshData();
+      showToast("कार्य सफलतापूर्वक हटाया गया।");
+      
+    } catch (error) {
+      console.error('Error deleting work proposal:', error);
+      showToast(`हटाने में त्रुटि: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const keyMap = [
@@ -176,6 +305,7 @@ const Table1 = ({
     "modified",
     null,
   ];
+
   function toggleSort(idx) {
     const k = keyMap[idx];
     if (!k) return;
@@ -218,49 +348,72 @@ const Table1 = ({
     }
   }, []);
 
+  if (loading) {
+    return (
+      <div className="work-ref">
+        <div className="header">
+          <div className="table-top">
+            <div>
+              <div className="crumbs">{meta.crumbs}</div>
+              <div className="title">
+                <h1>{meta.title}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '24px', marginBottom: '10px' }}></i>
+              <div>डेटा लोड हो रहा है...</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="work-ref">
+        <div className="header">
+          <div className="table-top">
+            <div>
+              <div className="crumbs">{meta.crumbs}</div>
+              <div className="title">
+                <h1>{meta.title}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-exclamation-triangle" style={{ fontSize: '24px', marginBottom: '10px', color: 'red' }}></i>
+              <div style={{ color: 'red', marginBottom: '20px' }}>{error}</div>
+              <button className="btn blue" onClick={refreshData}>
+                <i className="fa-solid fa-refresh" /> पुनः प्रयास करें
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="work-ref">
       <div className="header">
-        <div className="table-top">
-          <div>
-            <div className="crumbs" id="crumbs">
-              {meta.crumbs}
-            </div>
-            <div className="title">
-              <h1 id="pageTitle">{meta.title}</h1>
-            </div>
-          </div>
-          <div className="user">
-
-            <button
-              className="ic"
-              tabIndex={0}
-              aria-label="User profile"
-              type="button"
-              onClick={() => navigate('/profile')}
-            >
-              <i className="fa-solid fa-user" />
-            </button>
-            <button className="logout" aria-label="Logout" type="button" onClick={onLogout || (() => {
-              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                window.location.href = '/';
- }
-                 })
-
-              }
-            >
-              <i className="fa-solid fa-power-off" />
-            </button>
-          </div>
-        </div>
+        <TopBar onLogout={onLogout} />
         <div className="subbar">
           <span className="dot" />
-          <h2>कार्य की सूची-({addButtonLabel})</h2>
+          <h2>{getStageTitle()} - कुल: {totalFilteredItems}</h2>
         </div>
       </div>
       <div className="wrap">
         <section className="panel">
           <div className="p-body">
+            {/* Filters section remains the same */}
             <div className="filters">
               <div className="field">
                 <label>कार्य के प्रकार</label>
@@ -275,6 +428,7 @@ const Table1 = ({
                   <option value="">--कार्य के प्रकार चुने--</option>
                   <option>सीसी रोड</option>
                   <option>पंचायती भवन</option>
+                  <option>भवन निर्माण</option>
                   <option>नाली निर्माण</option>
                   <option>सड़क मरम्मत</option>
                 </select>
@@ -283,9 +437,10 @@ const Table1 = ({
                 <label>कार्य विभाग</label>
                 <select className="select">
                   <option value="">--कार्य विभाग चुने--</option>
+                  <option>आदिवासी विकास विभाग, जशपुर</option>
+                  <option>जनपद पंचायत</option>
                   <option>जिला पंचायत</option>
                   <option>राजस्व</option>
-                  <option>जनपद</option>
                 </select>
               </div>
               <div className="field">
@@ -301,8 +456,8 @@ const Table1 = ({
                 <label>इंजीनियर</label>
                 <select className="select">
                   <option value="">--इंजीनियर चुने--</option>
-                  <option>इंजिनियर A</option>
-                  <option>इंजिनियर B</option>
+                  <option>Engineer A</option>
+                  <option>Engineer B</option>
                 </select>
               </div>
               <div className="field">
@@ -316,8 +471,9 @@ const Table1 = ({
                   }}
                 >
                   <option value="">--योजना चुने--</option>
-                  <option>Suguja Chhetra Pradhikaran</option>
+                  <option>CM योजना</option>
                   <option>Block Plan</option>
+                  <option>Suguja Chhetra Pradhikaran</option>
                 </select>
               </div>
               <div className="field">
@@ -326,6 +482,7 @@ const Table1 = ({
                   <option value="">--कार्य विवरण चुने--</option>
                   <option>नाली निर्माण</option>
                   <option>सड़क मरम्मत</option>
+                  <option>भवन निर्माण</option>
                 </select>
               </div>
               <div className="field">
@@ -376,7 +533,7 @@ const Table1 = ({
                 className="btn blue"
                 type="button"
                 title="खोज"
-                onClick={() => setPage(1)}
+                onClick={refreshData}
               >
                 <i className="fa-solid fa-search" />
               </button>
@@ -387,6 +544,14 @@ const Table1 = ({
                 onClick={resetFilters}
               >
                 <i className="fa-solid fa-rotate" />
+              </button>
+              <button
+                className="btn dark"
+                type="button"
+                title="रिफ्रेश"
+                onClick={refreshData}
+              >
+                <i className="fa-solid fa-sync" />
               </button>
               <button
                 className="btn dark"
@@ -405,7 +570,6 @@ const Table1 = ({
                 <i className="fa-solid fa-file-export" />
               </button>
 
-              {/* Conditionally show Add button */}
               {showAddButton && (
                 <button
                   className="btn green"
@@ -420,13 +584,14 @@ const Table1 = ({
         </section>
         <section className="panel table-card">
           <div className="table-head">
-            <div>कार्य सूची-({addButtonLabel})</div>
+            <div>{getStageTitle()}</div>
             <small>
               Show{" "}
               <select
                 value={size}
                 onChange={(e) => {
-                  setSize(parseInt(e.target.value) || 10);
+                  const newSize = parseInt(e.target.value) || 10;
+                  setSize(newSize);
                   setPage(1);
                 }}
               >
@@ -450,7 +615,7 @@ const Table1 = ({
               />
             </div>
             <div className="tbl-wrap">
-             <table>
+              <table>
                 <thead>
                   <tr>
                     {[
@@ -503,15 +668,19 @@ const Table1 = ({
                           >
                             <i className="fa-solid fa-eye" />
                           </button>
-                          <button
-                            className="icon-btn del"
-                            type="button"
-                            title="हटाएँ"
-                            aria-label="हटाएँ"
-                            onClick={() => deleteRow(r.id)}
-                          >
-                            <i className="fa-solid fa-trash" />
-                          </button>
+                          {/* CONDITIONAL DELETE BUTTON - Only show on specific pages */}
+                          {canShowDeleteButton() && (
+                            <button
+                              className="icon-btn del"
+                              type="button"
+                              title="हटाएँ"
+                              aria-label="हटाएँ"
+                              onClick={() => deleteRow(r.id)}
+                              disabled={loading}
+                            >
+                              <i className="fa-solid fa-trash" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -522,7 +691,7 @@ const Table1 = ({
                         colSpan={12}
                         style={{ textAlign: "center", padding: 30 }}
                       >
-                        कोई रिकॉर्ड नहीं
+                        {workStage ? `${workStage} में कोई रिकॉर्ड नहीं मिला` : 'कोई रिकॉर्ड नहीं मिला'}
                       </td>
                     </tr>
                   )}
@@ -562,14 +731,17 @@ const Table1 = ({
                 <i className="fa-solid fa-chevron-right" />
               </button>
             </div>
+            
+            <div style={{ marginTop: '10px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+              Showing {Math.min(start + 1, totalFilteredItems)} to {Math.min(start + size, totalFilteredItems)} of {totalFilteredItems} entries
+              {workStage && <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>({workStage})</span>}
+            </div>
           </div>
         </section>
       </div>
-  <div className={"toast" + (toast? ' show':'')}>{toast||'\u00a0'}</div>
-
+      <div className={"toast" + (toast ? ' show' : '')}>{toast || '\u00a0'}</div>
     </div>
   );
 };
 
 export default Table1;
-

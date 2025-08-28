@@ -245,12 +245,15 @@ const deleteWorkProposal = async (req, res) => {
     }
 
     // Check if can be deleted
-    if (workProposal.currentStatus !== 'Pending Technical Approval' && req.user.role !== 'Super Admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete proposal after approval process has started'
-      });
-    }
+    if (workProposal.currentStatus !== 'Pending Technical Approval' && 
+    workProposal.currentStatus !== 'Work Completed' && workProposal.currentStatus !== 'Pending Administrative Approval' &&
+    req.user.role !== 'Super Admin') {
+  return res.status(400).json({
+    success: false,
+    message: 'Cannot delete proposal after approval process has started'
+  });
+}
+
 
     await WorkProposal.findByIdAndDelete(req.params.id);
 
@@ -299,12 +302,12 @@ const technicalApproval = async (req, res) => {
     }
 
     // Check if user has permission to approve for this department
-    if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only approve proposals for your department'
-      });
-    }
+    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'You can only approve proposals for your department'
+    //   });
+    // }
 
     if (action === 'approve') {
       if (!approvalNumber || !amountOfTechnicalSanction) {

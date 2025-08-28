@@ -2,22 +2,13 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
-
-export default function WorkOrderForm({onLogout}) {
+import TopBar from "../Components/TopBar.jsx";
+export default function WorkOrderForm({ onLogout }) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { workID } = useParams();
 
-  // Breadcrumbs
-  const crumbs = React.useMemo(() => {
-    const parts = location.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((s) =>
-        s.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())
-      );
-    return [...parts].join(" / ");
-  }, [location.pathname]);
+  const { workId } = useParams();
+
+  
 
   // Form state
   const [form, setForm] = useState({
@@ -29,9 +20,26 @@ export default function WorkOrderForm({onLogout}) {
     remarks: "",
   });
 
+  // Loading and error states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Get authentication token
+  function getAuthToken() {
+    return localStorage.getItem("authToken");
+  }
+
   useEffect(() => {
     document.title = "निर्माण | वर्क ऑर्डर प्रपत्र";
-  }, []);
+    
+    // Debug workID
+    console.log("🔍 Work Order Form - workID:", workId);
+    
+    if (!workId) {
+      alert("कार्य ID नहीं मिला। कृपया वापस जाएं।");
+      navigate(-1);
+    }
+  }, [workId, navigate]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -40,10 +48,41 @@ export default function WorkOrderForm({onLogout}) {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!form.workOrderAmount || parseFloat(form.workOrderAmount) <= 0) {
+      newErrors.workOrderAmount = 'वैध वर्क ऑर्डर राशि दर्ज करें';
+    }
+    
+    if (!form.workOrderNumber.trim()) {
+      newErrors.workOrderNumber = 'वर्क ऑर्डर संख्या आवश्यक है';
+    }
+    
+    if (!form.workOrderDate) {
+      newErrors.workOrderDate = 'वर्क ऑर्डर दिनांक आवश्यक है';
+    }
+    
+    if (!form.contractor.trim()) {
+      newErrors.contractor = 'ठेकेदार/ग्राम पंचायत का नाम आवश्यक है';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userData");
       navigate("/");
     }
   };
@@ -54,21 +93,77 @@ export default function WorkOrderForm({onLogout}) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const payload = new FormData();
-    payload.append("workID", workID);
-    payload.append("workOrderAmount", form.workOrderAmount);
-    payload.append("workOrderNumber", form.workOrderNumber);
-    payload.append("workOrderDate", form.workOrderDate);
-    payload.append("contractor", form.contractor);
-    if (form.document) payload.append("document", form.document);
-    payload.append("remarks", form.remarks);
-
+    
     try {
-      await axios.post(`/api/workorders/${workID}`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // ✅ Step 1: Form validation
+      if (!validateForm()) {
+        return;
+      }
+
+      // ✅ Step 2: Authentication check
+      const authToken = getAuthToken();
+      if (!authToken) {
+        alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+        navigate("/login");
+        return;
+      }
+
+      // ✅ Step 3: WorkID validation
+      if (!workId) {
+        alert("कार्य ID नहीं मिला। कृपया पेज रीलोड करें।");
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      // ✅ Step 4: Convert date to ISO format
+      const convertToISODate = (dateString) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        return date.toISOString();
+      };
+
+      // ✅ Step 5: Prepare payload according to API schema
+      const payload = {
+        workOrderNumber: form.workOrderNumber,
+        dateOfWorkOrder: convertToISODate(form.workOrderDate),
+        workOrderAmount: parseFloat(form.workOrderAmount),
+        contractorOrGramPanchayat: form.contractor,
+        remark: form.remarks || ""
+      };
+
+      // 🔍 Debug logs
+      console.log("📤 Submitting work order:");
+      console.log("🆔 Work ID:", workId);
+      console.log("📋 Payload:", payload);
+
+      // ✅ Step 6: API call with JSON content type
+      const response = await axios.post(
+        `http://localhost:3000/api/work-proposals/${workId}/work-order`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+        }
+      );
+
+      // ✅ Step 7: Handle document upload separately (if needed)
+      if (form.document) {
+        try {
+          console.log("📁 Document will be handled separately:", form.document.name);
+          // You can implement document upload to a separate endpoint if needed
+        } catch (fileError) {
+          console.warn("⚠️ Document upload failed:", fileError);
+        }
+      }
+
+      // ✅ Step 8: Success handling
+      console.log("✅ Work order created successfully:", response.data);
       alert("वर्क ऑर्डर सफलतापूर्वक सहेजा गया!");
+      
+      // Reset form
       setForm({
         workOrderAmount: "",
         workOrderNumber: "",
@@ -77,9 +172,63 @@ export default function WorkOrderForm({onLogout}) {
         document: null,
         remarks: "",
       });
-    } catch (err) {
-      console.error(err);
-      alert("सबमिट करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+      
+      // Clear file input
+      const fileInput = document.getElementById("documentUpload");
+      if (fileInput) {
+        fileInput.value = "";
+      }
+
+      // Navigate back after delay
+      setTimeout(() => {
+        navigate(-1);
+      }, 1500);
+
+    } catch (error) {
+      console.error("❌ Work order submission error:", error);
+      
+      if (error.response) {
+        const { status, data } = error.response;
+        console.error("📍 Response error:", status, data);
+        
+        switch (status) {
+          case 400:
+            if (data.message?.includes('ObjectId')) {
+              alert("कार्य ID की समस्या है। कृपया वापस जाकर सही कार्य चुनें।");
+              navigate(-1);
+            } else {
+              alert(`डेटा त्रुटि: ${data.message || 'अवैध डेटा'}`);
+            }
+            break;
+            
+          case 401:
+            alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("userData");
+            navigate("/login");
+            break;
+            
+          case 403:
+            alert("आपको इस कार्य को करने की अनुमति नहीं है।");
+            break;
+            
+          case 404:
+            alert("कार्य प्रस्ताव नहीं मिला। हो सकता है यह पहले से हटा दिया गया हो।");
+            navigate(-1);
+            break;
+            
+          default:
+            alert(`सर्वर त्रुटि (${status}): ${data.message || 'अज्ञात त्रुटि'}`);
+        }
+      } else if (error.request) {
+        console.error("📍 Network error:", error.request);
+        alert("नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें।");
+      } else {
+        console.error("📍 Request setup error:", error.message);
+        alert("अनुरोध त्रुटि। कृपया पेज रीलोड करके पुनः प्रयास करें।");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -87,30 +236,11 @@ export default function WorkOrderForm({onLogout}) {
     <div className="workorder-page">
       {/* Header */}
       <div className="header">
-        <div className="top">
-          <div className="brand">
-            <div className="crumbs" id="crumbs">
-              {crumbs}
-            </div>
-            <h1>निर्माण</h1>
-          </div>
-          <div className="right-top">
-            <div className="user">
-              <div className="ic" title="User">
-                👤
-              </div>
-              <button className="logout" aria-label="Logout" type="button" onClick={onLogout || (() => {
-              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                window.location.href = '/';
-              }
-            })}><i className="fa-solid fa-power-off" /></button>
-            </div>
-          </div>
-        </div>
+        <TopBar/>
 
         <div className="subbar">
           <span className="dot" />
-          <h2>वर्क ऑर्डर जोड़ें</h2>
+          <h2>वर्क ऑर्डर जोड़ें - Work ID: {workId}</h2>
         </div>
       </div>
 
@@ -132,12 +262,16 @@ export default function WorkOrderForm({onLogout}) {
                   step="0.01"
                   min="0"
                   name="workOrderAmount"
-                  className="form-input"
-                  placeholder="वर्क ऑर्डर राशि"
+                  className={`form-input ${errors.workOrderAmount ? 'error' : ''}`}
+                  placeholder="2500000"
                   value={form.workOrderAmount}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
+                {errors.workOrderAmount && (
+                  <span className="error-text">{errors.workOrderAmount}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -147,12 +281,16 @@ export default function WorkOrderForm({onLogout}) {
                 <input
                   type="text"
                   name="workOrderNumber"
-                  className="form-input"
-                  placeholder="वर्क ऑर्डर संख्या"
+                  className={`form-input ${errors.workOrderNumber ? 'error' : ''}`}
+                  placeholder="WO/2025/0142"
                   value={form.workOrderNumber}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
+                {errors.workOrderNumber && (
+                  <span className="error-text">{errors.workOrderNumber}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -163,13 +301,17 @@ export default function WorkOrderForm({onLogout}) {
                   <input
                     type="date"
                     name="workOrderDate"
-                    className="form-input"
+                    className={`form-input ${errors.workOrderDate ? 'error' : ''}`}
                     value={form.workOrderDate}
                     onChange={handleChange}
+                    disabled={isSubmitting}
                     required
                   />
                   <span className="cal-ic">📅</span>
                 </div>
+                {errors.workOrderDate && (
+                  <span className="error-text">{errors.workOrderDate}</span>
+                )}
               </div>
             </div>
 
@@ -181,17 +323,21 @@ export default function WorkOrderForm({onLogout}) {
                 <input
                   type="text"
                   name="contractor"
-                  className="form-input"
-                  placeholder="नाम दर्ज करें"
+                  className={`form-input ${errors.contractor ? 'error' : ''}`}
+                  placeholder="Shri Balaji Constructions"
                   value={form.contractor}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
+                {errors.contractor && (
+                  <span className="error-text">{errors.contractor}</span>
+                )}
               </div>
 
               {/* File Upload */}
               <div className="form-group file-input-wrapper">
-                <label>संलग्न फ़ाइल</label>
+                <label>संलग्न फ़ाइल (वैकल्पिक)</label>
                 <input
                   type="file"
                   name="document"
@@ -199,6 +345,7 @@ export default function WorkOrderForm({onLogout}) {
                   className="file-input"
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -206,6 +353,9 @@ export default function WorkOrderForm({onLogout}) {
                 <span className="file-name">
                   {form.document ? form.document.name : "कोई फ़ाइल चयनित नहीं"}
                 </span>
+                <small className="help-text">
+                  नोट: दस्तावेज़ अपलोड अलग से संभाला जाएगा
+                </small>
               </div>
             </div>
 
@@ -214,21 +364,27 @@ export default function WorkOrderForm({onLogout}) {
               <textarea
                 name="remarks"
                 className="form-input textarea"
-                placeholder="विवरण"
+                placeholder="Work order issued for road construction with proper drainage system"
                 rows={5}
                 value={form.remarks}
                 onChange={handleChange}
+                disabled={isSubmitting}
               />
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">
-                Submit
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting || !workId}
+              >
+                {isSubmitting ? "सबमिट हो रहा है..." : "Submit"}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>

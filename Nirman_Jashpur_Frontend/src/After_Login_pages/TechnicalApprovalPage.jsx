@@ -7,6 +7,7 @@ const TechnicalApprovalPage = () => {
   onAddNew= "/add-work"
   showAddButton={false}
   onView="/Technical-Approval-Form"
+  workStage="Pending Technical Approval"
 />
   );
 };

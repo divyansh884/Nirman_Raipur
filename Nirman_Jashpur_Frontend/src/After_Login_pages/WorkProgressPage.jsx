@@ -7,6 +7,7 @@ const WorkProgressPage = () => {
   onAddNew= "/add-work"
   showAddButton={false}
   onView="/Work-In-Progress-Form"
+  workStage="Work In Progress"
 />
   );
 };

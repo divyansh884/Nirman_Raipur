@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './WorkForm.css';
-
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 const initialState = {
   workYear: '',
   dept: '',
@@ -18,7 +18,11 @@ const initialState = {
   workName: '',
   engineer: '',
   sdo: '',
-  startDate: ''
+  startDate: '',
+  // ✅ Added checkbox states
+  isDPRNotReceived: false,
+  isTenderRequired: false,
+  isTenderNotReceived: false
 };
 
 export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
@@ -26,6 +30,21 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+   const params = useParams();
+  const { workId } = useParams();
+
+  // Build crumbs from current path
+  const crumbs = React.useMemo(() => {
+    const parts = location.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((s) =>
+        s.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())
+      );
+    return [...parts].join(" / ");
+  }, [location.pathname]);
 
   useEffect(() => {
     if (prefilledData) {
@@ -46,14 +65,22 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         workName: prefilledData.name || '',
         engineer: prefilledData.details?.engineer || '',
         sdo: prefilledData.details?.sdo || '',
-        startDate: prefilledData.details?.startDate || ''
+        startDate: prefilledData.details?.startDate || '',
+        // ✅ Add checkbox prefilled data
+        isDPRNotReceived: prefilledData.details?.isDPRNotReceived || false,
+        isTenderRequired: prefilledData.details?.isTenderRequired || false,
+        isTenderNotReceived: prefilledData.details?.isTenderNotReceived || false
       });
     }
   }, [prefilledData]);
 
   function update(e){
-    const { name, value } = e.target;
-    setForm(f=>({...f,[name]:value}));
+    const { name, value, type, checked } = e.target;
+    
+    // ✅ Handle checkboxes differently
+    const newValue = type === 'checkbox' ? checked : value;
+    
+    setForm(f=>({...f,[name]: newValue}));
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -100,6 +127,11 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       }
     }
     
+    // ✅ Validation for checkbox logic
+    if (form.isTenderRequired && form.isTenderNotReceived) {
+      err.tenderLogic = '* निविदा है और निविदा प्राप्त नहीं है - दोनों एक साथ नहीं हो सकते';
+    }
+    
     setErrors(err);
     return Object.keys(err).length===0;
   }
@@ -135,7 +167,6 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
     const authToken = getAuthToken();
     if (!authToken) {
       alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
-      // Redirect to login or call logout function
       return;
     }
 
@@ -145,6 +176,15 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       // Get user data for submittedBy field
       const userData = getUserData();
       
+      // ✅ Calculate tender and DPR status based on checkboxes
+      const isDPRRequired = !form.isDPRNotReceived; // If "DPR प्राप्त नहीं है" is checked, then DPR is NOT required
+      const isTenderOrNot = form.isTenderRequired; // If "निविदा है" is checked, then tender is required
+      
+      console.log("🔍 Checkbox values:");
+      console.log("isDPRNotReceived:", form.isDPRNotReceived, "=> isDPROrNot:", isDPRRequired);
+      console.log("isTenderRequired:", form.isTenderRequired, "=> isTenderOrNot:", isTenderOrNot);
+      console.log("isTenderNotReceived:", form.isTenderNotReceived);
+      
       // Prepare data according to schema
       const workProposalData = {
         // Required fields
@@ -152,7 +192,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         nameOfWork: form.workName,
         workAgency: form.dept,
         scheme: form.scheme,
-        workDescription: form.workName, // Using workName as description, you might want to add a separate field
+        workDescription: form.workName,
         financialYear: form.workYear,
         workDepartment: form.dept,
         userDepartment: form.subDept,
@@ -173,21 +213,25 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         appointedEngineer: form.engineer || null,
         appointedSDO: form.sdo || null,
         
+        // ✅ Use checkbox values instead of hardcoded defaults
+        isDPROrNot: isDPRRequired,
+        isTenderOrNot: isTenderOrNot,
+        
         // Default values
         workProgressStage: 'Pending Technical Approval',
         currentStatus: 'Pending Technical Approval',
-        isDPROrNot: false,
-        isTenderOrNot: false,
         
         // Get submittedBy from stored user data
         submittedBy: userData?.id || currentUser?.id || null,
       };
 
+      console.log("📤 Sending work proposal data:", workProposalData);
+
       const response = await fetch('http://localhost:3000/api/work-proposals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}` // Add the authentication token
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(workProposalData)
       });
@@ -198,10 +242,8 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         // Handle authentication errors specifically
         if (response.status === 401) {
           alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
-          // Clear stored tokens
           localStorage.removeItem("authToken");
           localStorage.removeItem("userData");
-          // Redirect to login or call logout function
           return;
         } else if (response.status === 403) {
           alert('आपको इस कार्य को करने की अनुमति नहीं है।');
@@ -229,7 +271,6 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         alert('नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।');
       } else if (error.message.includes('unauthorized') || error.message.includes('token')) {
         alert('प्राधिकरण त्रुटि। कृपया पुनः लॉगिन करें।');
-        // Clear stored tokens
         localStorage.removeItem("authToken");
         localStorage.removeItem("userData");
       } else {
@@ -244,7 +285,6 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
     if(window.confirm('रद्द करें? भरी गयी जानकारी मिट जाएगी।')){
       setForm(initialState); 
       setErrors({});
-      // Navigate back to work page if callback provided
       if (onWorkAdded) {
         onWorkAdded();
       }
@@ -256,13 +296,13 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       <div className="atw-header-bar">
         <div className="atw-header-left">
           <h1 className="atw-title">निर्माण</h1>
-          <div className="atw-breadcrumbs">Dashboard / Work / Work-Add</div>
+          <div className="atw-breadcrumbs">Work / Work-Add</div>
         </div>
       </div>
       <div className="atw-main-card" role="region" aria-label="Add Work Form">
         <div className="atw-card-head">कार्य जोड़ें</div>
         <form className="atw-form" onSubmit={submit} noValidate>
-          <div className="atw-form-title">कार्य जोड़ें</div>
+          <div className="atw-form-title" style={{marginTop:"10px"}}>कार्य जोड़ें</div>
           {/* Row 1 */}
           <div className="atw-grid">
             <div className="fld">
@@ -444,12 +484,49 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               />
               {errors.startDate && <small className="err">{errors.startDate}</small>}
             </div>
+            
+            {/* ✅ Updated checkbox section with proper state management */}
             <div className="fld checkbox-col span2">
-              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> डी.पी.आर. प्राप्त नहीं है</label>
-              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> निविदा है</label>
-              <label className="chk"><input type="checkbox" disabled={isSubmitting} /> निविदा प्राप्त नहीं है</label>
+              <label className="chk">
+                <input 
+                  type="checkbox" 
+                  name="isDPRNotReceived"
+                  checked={form.isDPRNotReceived}
+                  onChange={update}
+                  disabled={isSubmitting} 
+                /> 
+                डी.पी.आर. प्राप्त नहीं है
+              </label>
+              
+              <label className="chk">
+                <input 
+                  type="checkbox" 
+                  name="isTenderRequired"
+                  checked={form.isTenderRequired}
+                  onChange={update}
+                  disabled={isSubmitting} 
+                /> 
+                निविदा है
+              </label>
+              
+              <label className="chk">
+                <input 
+                  type="checkbox" 
+                  name="isTenderNotReceived"
+                  checked={form.isTenderNotReceived}
+                  onChange={update}
+                  disabled={isSubmitting} 
+                /> 
+                निविदा प्राप्त नहीं है
+              </label>
+              
+              {/* ✅ Show validation error for checkbox logic */}
+              {errors.tenderLogic && <small className="err">{errors.tenderLogic}</small>}
+              
+          
             </div>
           </div>
+          
           <div className="atw-form-actions">
             <button type="submit" className="atw-btn primary" disabled={isSubmitting}>
               {isSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
@@ -458,10 +535,10 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
           </div>
         </form>
       </div>
-      <footer className="atw-footer">
+      {/* <footer className="atw-footer">
         <span>Copyright © 2025 निर्माण</span>
         <span className="ver">Version 1.0</span>
-      </footer>
+      </footer> */}
 
       {/* Success Modal */}
       {showSuccessModal && (

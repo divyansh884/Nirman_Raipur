@@ -15,6 +15,7 @@ import {
   ImageOff,
 } from "lucide-react"; // icons
 import "./DashboardPage.css";
+import TopBar from "../Components/TopBar.jsx";
 
 export default function DashboardPage({ onLogout }) {
   const navigate = useNavigate();
@@ -43,19 +44,19 @@ export default function DashboardPage({ onLogout }) {
   };
 
   const topStats = [
-    { label: "दर्ज कार्य", count: 3, route: "/work", icon: <FileText size={28} />, color: "stat-blue" },
-    { label: "आरंभ", count: 3, route: "/work", icon: <CheckSquare size={28} />, color: "stat-cyan" },
-    { label: "तकनीकी स्वीकृति", count: 3, route: "/technical-approval", icon: <ClipboardCheck size={28} />, color: "stat-green" },
-    { label: "प्रशासकीय स्वीकृति", count: 3, route: "/administrative-approval", icon: <FileSignature size={28} />, color: "stat-yellow" },
-    { label: "निविदा स्तर पर", count: 3, route: "/tender", icon: <Briefcase size={28} />, color: "stat-purple" },
-    { label: "कार्य आदेश लंबित", count: 3, route: "/work-order", icon: <ClipboardList size={28} />, color: "stat-pink" },
-    { label: "कार्य आदेश जारी", count: 3, route: "/work", icon: <ClipboardList size={28} />, color: "stat-indigo" },
-    { label: "कार्य प्रगति पर", count: 3, route: "/work-in-progress", icon: <Hammer size={28} />, color: "stat-orange" },
-    { label: "कार्य पूर्ण", count: 3, route: "/work", icon: <CheckCircle size={28} />, color: "stat-green-dark" },
-    { label: "कार्य निरस्त", count: 3, route: "/work", icon: <XCircle size={28} />, color: "stat-red" },
-    { label: "कार्य बंद", count: 3, route: "/work", icon: <Lock size={28} />, color: "stat-gray" },
-    { label: "30 दिनों से लंबित कार्य", count: 3, route: "/work", icon: <Clock size={28} />, color: "stat-brown" },
-    { label: "फोटो रहित कार्य", count: 3, route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
+    { label: "दर्ज कार्य", route: "/work", icon: <FileText size={28} />, color: "stat-blue" },
+    { label: "आरंभ", route: "/work", icon: <CheckSquare size={28} />, color: "stat-cyan" },
+    { label: "तकनीकी स्वीकृति", route: "/technical-approval", icon: <ClipboardCheck size={28} />, color: "stat-green" },
+    { label: "प्रशासकीय स्वीकृति", route: "/administrative-approval", icon: <FileSignature size={28} />, color: "stat-yellow" },
+    { label: "निविदा स्तर पर", route: "/tender", icon: <Briefcase size={28} />, color: "stat-purple" },
+    { label: "कार्य आदेश लंबित", route: "/work-order", icon: <ClipboardList size={28} />, color: "stat-pink" },
+    { label: "कार्य आदेश जारी", route: "/work", icon: <ClipboardList size={28} />, color: "stat-indigo" },
+    { label: "कार्य प्रगति पर", route: "/work-in-progress", icon: <Hammer size={28} />, color: "stat-orange" },
+    { label: "कार्य पूर्ण", route: "/work", icon: <CheckCircle size={28} />, color: "stat-green-dark" },
+    { label: "कार्य निरस्त", route: "/work", icon: <XCircle size={28} />, color: "stat-red" },
+    { label: "कार्य बंद", route: "/work", icon: <Lock size={28} />, color: "stat-gray" },
+    { label: "30 दिनों से लंबित कार्य", route: "/work", icon: <Clock size={28} />, color: "stat-brown" },
+    { label: "फोटो रहित कार्य", route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
   ];
 
   // Dummy data for tables
@@ -83,31 +84,7 @@ export default function DashboardPage({ onLogout }) {
     <div className="dashboard-page">
       {/* ✅ Top bar reused from example */}
       <div className="header">
-        <div className="top">
-          <div className="brand">
-            <div className="crumbs" id="crumbs">{crumbs}</div>
-            <h1>निर्माण</h1>
-          </div>
-          <div className="right-top">
-            <div className="user">
-              <div className="ic" title="User">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 
-                  2.686-5 6 2.239 6 5 6zm0 2c-5.33 0-10 
-                  2.239-10 5v3h20v-3c0-2.761-4.67-5-10-5z" />
-                </svg>
-              </div>
-              <button
-                className="logout"
-                aria-label="Logout"
-                type="button"
-                onClick={onLogout || handleLogout}
-              >
-                <i className="fa-solid fa-power-off" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <TopBar />
         <div className="subbar">
           <span className="dot" />
           <h2>डैशबोर्ड</h2>
@@ -123,8 +100,7 @@ export default function DashboardPage({ onLogout }) {
             onClick={() => navigate(stat.route)}
           >
             <div className="dashboard-stat-info">
-              <div className="dashboard-stat-count">{stat.count}</div>
-              <div className="dashboard-stat-label">{stat.label}</div>
+              <div className="dashboard-stat-label-large">{stat.label}</div>
             </div>
             <div className="dashboard-stat-icon">{stat.icon}</div>
           </div>

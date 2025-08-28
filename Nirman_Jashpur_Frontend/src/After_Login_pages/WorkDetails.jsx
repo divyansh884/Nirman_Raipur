@@ -1,30 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './WorkDetails.css';
 import { useParams } from "react-router-dom";
-// Shared work data utilities
-const STORAGE_KEY = 'tribal_work_data_v1';
-const defaultRows = [
-  { id: 1, type: 'सीसी रोड', year: '2024-25', vname: 'Bagicha', name: 'सी.सी.रोड निर्माण, पंचायत भवन से देवघर के घर तक, ग्राम पंचायत बुढ़ाढांड', agency: 'Janpad पंचायत', plan: 'Suguja Chhetra Pradhikaran', amount: '10.00', status: 'कार्य आदेश लम्बित', modified: '14-08-2025' },
-  { id: 2, type: 'सड़क निर्माण कार्य', year: '2024-25', vname: 'Bagicha', name: 'सड़क जीर्णोद्धार कार्य', agency: 'Janpad पंचायत', plan: 'Suguja', amount: '12.00', status: 'कार्य आदेश लम्बित', modified: '14-08-2025' },
-  { id: 3, type: 'पंचायती भवन', year: '2023-24', vname: 'Budhadand', name: 'पंचायत भवन निर्माण', agency: 'Gram Panchayat', plan: 'Block Plan', amount: '5.00', status: 'समाप्त', modified: '10-06-2024' }
-];
 
-function loadWorkData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...defaultRows];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [...defaultRows];
-  } catch { return [...defaultRows]; }
-}
-
-const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
+const WorkDetails = ({ onLogout, onBack }) => {
   const { workId } = useParams();
   const [workData, setWorkData] = useState(null);
-  const [allWorks, setAllWorks] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load Font Awesome and fonts - this useEffect must come before any conditional returns
+  // Get auth token
+  const getAuthToken = () => localStorage.getItem("authToken");
+
+  // Load Font Awesome and fonts
   useEffect(() => {
     if (!document.querySelector('link[href*="font-awesome"], link[data-fa]')) {
       const l = document.createElement('link'); 
@@ -42,47 +29,132 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
     }
   }, []);
 
-  // Handle accept work - navigate to AddToWork with pre-filled data
-  const handleAccept = () => {
-    if (workData && onAcceptWork) {
-      onAcceptWork(workData);
-    }
-  };
-
-  // Load work data on mount and when workId changes
+  // Fetch work details from API
   useEffect(() => {
-    const works = loadWorkData();
-    setAllWorks(works);
-    
-    if (workId) {
-      const selectedWork = works.find(work => work.id === parseInt(workId));
-      const index = works.findIndex(work => work.id === parseInt(workId));
-      setWorkData(selectedWork || works[0]); // fallback to first work if not found
-      setCurrentIndex(index >= 0 ? index : 0);
-    } else {
-      setWorkData(works[0]); // fallback to first work if no ID provided
-      setCurrentIndex(0);
-    }
+    const fetchWorkDetails = async () => {
+      if (!workId) {
+        setError("Work ID not provided");
+        setLoading(false);
+        return;
+      }
+
+      const authToken = getAuthToken();
+      if (!authToken) {
+        setError("Authentication required. Please login.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(`http://localhost:3000/api/work-proposals/${workId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("userData");
+            setError("Session expired. Please login again.");
+            return;
+          }
+          if (response.status === 404) {
+            setError("Work not found.");
+            return;
+          }
+          throw new Error(`Failed to fetch work details (Status: ${response.status})`);
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+          setWorkData(result.data);
+        } else {
+          throw new Error(result.message || 'Invalid response format');
+        }
+
+      } catch (error) {
+        console.error('Error fetching work details:', error);
+        setError(error.message || 'Failed to load work details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkDetails();
   }, [workId]);
 
-  // Navigation functions
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      const newIndex = currentIndex - 1;
-      setCurrentIndex(newIndex);
-      setWorkData(allWorks[newIndex]);
-    }
+  // Safe render function to avoid object rendering errors
+  const safeRender = (value, fallback = '-') => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
   };
 
-  const goToNext = () => {
-    if (currentIndex < allWorks.length - 1) {
-      const newIndex = currentIndex + 1;
-      setCurrentIndex(newIndex);
-      setWorkData(allWorks[newIndex]);
-    }
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <div className="work-details-ref">
+        <div className="header">
+          <div className="top">
+            <div>
+              <div className="crumbs">निर्माण / कार्य विवरण</div>
+              <div className="title"><h1>निर्माण</h1></div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <div style={{textAlign: 'center', padding: '50px'}}>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <h3>डेटा लोड हो रहा है...</h3>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // If no work data is loaded yet, show loading
+  // Error state
+  if (error) {
+    return (
+      <div className="work-details-ref">
+        <div className="header">
+          <div className="top">
+            <div>
+              <div className="crumbs">निर्माण / कार्य विवरण</div>
+              <div className="title"><h1>निर्माण</h1></div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <div style={{textAlign: 'center', padding: '50px', color: 'red'}}>
+            <i className="fa-solid fa-exclamation-triangle" style={{ fontSize: '24px', marginBottom: '10px' }}></i>
+            <h3>Error: {error}</h3>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{
+                marginTop: '20px',
+                padding: '10px 20px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state
   if (!workData) {
     return (
       <div className="work-details-ref">
@@ -96,7 +168,7 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
         </div>
         <div className="wrap">
           <div style={{textAlign: 'center', padding: '50px'}}>
-            <h3>डेटा लोड हो रहा है...</h3>
+            <h3>कोई कार्य विवरण नहीं मिला</h3>
           </div>
         </div>
       </div>
@@ -114,7 +186,7 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
               </button> / कार्य विवरण
             </div>
             <div className="title">
-              <h1>निर्माण - कार्य विवरण ({currentIndex + 1} of {allWorks.length})</h1>
+              <h1>निर्माण - कार्य विवरण</h1>
             </div>
           </div>
           <div className="user">
@@ -127,6 +199,8 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
               type="button" 
               onClick={onLogout || (() => {
                 if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
+                  localStorage.removeItem("authToken");
+                  localStorage.removeItem("userData");
                   window.location.href = '/';
                 }
               })}
@@ -147,90 +221,95 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
           <div className="main-section">
             <section className="panel work-info">
               <div className="panel-header">
-                <h3>कार्य सूची - {workData.type}</h3>
+                <h3>कार्य सूची - {safeRender(workData.typeOfWork)}</h3>
                 <div style={{fontSize:'12px', opacity:0.9}}>
-                  ID: {workData.id} | कार्य {currentIndex + 1} of {allWorks.length}
+                  ID: {safeRender(workData._id)} | Serial: {safeRender(workData.serialNumber)}
                 </div>
               </div>
               <div className="p-body">
                 <div className="work-details-grid">
                   <div className="detail-row">
                     <label>कार्य का नाम</label>
-                    <span>{workData.name}</span>
+                    <span>{safeRender(workData.nameOfWork, 'Unnamed Work')}</span>
                   </div>
                   <div className="detail-row">
                     <label>कार्य के प्रकार</label>
-                    <span>{workData.type}</span>
+                    <span>{safeRender(workData.typeOfWork)}</span>
                   </div>
                   <div className="detail-row">
                     <label>ग्राम/वार्ड</label>
-                    <span>{workData.vname}</span>
+                    <span>{safeRender(workData.nameOfGPWard || workData.ward)}</span>
                   </div>
                   <div className="detail-row">
                     <label>कार्य विभाग</label>
-                    <span>{workData.agency}</span>
+                    <span>{safeRender(workData.workAgency)}</span>
                   </div>
                   <div className="detail-row">
                     <label>स्वीकृत वर्ष</label>
-                    <span>{workData.year}</span>
+                    <span>{safeRender(workData.financialYear)}</span>
                   </div>
                   <div className="detail-row">
                     <label>योजना</label>
-                    <span>{workData.plan}</span>
+                    <span>{safeRender(workData.scheme)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>राशि (लाख में)</label>
-                    <span>{workData.amount}</span>
+                    <label>राशि (रुपये में)</label>
+                    <span>₹ {workData.sanctionAmount ? workData.sanctionAmount.toLocaleString() : '0'}</span>
                   </div>
                   <div className="detail-row">
                     <label>उपयोगकर्ता विभाग</label>
-                    <span>{workData.subDept || '-'}</span>
+                    <span>{safeRender(workData.userDepartment)}</span>
                   </div>
                   <div className="detail-row">
                     <label>स्वीकृतकर्ता विभाग</label>
-                    <span>{workData.centralDept}</span>
+                    <span>{safeRender(workData.approvingDepartment)}</span>
                   </div>
                   <div className="detail-row">
                     <label>वित्तीय वर्ष</label>
-                    <span>{workData.year}</span>
+                    <span>{safeRender(workData.financialYear)}</span>
                   </div>
                   <div className="detail-row">
                     <label>विधानसभा</label>
-                    <span>{workData.vidhanSabha}</span>
+                    <span>{safeRender(workData.assembly)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>दिनांक(Longitude)</label>
-                    <span>{workData.longitude}</span>
+                    <label>देशांतर (Longitude)</label>
+                    <span>{safeRender(workData.longitude)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>अक्षांश(Latitude)</label>
-                    <span>{workData.latitude}</span>
+                    <label>अक्षांश (Latitude)</label>
+                    <span>{safeRender(workData.latitude)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>कार्य समाप्ति अनुमानित की दिनांक</label>
-                    <span>15-09-2025</span>
+                    <label>कार्य समाप्ति अनुमानित दिनांक</label>
+                    <span>
+                      {workData.estimatedCompletionDateOfWork 
+                        ? new Date(workData.estimatedCompletionDateOfWork).toLocaleDateString('en-GB')
+                        : '-'
+                      }
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <label>कार्य विवरण</label>
+                    <span>{safeRender(workData.workDescription)}</span>
+                  </div>
+                  <div className="detail-row">
+                    <label>वर्तमान स्थिति</label>
+                    <span>{safeRender(workData.currentStatus)}</span>
                   </div>
                 </div>
                 
-                {/* Navigation arrows */}
+                {/* COMMENTED OUT: Navigation arrows */}
+                {/* 
                 <div className="nav-arrows">
-                  <button 
-                    className={`nav-btn left ${currentIndex === 0 ? 'disabled' : ''}`} 
-                    aria-label="Previous" 
-                    onClick={goToPrevious}
-                    disabled={currentIndex === 0}
-                  >
+                  <button className="nav-btn left" aria-label="Previous">
                     <i className="fa-solid fa-chevron-left"></i>
                   </button>
-                  <button 
-                    className={`nav-btn right ${currentIndex === allWorks.length - 1 ? 'disabled' : ''}`} 
-                    aria-label="Next" 
-                    onClick={goToNext}
-                    disabled={currentIndex === allWorks.length - 1}
-                  >
+                  <button className="nav-btn right" aria-label="Next">
                     <i className="fa-solid fa-chevron-right"></i>
                   </button>
                 </div>
+                */}
               </div>
             </section>
           </div>
@@ -246,11 +325,11 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
                 <div className="engineer-info">
                   <div className="detail-row">
                     <label>नाम</label>
-                    <span>Devarchan Malakar</span>
+                    <span>{safeRender(workData.appointedEngineer)}</span>
                   </div>
                   <div className="detail-row">
                     <label>मोबाइल नं</label>
-                    <span>9399730973</span>
+                    <span>{safeRender(workData.engineerMobile)}</span>
                   </div>
                 </div>
               </div>
@@ -264,12 +343,12 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
               <div className="p-body">
                 <div className="ae-info">
                   <div className="detail-row">
-                    <label>मोबाइल नं</label>
-                    <span>Son Sai Patnakar</span>
+                    <label>नाम</label>
+                    <span>{safeRender(workData.appointedSDO)}</span>
                   </div>
                   <div className="detail-row">
                     <label>मोबाइल नं</label>
-                    <span>6261124489</span>
+                    <span>{safeRender(workData.sdoMobile)}</span>
                   </div>
                 </div>
               </div>
@@ -278,13 +357,13 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
             {/* Department Name */}
             <section className="panel dept-details">
               <div className="panel-header">
-                <h3>जाहँत विभाग का नाम</h3>
+                <h3>कार्य विभाग का नाम</h3>
               </div>
               <div className="p-body">
                 <div className="dept-info">
                   <div className="detail-row">
                     <label>नाम</label>
-                    <span>Tribal Department</span>
+                    <span>{safeRender(workData.workDepartment)}</span>
                   </div>
                   <div className="detail-row">
                     <label>मोबाइल नं</label>
@@ -301,19 +380,32 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
               </div>
               <div className="p-body">
                 <div className="status-info">
-                  <h4>कार्य आदेश लंबित</h4>
+                  <h4>{safeRender(workData.currentStatus, 'स्थिति अज्ञात')}</h4>
                   <div className="status-dates">
                     <div className="status-item">
-                      <label>कार्य दिनांक</label>
-                      <span>18-08-2025</span>
+                      <label>सबमिशन दिनांक</label>
+                      <span>
+                        {workData.submissionDate 
+                          ? new Date(workData.submissionDate).toLocaleDateString('en-GB')
+                          : '-'
+                        }
+                      </span>
                     </div>
                     <div className="status-item">
-                      <label>अंतिम दिनांक</label>
-                      <span>18-08-2025</span>
+                      <label>अंतिम संशोधन</label>
+                      <span>
+                        {workData.lastRevision 
+                          ? new Date(workData.lastRevision).toLocaleDateString('en-GB')
+                          : '-'
+                        }
+                      </span>
                     </div>
                   </div>
+                  
+                  {/* COMMENTED OUT: Accept and Reject buttons */}
+                  {/*
                   <div className="status-actions">
-                    <button className="btn green" onClick={handleAccept}>
+                    <button className="btn green">
                       <i className="fa-solid fa-check"></i>
                       स्वीकार करें
                     </button>
@@ -322,6 +414,7 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
                       रिजेक्ट करें
                     </button>
                   </div>
+                  */}
                 </div>
               </div>
             </section>
@@ -340,28 +433,47 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
                 <div className="approval-grid">
                   <div className="approval-item">
                     <label>तकनीकी स्वीकृति क्रमांक</label>
-                    <span>1166</span>
+                    <span>{safeRender(workData.technicalApproval?.approvalNumber)}</span>
                   </div>
                   <div className="approval-item">
                     <label>तकनीकी स्वीकृति दिनांक</label>
-                    <span>27-02-2025</span>
+                    <span>
+                      {workData.technicalApproval?.approvalDate 
+                        ? new Date(workData.technicalApproval.approvalDate).toLocaleDateString('en-GB')
+                        : '-'
+                      }
+                    </span>
                   </div>
                   <div className="approval-item">
                     <label>तकनीकी स्वीकृति राशि</label>
-                    <span>10.00</span>
+                    <span>
+                      ₹ {workData.technicalApproval?.amountOfTechnicalSanction 
+                        ? workData.technicalApproval.amountOfTechnicalSanction.toLocaleString()
+                        : '0'
+                      }
+                    </span>
                   </div>
                   <div className="approval-item">
                     <label>तकनीकी स्वीकृति प्रेषण दिनांक</label>
-                    <span>27-02-2025</span>
+                    <span>
+                      {workData.technicalApproval?.forwardingDate 
+                        ? new Date(workData.technicalApproval.forwardingDate).toLocaleDateString('en-GB')
+                        : '-'
+                      }
+                    </span>
                   </div>
                   <div className="approval-item">
                     <label>टिप्पणी</label>
-                    <span>-</span>
+                    <span>{safeRender(workData.technicalApproval?.remarks)}</span>
                   </div>
+                  
+                  {/* COMMENTED OUT: File view link */}
+                  {/*
                   <div className="approval-item">
                     <label>संलग्न फाइल</label>
                     <span className="file-link">देखें</span>
                   </div>
+                  */}
                 </div>
               </div>
             </section>
@@ -374,82 +486,117 @@ const WorkDetails = ({ onLogout, onBack, onAcceptWork }) => {
               <div className="p-body">
                 <div className="approval-grid">
                   <div className="approval-item">
-                    <label>ए.एस द्वारा</label>
-                    <span>ए.एस द्वारा</span>
-                  </div>
-                  <div className="approval-item">
-                    <label>जिला</label>
-                    <span>जिला</span>
+                    <label>स्वीकृतकर्ता</label>
+                    <span>{safeRender(workData.administrativeApproval?.byGovtDistrictAS)}</span>
                   </div>
                   <div className="approval-item">
                     <label>प्रशासकीय स्वीकृति क्रमांक</label>
-                    <span>135</span>
+                    <span>{safeRender(workData.administrativeApproval?.approvalNumber)}</span>
                   </div>
                   <div className="approval-item">
                     <label>प्रशासकीय स्वीकृति दिनांक</label>
-                    <span>21-04-2025</span>
+                    <span>
+                      {workData.administrativeApproval?.approvalDate 
+                        ? new Date(workData.administrativeApproval.approvalDate).toLocaleDateString('en-GB')
+                        : '-'
+                      }
+                    </span>
                   </div>
                   <div className="approval-item">
                     <label>प्रशासकीय स्वीकृति राशि</label>
-                    <span>10.00</span>
+                    <span>
+                      ₹ {workData.administrativeApproval?.approvedAmount 
+                        ? workData.administrativeApproval.approvedAmount.toLocaleString()
+                        : '0'
+                      }
+                    </span>
                   </div>
                   <div className="approval-item">
                     <label>टिप्पणी</label>
-                    <span>-</span>
+                    <span>{safeRender(workData.administrativeApproval?.remarks)}</span>
                   </div>
+                  
+                  {/* COMMENTED OUT: File view link */}
+                  {/*
                   <div className="approval-item">
                     <label>संलग्न फाइल</label>
                     <span className="file-link">देखें</span>
                   </div>
+                  */}
                 </div>
               </div>
             </section>
               
-              <section className="panel approval-section">
-                <div className="panel-header approval-header">
-                  <h3>कार्य आदेश</h3>
+            {/* Work Order Section */}
+            <section className="panel approval-section">
+              <div className="panel-header approval-header">
+                <h3>कार्य आदेश</h3>
+              </div>
+              <div className="p-body">
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <tbody>
+                      <tr>
+                        <td>कार्य आदेश क्रमांक</td>
+                        <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder?.orderNumber)}</td>
+                      </tr>
+                      <tr>
+                        <td>कार्य आदेश की दिनांक</td>
+                        <td style={{fontWeight:'bold'}}>
+                          {workData.workOrder?.orderDate 
+                            ? new Date(workData.workOrder.orderDate).toLocaleDateString('en-GB')
+                            : '-'
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>कार्य आदेश राशि</td>
+                        <td style={{fontWeight:'bold'}}>
+                          ₹ {workData.workOrder?.orderAmount 
+                            ? workData.workOrder.orderAmount.toLocaleString()
+                            : '0'
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>कार्य आदेश प्रारम्भ अनुमानित दिनांक</td>
+                        <td style={{fontWeight:'bold'}}>
+                          {workData.workOrder?.startDate 
+                            ? new Date(workData.workOrder.startDate).toLocaleDateString('en-GB')
+                            : '-'
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>कार्य आदेश समाप्ति अनुमानित दिनांक</td>
+                        <td style={{fontWeight:'bold'}}>
+                          {workData.estimatedCompletionDateOfWork 
+                            ? new Date(workData.estimatedCompletionDateOfWork).toLocaleDateString('en-GB')
+                            : '-'
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>ठेकेदार / ग्रामपंचायत</td>
+                        <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder?.contractor || workData.nameOfGPWard)}</td>
+                      </tr>
+                      <tr>
+                        <td>टिप्पणी</td>
+                        <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder?.remarks)}</td>
+                      </tr>
+                      
+                      {/* COMMENTED OUT: File view */}
+                      {/*
+                      <tr>
+                        <td>संलग्न फाइल</td>
+                        <td style={{fontWeight:'bold'}}>देखें</td>
+                      </tr>
+                      */}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="p-body">
-                  <div className="custom-table-container">
-                    <table className="custom-table">
-                      <tbody>
-                        <tr>
-                          <td>कार्य आदेश क्रमांक</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderNumber || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>कार्य आदेश की दिनांक</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderDate || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>कार्य आदेश राशि</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderAmount || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>कार्य आदेश प्रारम्भ अनुमामित की दिनांक</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderStartDate || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>कार्य आदेश समाप्ति अनुमामित की दिनांक</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderEndDate || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>ठेकेदार / ग्रामपंचायत</td>
-                          <td style={{fontWeight:'bold'}}>{workData.contractor || workData.vname || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>टिप्पणी</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderNote || '-'}</td>
-                        </tr>
-                        <tr>
-                          <td>संलग्न फाइल</td>
-                          <td style={{fontWeight:'bold'}}>{workData.orderFile || '-'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </section>
+              </div>
+            </section>
           </div>
         </div>
       </div>

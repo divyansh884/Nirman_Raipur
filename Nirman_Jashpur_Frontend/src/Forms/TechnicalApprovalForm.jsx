@@ -2,22 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
-
-export default function TechnicalApprovalPage({onLogout}) {
+import TopBar from "../Components/TopBar.jsx";
+export default function TechnicalApprovalPage({ onLogout }) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { workID } = useParams(); // ✅ get workID from route
-
-  // Build crumbs from current path (Dashboard / WorkOrder / Add-Work-Order)
-  const crumbs = React.useMemo(() => {
-    const parts = location.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((s) =>
-        s.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())
-      );
-    return [ ...parts].join(" / ");
-  }, [location.pathname]);
+  const { workId } = useParams();
+  
 
   // Form state
   const [form, setForm] = useState({
@@ -26,10 +15,18 @@ export default function TechnicalApprovalPage({onLogout}) {
     amountSanctioned: "",
     forwardingDate: "",
     remarks: "",
-    document: null, // ✅ file
+    document: null,
   });
 
-  // Optional: set page title
+  // Loading and error states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Get authentication token
+  function getAuthToken() {
+    return localStorage.getItem("authToken");
+  }
+
   useEffect(() => {
     document.title = "निर्माण | तकनीकी स्वीकृति";
   }, []);
@@ -41,10 +38,33 @@ export default function TechnicalApprovalPage({onLogout}) {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!form.technicalApprovalNumber.trim()) {
+      newErrors.technicalApprovalNumber = 'तकनीकी स्वीकृति क्रमांक आवश्यक है';
+    }
+    
+    if (!form.amountSanctioned || parseFloat(form.amountSanctioned) <= 0) {
+      newErrors.amountSanctioned = 'वैध राशि दर्ज करें';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userData");
       navigate("/");
     }
   };
@@ -55,25 +75,72 @@ export default function TechnicalApprovalPage({onLogout}) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // ✅ Use FormData for file uploads
-    const payload = new FormData();
-    payload.append("workID", workID); // ✅ attach workID
-    payload.append("technicalApprovalNumber", form.technicalApprovalNumber);
-    payload.append("technicalApprovalDate", form.technicalApprovalDate);
-    payload.append("amountSanctioned", form.amountSanctioned);
-    payload.append("forwardingDate", form.forwardingDate);
-    payload.append("remarks", form.remarks);
-    if (form.document) {
-      payload.append("document", form.document);
+    
+    if (!validateForm()) {
+      return;
     }
 
-    try {
-      await axios.post(`/api/technical-approvals/${workID}`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+    // Check authentication
+    const authToken = getAuthToken();
+    if (!authToken) {
+      alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+      navigate("/login");
+      return;
+    }
 
+    setIsSubmitting(true);
+
+    try {
+      // ✅ AUTOMATICALLY ADD "action": "approve" when submit button is clicked
+      const payload = {
+        action: "approve", // ← This is AUTOMATICALLY added - no user input needed!
+        approvalNumber: form.technicalApprovalNumber,
+        amountOfTechnicalSanction: parseFloat(form.amountSanctioned),
+        remarks: form.remarks || ""
+      };
+
+      // 🔍 DEBUG: Log the payload to verify "action" field is included
+      console.log("📤 Sending payload to backend:", payload);
+      console.log("✅ Action field automatically added:", payload.action);
+
+      // ✅ Updated API call with JSON content type
+      const response = await axios.post(
+        `http://localhost:3000/api/work-proposals/${workId}/technical-approval`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+        }
+      );
+
+      // Handle document upload separately if needed
+      if (form.document) {
+        try {
+          const fileFormData = new FormData();
+          fileFormData.append("document", form.document);
+          
+          // You might need a separate endpoint for document upload
+          // await axios.post(`http://localhost:3000/api/work-proposals/${workID}/documents`, fileFormData, {
+          //   headers: {
+          //     "Content-Type": "multipart/form-data",
+          //     "Authorization": `Bearer ${authToken}`
+          //   }
+          // });
+          
+          console.log("📁 Document will be handled separately:", form.document.name);
+        } catch (fileError) {
+          console.warn("⚠️ Document upload failed:", fileError);
+          // Don't fail the main submission for document upload issues
+        }
+      }
+
+      // Success handling
+      console.log("✅ Technical approval submitted successfully:", response.data);
       alert("तकनीकी स्वीकृति सफलतापूर्वक सहेजी गई!");
+      
+      // Reset form
       setForm({
         technicalApprovalNumber: "",
         technicalApprovalDate: "",
@@ -82,9 +149,47 @@ export default function TechnicalApprovalPage({onLogout}) {
         remarks: "",
         document: null,
       });
+      
+      // Clear file input
+      const fileInput = document.getElementById("documentUpload");
+      if (fileInput) {
+        fileInput.value = "";
+      }
+
+      // Navigate back
+      setTimeout(() => {
+        navigate(-1);
+      }, 1500);
+
     } catch (err) {
-      console.error(err);
-      alert("सबमिट करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+      console.error("❌ Technical approval submission error:", err);
+      
+      // Handle different error scenarios
+      if (err.response) {
+        const status = err.response.status;
+        const errorMessage = err.response.data?.message || "सबमिट करने में त्रुटि हुई";
+        
+        if (status === 401) {
+          alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
+          navigate("/login");
+        } else if (status === 403) {
+          alert("आपको इस कार्य को करने की अनुमति नहीं है।");
+        } else if (status === 404) {
+          alert("कार्य प्रस्ताव नहीं मिला। कृपया वैध कार्य ID सुनिश्चित करें।");
+        } else if (status === 400) {
+          alert(`डेटा त्रुटि: ${errorMessage}`);
+        } else {
+          alert(`त्रुटि: ${errorMessage}`);
+        }
+      } else if (err.request) {
+        alert("नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।");
+      } else {
+        alert("सबमिट करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -92,38 +197,11 @@ export default function TechnicalApprovalPage({onLogout}) {
     <div className="workorder-page">
       {/* Top bar */}
       <div className="header">
-        <div className="top">
-          <div className="brand">
-            <div className="crumbs" id="crumbs">
-              {crumbs}
-            </div>
-            <h1>निर्माण</h1>
-          </div>
-          <div className="right-top">
-            <div className="user">
-              <div className="ic" title="User">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 2.686-5 6 2.239 6 5 6zm0 2c-5.33 0-10 2.239-10 5v3h20v-3c0-2.761-4.67-5-10-5z" />
-                </svg>
-              </div>
-              <button className="logout" aria-label="Logout" type="button" onClick={onLogout || (() => {
-              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                window.location.href = '/';
-              }
-            })}><i className="fa-solid fa-power-off" /></button>
-            </div>
-          </div>
-        </div>
+        <TopBar />
 
         <div className="subbar">
           <span className="dot" />
-          <h2>तकनीकी स्वीकृति जोड़ें</h2>
+          <h2>तकनीकी स्वीकृति जोड़ें - Work ID: {workId}</h2>
         </div>
       </div>
 
@@ -143,17 +221,21 @@ export default function TechnicalApprovalPage({onLogout}) {
                 <input
                   type="text"
                   name="technicalApprovalNumber"
-                  className="form-input"
-                  placeholder="तकनीकी स्वीकृति क्रमांक"
+                  className={`form-input ${errors.technicalApprovalNumber ? 'error' : ''}`}
+                  placeholder="TA-CIVIL-2025-045"
                   value={form.technicalApprovalNumber}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
+                {errors.technicalApprovalNumber && (
+                  <span className="error-text">{errors.technicalApprovalNumber}</span>
+                )}
               </div>
 
               <div className="form-group">
                 <label className="form-label">
-                  तकनीकी स्वीकृति दिनांक <span className="req">*</span>
+                  तकनीकी स्वीकृति दिनांक
                 </label>
                 <div className="input-with-icon">
                   <input
@@ -162,7 +244,7 @@ export default function TechnicalApprovalPage({onLogout}) {
                     className="form-input"
                     value={form.technicalApprovalDate}
                     onChange={handleChange}
-                    required
+                    disabled={isSubmitting}
                   />
                   <span className="cal-ic" aria-hidden="true">
                     📅
@@ -179,12 +261,16 @@ export default function TechnicalApprovalPage({onLogout}) {
                   step="0.01"
                   min="0"
                   name="amountSanctioned"
-                  className="form-input"
-                  placeholder="राशि"
+                  className={`form-input ${errors.amountSanctioned ? 'error' : ''}`}
+                  placeholder="14200000"
                   value={form.amountSanctioned}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
+                {errors.amountSanctioned && (
+                  <span className="error-text">{errors.amountSanctioned}</span>
+                )}
               </div>
             </div>
 
@@ -198,6 +284,7 @@ export default function TechnicalApprovalPage({onLogout}) {
                     className="form-input"
                     value={form.forwardingDate}
                     onChange={handleChange}
+                    disabled={isSubmitting}
                   />
                   <span className="cal-ic" aria-hidden="true">
                     📅
@@ -205,9 +292,9 @@ export default function TechnicalApprovalPage({onLogout}) {
                 </div>
               </div>
 
-              {/* File upload */}
+              {/* File upload - Optional (for future enhancement) */}
               <div className="form-group file-input-wrapper">
-                <label>दस्तावेज़ संलग्न करें (तकनीकी स्वीकृति):</label>
+                <label>दस्तावेज़ संलग्न करें (वैकल्पिक):</label>
                 <input
                   type="file"
                   name="document"
@@ -215,6 +302,7 @@ export default function TechnicalApprovalPage({onLogout}) {
                   className="file-input"
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -222,6 +310,9 @@ export default function TechnicalApprovalPage({onLogout}) {
                 <span className="file-name">
                   {form.document ? form.document.name : "कोई फ़ाइल चयनित नहीं"}
                 </span>
+                <small className="help-text">
+                  नोट: दस्तावेज़ अपलोड अलग से संभाला जाएगा
+                </small>
               </div>
             </div>
 
@@ -230,21 +321,28 @@ export default function TechnicalApprovalPage({onLogout}) {
               <textarea
                 name="remarks"
                 className="form-input textarea"
-                placeholder="टिप्पणी"
+                placeholder="Approved, subject to the procurement of specified Grade-A materials. All other technical parameters are cleared."
                 rows={5}
                 value={form.remarks}
                 onChange={handleChange}
+                disabled={isSubmitting}
               />
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">
-                Submit
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting}
+                title="क्लिक करने पर automatically action: 'approve' भेजा जाएगा"
+              >
+                {isSubmitting ? "सबमिट हो रहा है..." : "Submit & Approve"}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>

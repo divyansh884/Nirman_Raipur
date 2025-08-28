@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import axios from "axios";
 import "./WorkInProgressForm.css";
-
-export default function WorkInProgressForm({onLogout}) {
+import TopBar from "../Components/TopBar.jsx";
+export default function WorkInProgressForm({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { workID } = useParams();
+  const { workId } = useParams();
 
   // ✅ Breadcrumbs based on path
   const crumbs = React.useMemo(() => {
@@ -21,20 +22,49 @@ export default function WorkInProgressForm({onLogout}) {
   // ✅ Set Page Title
   useEffect(() => {
     document.title = "निर्माण | राशि प्रगति प्रपत्र";
-  }, []);
+    
+    // Debug workID
+    console.log("🔍 Work Progress Form - workID:", workId);
+    
+    if (!workId) {
+      alert("कार्य ID नहीं मिला। कृपया वापस जाएं।");
+      navigate(-1);
+    }
+  }, [workId, navigate]);
 
-  const [rows, setRows] = useState([{ kisht: 1, amount: "", date: "" }]);
+  const [rows, setRows] = useState([{ kisht: 1, amount: "", date: "", description: "" }]);
+  
+  // ✅ Updated form state to match API requirements
   const [form, setForm] = useState({
     sanctionedAmount: "",
     releasedAmount: "",
     remainingAmount: "",
     mbStage: "",
     expenditureAmount: "",
+    progressPercentage: "",
+    progressDescription: "",
+    installmentAmount: "",
+    installmentDate: "",
+    installmentDescription: ""
   });
+
+  // Loading and error states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Get authentication token
+  function getAuthToken() {
+    return localStorage.getItem("authToken");
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleRowChange = (index, e) => {
@@ -45,15 +75,125 @@ export default function WorkInProgressForm({onLogout}) {
   };
 
   const addRow = () => {
-    setRows([...rows, { kisht: rows.length + 1, amount: "", date: "" }]);
+    setRows([...rows, { kisht: rows.length + 1, amount: "", date: "", description: "" }]);
   };
 
   const removeRow = (index) => {
-    setRows(rows.filter((_, i) => i !== index));
+    if (rows.length > 1) {
+      const updatedRows = rows.filter((_, i) => i !== index);
+      // Re-number the kisht values
+      const reNumberedRows = updatedRows.map((row, i) => ({
+        ...row,
+        kisht: i + 1
+      }));
+      setRows(reNumberedRows);
+    }
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!form.progressPercentage || parseFloat(form.progressPercentage) < 0 || parseFloat(form.progressPercentage) > 100) {
+      newErrors.progressPercentage = 'प्रगति प्रतिशत 0-100 के बीच होना चाहिए';
+    }
+    
+    if (!form.mbStage.trim()) {
+      newErrors.mbStage = 'एम बी स्टेज आवश्यक है';
+    }
+    
+    if (!form.expenditureAmount || parseFloat(form.expenditureAmount) <= 0) {
+      newErrors.expenditureAmount = 'वैध व्यय राशि दर्ज करें';
+    }
+    
+    if (!form.progressDescription.trim()) {
+      newErrors.progressDescription = 'प्रगति विवरण आवश्यक है';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Convert date to ISO format
+  const convertToISODate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        throw new Error(`Invalid date: ${dateString}`);
+      }
+      return date.toISOString();
+    } catch (error) {
+      console.error("Date conversion error:", error);
+      return null;
+    }
+  };
+
+  // ✅ API Call 1: Submit Progress Update
+  const submitProgressUpdate = async () => {
+    const authToken = getAuthToken();
+    if (!authToken) {
+      throw new Error("Authentication required");
+    }
+
+    const payload = {
+      progressPercentage: parseFloat(form.progressPercentage),
+      mbStageMeasurementBookStag: form.mbStage,
+      expenditureAmount: parseFloat(form.expenditureAmount),
+      installmentAmount: parseFloat(form.installmentAmount) || 0,
+      installmentDate: convertToISODate(form.installmentDate),
+      description: form.progressDescription
+    };
+
+    console.log("📤 Submitting progress update:", payload);
+
+    const response = await axios.post(
+      `http://localhost:3000/api/work-proposals/${workId}/progress`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      }
+    );
+
+    return response;
+  };
+
+  // ✅ API Call 2: Submit Installment (for each row)
+  const submitInstallment = async (installmentData) => {
+    const authToken = getAuthToken();
+    if (!authToken) {
+      throw new Error("Authentication required");
+    }
+
+    const payload = {
+      amount: parseFloat(installmentData.amount),
+      date: convertToISODate(installmentData.date),
+      description: installmentData.description || `Installment ${installmentData.kisht}`
+    };
+
+    console.log("📤 Submitting installment:", payload);
+
+    const response = await axios.post(
+      `http://localhost:3000/api/work-proposals/${workId}/progress/installment`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      }
+    );
+
+    return response;
   };
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userData");
       navigate("/");
     }
   };
@@ -62,48 +202,116 @@ export default function WorkInProgressForm({onLogout}) {
     navigate(-1);
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Main Submit Handler
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Data:", { ...form, rows });
-    alert("राशि प्रगति प्रपत्र सफलतापूर्वक सहेजा गया!");
+    
+    try {
+      if (!validateForm()) {
+        return;
+      }
+
+      const authToken = getAuthToken();
+      if (!authToken) {
+        alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+        navigate("/login");
+        return;
+      }
+
+      if (!workId) {
+        alert("कार्य ID नहीं मिला। कृपया पेज रीलोड करें।");
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      // Step 1: Submit Progress Update
+      console.log("📋 Step 1: Submitting progress update...");
+      await submitProgressUpdate();
+      console.log("✅ Progress update successful");
+
+      // Step 2: Submit Installments (for each row with data)
+      const validRows = rows.filter(row => row.amount && row.date);
+      if (validRows.length > 0) {
+        console.log(`📋 Step 2: Submitting ${validRows.length} installments...`);
+        
+        for (const row of validRows) {
+          await submitInstallment(row);
+          console.log(`✅ Installment ${row.kisht} submitted successfully`);
+        }
+      }
+
+      // Success
+      alert("राशि प्रगति प्रपत्र सफलतापूर्वक सहेजा गया!");
+      
+      // Reset form
+      setForm({
+        sanctionedAmount: "",
+        releasedAmount: "",
+        remainingAmount: "",
+        mbStage: "",
+        expenditureAmount: "",
+        progressPercentage: "",
+        progressDescription: "",
+        installmentAmount: "",
+        installmentDate: "",
+        installmentDescription: ""
+      });
+      
+      setRows([{ kisht: 1, amount: "", date: "", description: "" }]);
+      setErrors({});
+
+      // Navigate back after delay
+      setTimeout(() => {
+        navigate(-1);
+      }, 1500);
+
+    } catch (error) {
+      console.error("❌ Form submission error:", error);
+      
+      if (error.response) {
+        const { status, data } = error.response;
+        console.error("📍 Response error:", status, data);
+        
+        switch (status) {
+          case 400:
+            alert(`डेटा त्रुटि: ${data.message || 'अवैध डेटा'}`);
+            break;
+          case 401:
+            alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("userData");
+            navigate("/login");
+            break;
+          case 403:
+            alert("आपको इस कार्य को करने की अनुमति नहीं है।");
+            break;
+          case 404:
+            alert("कार्य प्रस्ताव नहीं मिला।");
+            navigate(-1);
+            break;
+          default:
+            alert(`सर्वर त्रुटि (${status}): ${data.message || 'अज्ञात त्रुटि'}`);
+        }
+      } else if (error.request) {
+        alert("नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें।");
+      } else {
+        alert("प्रगति सहेजने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="workprogress-page">
       {/* ✅ Top bar */}
       <div className="header">
-        <div className="top">
-          <div className="brand">
-            <div className="crumbs" id="crumbs">
-              {crumbs}
-            </div>
-            <h1>निर्माण</h1>
-          </div>
-          <div className="right-top">
-            <div className="user">
-              <div className="ic" title="User">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 2.686-5 6 2.239 6 5 6zm0 2c-5.33 0-10 2.239-10 5v3h20v-3c0-2.761-4.67-5-10-5z" />
-                </svg>
-              </div>
-             <button className="logout" aria-label="Logout" type="button" onClick={onLogout || (() => {
-              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                window.location.href = '/';
-              }
-            })}><i className="fa-solid fa-power-off" /></button>
-            </div>
-          </div>
-        </div>
+        <TopBar />
 
         <div className="subbar">
           <span className="dot" />
-          <h2>राशि प्रगति प्रपत्र</h2>
+          <h2>राशि प्रगति प्रपत्र - Work ID: {workId}</h2>
         </div>
       </div>
 
@@ -115,50 +323,123 @@ export default function WorkInProgressForm({onLogout}) {
           </div>
 
           <form className="p-body" onSubmit={handleSubmit}>
+            {/* ✅ Basic Progress Information */}
             <div className="form-grid">
               <div className="form-group">
-                <label>स्वीकृत राशि</label>
+                <label>प्रगति प्रतिशत (%) <span className="req">*</span></label>
                 <input
                   type="number"
-                  name="sanctionedAmount"
-                  value={form.sanctionedAmount}
+                  name="progressPercentage"
+                  value={form.progressPercentage}
+                  onChange={handleChange}
+                  className={`form-input ${errors.progressPercentage ? 'error' : ''}`}
+                  placeholder="45"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.progressPercentage && (
+                  <span className="error-text">{errors.progressPercentage}</span>
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label>एम बी स्टेज <span className="req">*</span></label>
+                <input
+                  type="text"
+                  name="mbStage"
+                  value={form.mbStage}
+                  onChange={handleChange}
+                  className={`form-input ${errors.mbStage ? 'error' : ''}`}
+                  placeholder="Stage 2 - Foundation Work Completed"
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.mbStage && (
+                  <span className="error-text">{errors.mbStage}</span>
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label>व्यय राशि <span className="req">*</span></label>
+                <input
+                  type="number"
+                  name="expenditureAmount"
+                  value={form.expenditureAmount}
+                  onChange={handleChange}
+                  className={`form-input ${errors.expenditureAmount ? 'error' : ''}`}
+                  placeholder="1200000"
+                  step="0.01"
+                  min="0"
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.expenditureAmount && (
+                  <span className="error-text">{errors.expenditureAmount}</span>
+                )}
+              </div>
+            </div>
+
+            {/* ✅ Additional Progress Fields */}
+            <div className="form-grid">
+              <div className="form-group">
+                <label>किस्त राशि</label>
+                <input
+                  type="number"
+                  name="installmentAmount"
+                  value={form.installmentAmount}
                   onChange={handleChange}
                   className="form-input"
-                  placeholder="राशि दर्ज करें"
+                  placeholder="500000"
+                  step="0.01"
+                  min="0"
+                  disabled={isSubmitting}
                 />
               </div>
+              
               <div className="form-group">
-                <label>कुल प्रदाय राशि</label>
+                <label>किस्त तिथि</label>
                 <input
-                  type="number"
-                  name="releasedAmount"
-                  value={form.releasedAmount}
+                  type="date"
+                  name="installmentDate"
+                  value={form.installmentDate}
                   onChange={handleChange}
                   className="form-input"
-                  placeholder="कुल प्रदाय राशि"
-                />
-              </div>
-              <div className="form-group">
-                <label>शेष राशि</label>
-                <input
-                  type="number"
-                  name="remainingAmount"
-                  value={form.remainingAmount}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder="शेष राशि"
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
 
-            {/* ✅ Dynamic Rows Table */}
+            {/* ✅ Progress Description */}
+            <div className="form-group full">
+              <label>प्रगति विवरण <span className="req">*</span></label>
+              <textarea
+                name="progressDescription"
+                value={form.progressDescription}
+                onChange={handleChange}
+                className={`form-input textarea ${errors.progressDescription ? 'error' : ''}`}
+                placeholder="Work has reached 45% completion. Foundation laid and initial road leveling completed."
+                rows={3}
+                disabled={isSubmitting}
+                required
+              />
+              {errors.progressDescription && (
+                <span className="error-text">{errors.progressDescription}</span>
+              )}
+            </div>
+
+            {/* ✅ Dynamic Installments Table */}
             <div className="table-wrap">
+              <h4>अतिरिक्त किस्तें</h4>
               <table>
                 <thead>
                   <tr>
                     <th>किस्त क्रमांक</th>
                     <th>राशि</th>
                     <th>दिनांक</th>
+                    <th>विवरण</th>
                     <th>एक्शन</th>
                   </tr>
                 </thead>
@@ -173,7 +454,10 @@ export default function WorkInProgressForm({onLogout}) {
                           value={row.amount}
                           onChange={(e) => handleRowChange(index, e)}
                           className="form-input"
-                          placeholder="राशि"
+                          placeholder="750000"
+                          step="0.01"
+                          min="0"
+                          disabled={isSubmitting}
                         />
                       </td>
                       <td>
@@ -183,6 +467,18 @@ export default function WorkInProgressForm({onLogout}) {
                           value={row.date}
                           onChange={(e) => handleRowChange(index, e)}
                           className="form-input"
+                          disabled={isSubmitting}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          name="description"
+                          value={row.description}
+                          onChange={(e) => handleRowChange(index, e)}
+                          className="form-input"
+                          placeholder="First installment for materials"
+                          disabled={isSubmitting}
                         />
                       </td>
                       <td>
@@ -190,6 +486,7 @@ export default function WorkInProgressForm({onLogout}) {
                           type="button"
                           className="btn-delete"
                           onClick={() => removeRow(index)}
+                          disabled={isSubmitting || rows.length === 1}
                         >
                           🗑
                         </button>
@@ -198,48 +495,29 @@ export default function WorkInProgressForm({onLogout}) {
                   ))}
                 </tbody>
               </table>
-              <button type="button" className="btn-add" onClick={addRow}>
-                + नई पंक्ति जोड़ें
+              <button 
+                type="button" 
+                className="btn-add" 
+                onClick={addRow}
+                disabled={isSubmitting}
+              >
+                + नई किस्त जोड़ें
               </button>
             </div>
 
-            {/* ✅ MB Stage + Expenditure */}
-            <div className="form-grid">
-              <div className="form-group">
-                <label>एम बी स्टेज</label>
-                <select
-                  name="mbStage"
-                  value={form.mbStage}
-                  onChange={handleChange}
-                  className="form-input"
-                >
-                  <option value="">-- स्टेज चुनें --</option>
-                  <option value="Stage 1">स्टेज 1</option>
-                  <option value="Stage 2">स्टेज 2</option>
-                  <option value="Stage 3">स्टेज 3</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>व्यय राशि</label>
-                <input
-                  type="number"
-                  name="expenditureAmount"
-                  value={form.expenditureAmount}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder="व्यय राशि"
-                />
-              </div>
-            </div>
-
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">
-                Save
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting || !workId}
+              >
+                {isSubmitting ? "सबमिट हो रहा है..." : "Save Progress"}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost"
                 onClick={handleCancel}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>

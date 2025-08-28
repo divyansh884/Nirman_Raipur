@@ -7,6 +7,7 @@ const WorkPage = () => {
   onAddNew= "/add-work"
   showAddButton={true}
   onView="/work"
+  workStage={null}
 />
   );
 };

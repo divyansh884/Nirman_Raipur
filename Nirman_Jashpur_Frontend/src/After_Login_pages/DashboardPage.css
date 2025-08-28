@@ -88,7 +88,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.2rem;
+  padding: 3rem;
   border-radius: 12px;
   color: #090909;
   cursor: pointer;
@@ -113,6 +113,10 @@
 .dashboard-stat-label {
   font-size: 0.9rem;
   margin-top: 4px;
+}
+.dashboard-stat-label-large{
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 .dashboard-stat-card.active-card {
   border: 2px solid #222;

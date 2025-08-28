@@ -41,8 +41,8 @@ const startTenderProcess = async (req, res) => {
       tenderStatus: 'Notice Published'
     };
 
-    workProposal.currentStatus = 'Tender In Progress';
-    workProposal.workProgressStage = 'Tender In Progress';
+    workProposal.currentStatus = 'Pending Work Order';
+    workProposal.workProgressStage = 'Pending Work Order';
 
     await workProposal.save();
 

@@ -7,6 +7,7 @@ const TenderPage = () => {
   onAddNew= "/add-work"
   showAddButton={false}
   onView="/Tender-Form"
+  workStage="Pending Tender"
 />
   );
 };

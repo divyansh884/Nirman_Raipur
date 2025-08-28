@@ -7,6 +7,7 @@ const WorkOrderPage = () => {
   onAddNew= "/add-work"
   showAddButton={false}
   onView="/Work-Order-Form"
+  workStage="Pending Work Order"
 />
   );
 };

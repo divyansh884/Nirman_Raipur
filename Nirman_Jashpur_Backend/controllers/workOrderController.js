@@ -53,8 +53,8 @@ const createWorkOrder = async (req, res) => {
       issuedBy: req.user.id
     };
 
-    workProposal.currentStatus = 'Work Order Created';
-    workProposal.workProgressStage = 'Work Order Created';
+    workProposal.currentStatus = 'Work In Progress';
+    workProposal.workProgressStage = 'Work In Progress';
 
     // Initialize work progress tracking
     workProposal.workProgress = {

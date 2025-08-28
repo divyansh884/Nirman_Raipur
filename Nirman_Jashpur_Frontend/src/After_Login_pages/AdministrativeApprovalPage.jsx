@@ -7,6 +7,7 @@ const AdministrativeApprovalPage = () => {
   onAddNew= "/add-work"
   showAddButton={false}
   onView="/Administrative-Approval-Form"
+  workStage="Pending Administrative Approval"
 />
   );
 };
