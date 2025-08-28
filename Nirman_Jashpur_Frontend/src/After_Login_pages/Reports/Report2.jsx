@@ -59,7 +59,7 @@ function saveData(rows) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
 }
 
-const AgencyReportTable = () => {
+const Report2 = () => {
   const [data, setData] = useState(loadData());
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
@@ -300,4 +300,4 @@ const AgencyReportTable = () => {
   );
 };
 
-export default AgencyReportTable;
+export default Report2;

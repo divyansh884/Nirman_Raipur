@@ -23,8 +23,8 @@ const limiter = rateLimit(config.rateLimit);
 app.use(limiter);
 
 // Middleware
-app.use(morgan('combined'));
-app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '10mb' }));
+app.use(morgan("combined"));
+app.use(express.json({ limit: process.env.MAX_FILE_SIZE || "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
@@ -45,12 +45,12 @@ app.use('/api/upload', require('./routes/upload')); // Upload routes (images + d
 
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
@@ -59,7 +59,6 @@ app.use(notFound);
 
 // Error handling middleware
 app.use(errorHandler);
-
 
 app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);
