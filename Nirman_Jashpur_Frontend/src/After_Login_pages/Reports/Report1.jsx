@@ -1,7 +1,5 @@
 // FinancialYearReport.js
 import React, { useState } from "react";
-import { fetchReport } from "./api"; // See previous API utility
-import { downloadExcel } from "./excelDownload"; // See previous Excel utility
 
 const tableHeaders = [
   "क्र.",           // S. No.

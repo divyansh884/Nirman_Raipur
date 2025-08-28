@@ -42,6 +42,17 @@ import Profile from "./After_Login_pages/Profile.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
 // import GISWorkList from "./After_Login_pages/GIS/WorkList.jsx";
 import Report1 from "./After_Login_pages/Reports/Report1.jsx";
+import Report2 from "./After_Login_pages/Reports/Report2.jsx";
+import Report3 from "./After_Login_pages/Reports/Report3.jsx";
+import Report4 from "./After_Login_pages/Reports/Report4.jsx";
+import Report5 from "./After_Login_pages/Reports/Report5.jsx";
+import Report6 from "./After_Login_pages/Reports/Report6.jsx";
+import Report7 from "./After_Login_pages/Reports/Report7.jsx";
+import Report8 from "./After_Login_pages/Reports/Report8.jsx";
+import Report9 from "./After_Login_pages/Reports/Report9.jsx";
+import Report10 from "./After_Login_pages/Reports/Report10.jsx";
+import Report11 from "./After_Login_pages/Reports/Report11.jsx";
+import Report12 from "./After_Login_pages/Reports/Report12.jsx";
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -123,6 +134,17 @@ const App = () => {
                 <Route path="/gis/map" element={<MyMap />} />
                 {/* <Route path="/gis/work-list" element={<GISWorkList />} /> */}
                 <Route path="/Report/Report1" element={<Report1 />} />
+                <Route path="/Report/Report2" element={<Report2 />} />
+                <Route path="/Report/Report3" element={<Report3 />} />
+                <Route path="/Report/Report4" element={<Report4 />} />
+                <Route path="/Report/Report5" element={<Report5 />} />
+                <Route path="/Report/Report6" element={<Report6 />} />
+                <Route path="/Report/Report7" element={<Report7 />} />
+                <Route path="/Report/Report8" element={<Report8 />} />
+                <Route path="/Report/Report9" element={<Report9 />} />
+                <Route path="/Report/Report10" element={<Report10 />} />
+                <Route path="/Report/Report11" element={<Report11 />} />
+                <Route path="/Report/Report12" element={<Report12 />} />
               </>
             )}
           </Routes>
@@ -204,7 +226,17 @@ const SideNavbar = ({ onLogout }) => {
       icon: <FileText />,
       children: [
         { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
-        { to: "/agency-report", label: "कार्य एजेंसीवार रिपोर्ट" },
+        { to: "/Report/Report2", label: "Report 2" },
+        { to: "/Report/Report3", label: "Report 3" },
+        { to: "/Report/Report4", label: "Report 4" },
+        { to: "/Report/Report5", label: "Report 5" },
+        { to: "/Report/Report6", label: "Report 6" },
+        { to: "/Report/Report7", label: "Report 7" },
+        { to: "/Report/Report8", label: "Report 8" },
+        { to: "/Report/Report9", label: "Report 9" },
+        { to: "/Report/Report10", label: "Report 10" },
+        { to: "/Report/Report11", label: "Report 11" },
+        { to: "/Report/Report12", label: "Report 12" },
       ],
     },
   ];
@@ -248,8 +280,8 @@ const SideNavbar = ({ onLogout }) => {
               <div
                 className={`ml-10 overflow-hidden transition-all duration-300 ease-in-out ${
                   openMenu === it.label
-                    ? "max-h-40 opacity-100"
-                    : "max-h-0 opacity-0"
+                    ? "opacity-100"
+                    : "max-h-0 opacity-0 overflow-hidden"
                 }`}
               >
                 {it.children.map((child) => (
