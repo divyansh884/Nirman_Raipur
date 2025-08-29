@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './WorkDetails.css';
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
 
 const WorkDetails = ({ onLogout, onBack }) => {
   const { workId } = useParams();
+  const navigate = useNavigate();
   const [workData, setWorkData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Get auth token
-  const getAuthToken = () => localStorage.getItem("authToken");
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout } = useAuthStore();
 
   // Load Font Awesome and fonts
   useEffect(() => {
@@ -29,7 +31,7 @@ const WorkDetails = ({ onLogout, onBack }) => {
     }
   }, []);
 
-  // Fetch work details from API
+  // Fetch work details from API using Zustand authentication
   useEffect(() => {
     const fetchWorkDetails = async () => {
       if (!workId) {
@@ -38,8 +40,8 @@ const WorkDetails = ({ onLogout, onBack }) => {
         return;
       }
 
-      const authToken = getAuthToken();
-      if (!authToken) {
+      // Check authentication using Zustand store
+      if (!isAuthenticated || !token) {
         setError("Authentication required. Please login.");
         setLoading(false);
         return;
@@ -53,14 +55,13 @@ const WorkDetails = ({ onLogout, onBack }) => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
+            'Authorization': `Bearer ${token}` // Use token from Zustand store
           }
         });
 
         if (!response.ok) {
           if (response.status === 401) {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("userData");
+            logout(); // Use Zustand logout function
             setError("Session expired. Please login again.");
             return;
           }
@@ -87,7 +88,7 @@ const WorkDetails = ({ onLogout, onBack }) => {
     };
 
     fetchWorkDetails();
-  }, [workId]);
+  }, [workId, isAuthenticated, token, logout]);
 
   // Safe render function to avoid object rendering errors
   const safeRender = (value, fallback = '-') => {
@@ -95,6 +96,43 @@ const WorkDetails = ({ onLogout, onBack }) => {
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   };
+
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="work-details-ref">
+        <div className="header">
+          <div className="top">
+            <div>
+              <div className="crumbs">निर्माण / कार्य विवरण</div>
+              <div className="title"><h1>निर्माण</h1></div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <div style={{textAlign: 'center', padding: '50px'}}>
+            <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+            <div style={{ color: 'orange', marginBottom: '20px' }}>
+              प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+            </div>
+            <button 
+              onClick={() => navigate('/login')}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {
@@ -134,20 +172,36 @@ const WorkDetails = ({ onLogout, onBack }) => {
           <div style={{textAlign: 'center', padding: '50px', color: 'red'}}>
             <i className="fa-solid fa-exclamation-triangle" style={{ fontSize: '24px', marginBottom: '10px' }}></i>
             <h3>Error: {error}</h3>
-            <button 
-              onClick={() => window.location.reload()} 
-              style={{
-                marginTop: '20px',
-                padding: '10px 20px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              Retry
-            </button>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+              {error.includes('Session expired') || error.includes('Authentication required') ? (
+                <button 
+                  onClick={() => navigate('/login')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fa-solid fa-sign-in-alt" /> लॉगिन करें
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -199,9 +253,8 @@ const WorkDetails = ({ onLogout, onBack }) => {
               type="button" 
               onClick={onLogout || (() => {
                 if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                  localStorage.removeItem("authToken");
-                  localStorage.removeItem("userData");
-                  window.location.href = '/';
+                  logout(); // Use Zustand logout function
+                  navigate('/');
                 }
               })}
             >
@@ -298,18 +351,6 @@ const WorkDetails = ({ onLogout, onBack }) => {
                     <span>{safeRender(workData.currentStatus)}</span>
                   </div>
                 </div>
-                
-                {/* COMMENTED OUT: Navigation arrows */}
-                {/* 
-                <div className="nav-arrows">
-                  <button className="nav-btn left" aria-label="Previous">
-                    <i className="fa-solid fa-chevron-left"></i>
-                  </button>
-                  <button className="nav-btn right" aria-label="Next">
-                    <i className="fa-solid fa-chevron-right"></i>
-                  </button>
-                </div>
-                */}
               </div>
             </section>
           </div>
@@ -401,20 +442,6 @@ const WorkDetails = ({ onLogout, onBack }) => {
                       </span>
                     </div>
                   </div>
-                  
-                  {/* COMMENTED OUT: Accept and Reject buttons */}
-                  {/*
-                  <div className="status-actions">
-                    <button className="btn green">
-                      <i className="fa-solid fa-check"></i>
-                      स्वीकार करें
-                    </button>
-                    <button className="btn red">
-                      <i className="fa-solid fa-times"></i>
-                      रिजेक्ट करें
-                    </button>
-                  </div>
-                  */}
                 </div>
               </div>
             </section>
@@ -466,14 +493,6 @@ const WorkDetails = ({ onLogout, onBack }) => {
                     <label>टिप्पणी</label>
                     <span>{safeRender(workData.technicalApproval?.remarks)}</span>
                   </div>
-                  
-                  {/* COMMENTED OUT: File view link */}
-                  {/*
-                  <div className="approval-item">
-                    <label>संलग्न फाइल</label>
-                    <span className="file-link">देखें</span>
-                  </div>
-                  */}
                 </div>
               </div>
             </section>
@@ -515,14 +534,6 @@ const WorkDetails = ({ onLogout, onBack }) => {
                     <label>टिप्पणी</label>
                     <span>{safeRender(workData.administrativeApproval?.remarks)}</span>
                   </div>
-                  
-                  {/* COMMENTED OUT: File view link */}
-                  {/*
-                  <div className="approval-item">
-                    <label>संलग्न फाइल</label>
-                    <span className="file-link">देखें</span>
-                  </div>
-                  */}
                 </div>
               </div>
             </section>
@@ -584,14 +595,6 @@ const WorkDetails = ({ onLogout, onBack }) => {
                         <td>टिप्पणी</td>
                         <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder?.remarks)}</td>
                       </tr>
-                      
-                      {/* COMMENTED OUT: File view */}
-                      {/*
-                      <tr>
-                        <td>संलग्न फाइल</td>
-                        <td style={{fontWeight:'bold'}}>देखें</td>
-                      </tr>
-                      */}
                     </tbody>
                   </table>
                 </div>

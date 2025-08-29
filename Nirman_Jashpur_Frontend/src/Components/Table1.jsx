@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import "./Table.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopBar from "../Components/TopBar.jsx";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+
 const Table1 = ({
   onLogout,
   onAddNew,
@@ -36,10 +38,17 @@ const Table1 = ({
   const location = useLocation();
   const pathParts = location.pathname.split("/").filter(Boolean);
 
-  // Get authentication token
-  function getAuthToken() {
-    return localStorage.getItem("authToken");
-  }
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout } = useAuthStore();
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setError("Authentication required. Please login.");
+      setLoading(false);
+      return;
+    }
+  }, [isAuthenticated, token]);
 
   // NEW: Check if delete button should be shown based on page
   function canShowDeleteButton() {
@@ -71,10 +80,10 @@ const Table1 = ({
     }));
   }
 
-  // Fetch data from API
+  // Fetch data from API using Zustand token
   async function fetchWorkProposals() {
-    const authToken = getAuthToken();
-    if (!authToken) {
+    // Check authentication first
+    if (!isAuthenticated || !token) {
       setError("Authentication required. Please login.");
       setLoading(false);
       return;
@@ -88,7 +97,7 @@ const Table1 = ({
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}` // Use token from Zustand store
         }
       });
 
@@ -96,8 +105,8 @@ const Table1 = ({
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          // Token is invalid, logout user
+          logout();
           setError("Session expired. Please login again.");
           return;
         }
@@ -123,12 +132,17 @@ const Table1 = ({
     }
   }
 
+  // Only fetch data if authenticated
   useEffect(() => {
-    fetchWorkProposals();
-  }, [page, size]);
+    if (isAuthenticated && token) {
+      fetchWorkProposals();
+    }
+  }, [page, size, isAuthenticated, token]);
 
   function refreshData() {
-    fetchWorkProposals();
+    if (isAuthenticated && token) {
+      fetchWorkProposals();
+    }
   }
 
   const getStageTitle = () => {
@@ -237,12 +251,11 @@ const Table1 = ({
     URL.revokeObjectURL(a.href);
   }
 
-  // ENHANCED: Improved delete function with proper error handling
+  // ENHANCED: Improved delete function with Zustand authentication
   async function deleteRow(id) {
     if (!window.confirm("क्या आप वाकई इस कार्य को हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।")) return;
     
-    const authToken = getAuthToken();
-    if (!authToken) {
+    if (!isAuthenticated || !token) {
       showToast("प्रमाणीकरण आवश्यक है। कृपया पुनः लॉगिन करें।");
       return;
     }
@@ -254,14 +267,13 @@ const Table1 = ({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}` // Use token from Zustand store
         }
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          logout(); // Logout using Zustand
           setError("Session expired. Please login again.");
           return;
         }
@@ -348,6 +360,37 @@ const Table1 = ({
     }
   }, []);
 
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="work-ref">
+        <div className="header">
+          <div className="table-top">
+            <div>
+              <div className="crumbs">{meta.crumbs}</div>
+              <div className="title">
+                <h1>{meta.title}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+              <div style={{ color: 'orange', marginBottom: '20px' }}>
+                प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+              </div>
+              <button className="btn blue" onClick={() => navigate('/login')}>
+                <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="work-ref">
@@ -391,9 +434,16 @@ const Table1 = ({
             <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
               <i className="fa-solid fa-exclamation-triangle" style={{ fontSize: '24px', marginBottom: '10px', color: 'red' }}></i>
               <div style={{ color: 'red', marginBottom: '20px' }}>{error}</div>
-              <button className="btn blue" onClick={refreshData}>
-                <i className="fa-solid fa-refresh" /> पुनः प्रयास करें
-              </button>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button className="btn blue" onClick={refreshData}>
+                  <i className="fa-solid fa-refresh" /> पुनः प्रयास करें
+                </button>
+                {error.includes('Session expired') || error.includes('Authentication required') ? (
+                  <button className="btn green" onClick={() => navigate('/login')}>
+                    <i className="fa-solid fa-sign-in-alt" /> लॉगिन करें
+                  </button>
+                ) : null}
+              </div>
             </div>
           </section>
         </div>
