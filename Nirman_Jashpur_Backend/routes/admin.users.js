@@ -68,6 +68,7 @@ router.post(
         "Tender Manager",
         "Work Order Manager",
         "Progress Monitor",
+        "Engineer",
       ])
       .withMessage("Invalid role"),
     body("department")
