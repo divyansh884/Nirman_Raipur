@@ -108,13 +108,3 @@ router.delete(
 );
 
 module.exports = router;
-
-/*
---- USAGE ---
-1) Place in routes/admin.departments.js
-2) In app.js: const adminDeptRoutes = require('./routes/admin.departments'); app.use('/api/admin', adminDeptRoutes);
-
---- SAMPLE REQUESTS ---
-POST /api/admin/departments { "name": "Civil Engineering", "description": "Handles construction projects" }
-PATCH /api/admin/departments/:id { "isActive": false }
-*/
