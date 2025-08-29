@@ -62,10 +62,6 @@ app.use("/api/admin/city", cityRoutes);
 app.use("/api/admin/department", workDepartmentRoutes);
 
 
-
-
-
-
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({

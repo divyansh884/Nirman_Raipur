@@ -352,16 +352,11 @@ const workProposalSchema = new mongoose.Schema({
     required: true
   },
   
-  userDepartment: {
-    type: String,
-    required: [true, 'User department is required'],
-    trim: true
-  },
   
   approvingDepartment: {
-    type: String,
-    required: [true, 'Approving department is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    required: true
   },
   
   sanctionAmount: {
@@ -435,12 +430,11 @@ const workProposalSchema = new mongoose.Schema({
     default: null
   },
   
-
   //Important
   appointedEngineer: {
-    type: String,
-    trim: true,
-    default: null
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   
   appointedSDO: {

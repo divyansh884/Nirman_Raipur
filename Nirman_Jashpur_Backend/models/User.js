@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema(
         "Work Order Manager", // Can create work orders
         "Progress Monitor", // Can update work progress
         "Super Admin", // Can do everything
+        "Engineer",
       ],
       required: [true, "User role is required"],
     },

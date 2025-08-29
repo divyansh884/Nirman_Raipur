@@ -1,5 +1,5 @@
-import express from "express";
-import SDO from "../models/subSchema/sdo";
+const express = require("express");
+const SDO = require("../models/subSchema/sdo");
 
 const router = express.Router();
 const { auth, authorizeRole } = require("../middleware/auth");
@@ -57,4 +57,4 @@ router.delete("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

@@ -1,5 +1,5 @@
-import express from "express";
-import Ward from "../models/subSchema/ward";
+const express = require("express");
+const Ward = require("../models/subSchema/ward");
 
 const router = express.Router();
 const { auth, authorizeRole } = require("../middleware/auth");
@@ -57,4 +57,4 @@ router.delete("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

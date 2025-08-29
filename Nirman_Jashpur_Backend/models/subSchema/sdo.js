@@ -1,7 +1,9 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const sdoSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true, trim: true }
+  name: { type: String, required: true, unique: true, trim: true },
 });
 
-export default mongoose.model("SDO", sdoSchema);
+module.exports = {
+  Scheme: mongoose.model('SDO', sdoSchema)
+};

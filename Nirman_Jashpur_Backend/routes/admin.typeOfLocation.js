@@ -1,5 +1,5 @@
-import express from "express";
-import TypeOfLocation from "../models/subSchema/typeOfLocation";
+const express = require("express");
+const TypeOfLocation = require("../models/subSchema/typeOfLocation");
 
 const router = express.Router();
 const { auth, authorizeRole } = require("../middleware/auth");
@@ -58,4 +58,4 @@ router.delete("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
