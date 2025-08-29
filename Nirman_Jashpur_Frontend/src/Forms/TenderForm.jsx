@@ -3,12 +3,14 @@ import axios from "axios";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+
 export default function TenderForm({ onLogout }) {
   const navigate = useNavigate();
-
   const { workId } = useParams();
 
-
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout } = useAuthStore();
 
   // Form state
   const [form, setForm] = useState({
@@ -24,11 +26,6 @@ export default function TenderForm({ onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Get authentication token
-  function getAuthToken() {
-    return localStorage.getItem("authToken");
-  }
-
   useEffect(() => {
     document.title = "निर्माण | निविदा प्रपत्र";
     
@@ -38,8 +35,16 @@ export default function TenderForm({ onLogout }) {
     if (!workId) {
       alert("कार्य ID नहीं मिला। कृपया वापस जाएं।");
       navigate(-1);
+      return;
     }
-  }, [workId, navigate]);
+
+    // Check authentication on component mount
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate("/login");
+      return;
+    }
+  }, [workId, navigate, isAuthenticated, token]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -81,8 +86,7 @@ export default function TenderForm({ onLogout }) {
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("userData");
+      logout(); // Use Zustand logout function
       navigate("/");
     }
   };
@@ -100,9 +104,8 @@ export default function TenderForm({ onLogout }) {
         return;
       }
 
-      // ✅ Step 2: Authentication check
-      const authToken = getAuthToken();
-      if (!authToken) {
+      // ✅ Step 2: Authentication check using Zustand store
+      if (!isAuthenticated || !token) {
         alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
         navigate("/login");
         return;
@@ -137,14 +140,14 @@ export default function TenderForm({ onLogout }) {
       console.log("🆔 Work ID:", workId);
       console.log("📋 Payload:", payload);
 
-      // ✅ Step 6: API call with JSON content type
+      // ✅ Step 6: API call with token from Zustand store
       const response = await axios.post(
         `http://localhost:3000/api/work-proposals/${workId}/tender/start`,
         payload,
         {
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
+            "Authorization": `Bearer ${token}` // Use token from Zustand store
           },
         }
       );
@@ -203,8 +206,7 @@ export default function TenderForm({ onLogout }) {
             
           case 401:
             alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("userData");
+            logout(); // Use Zustand logout function
             navigate("/login");
             break;
             
@@ -232,11 +234,39 @@ export default function TenderForm({ onLogout }) {
     }
   };
 
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="workorder-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+          <div className="subbar">
+            <span className="dot" />
+            <h2>निविदा प्रपत्र</h2>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+              <div style={{ color: 'orange', marginBottom: '20px' }}>
+                प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('/login')}>
+                <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="workorder-page">
       {/* Header */}
       <div className="header">
-        <TopBar  />
+        <TopBar onLogout={onLogout} />
 
         <div className="subbar">
           <span className="dot" />

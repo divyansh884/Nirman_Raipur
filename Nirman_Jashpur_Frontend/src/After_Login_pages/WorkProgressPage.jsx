@@ -27,7 +27,6 @@ const WorkProgressPage = () => {
       ...baseProps,
       onView: '/work',
       // You might want to show different button label for non-engineers
-      addButtonLabel: "कार्य देखें"
     };
   };
 

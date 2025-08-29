@@ -3,10 +3,15 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import "./WorkInProgressForm.css";
 import TopBar from "../Components/TopBar.jsx";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+
 export default function WorkInProgressForm({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { workId } = useParams();
+
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout } = useAuthStore();
 
   // ✅ Breadcrumbs based on path
   const crumbs = React.useMemo(() => {
@@ -19,7 +24,7 @@ export default function WorkInProgressForm({ onLogout }) {
     return [...parts].join(" / ");
   }, [location.pathname]);
 
-  // ✅ Set Page Title
+  // ✅ Set Page Title and Check Authentication
   useEffect(() => {
     document.title = "निर्माण | राशि प्रगति प्रपत्र";
     
@@ -29,8 +34,16 @@ export default function WorkInProgressForm({ onLogout }) {
     if (!workId) {
       alert("कार्य ID नहीं मिला। कृपया वापस जाएं।");
       navigate(-1);
+      return;
     }
-  }, [workId, navigate]);
+
+    // Check authentication on component mount
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate("/login");
+      return;
+    }
+  }, [workId, navigate, isAuthenticated, token]);
 
   const [rows, setRows] = useState([{ kisht: 1, amount: "", date: "", description: "" }]);
   
@@ -51,11 +64,6 @@ export default function WorkInProgressForm({ onLogout }) {
   // Loading and error states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
-
-  // Get authentication token
-  function getAuthToken() {
-    return localStorage.getItem("authToken");
-  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -129,10 +137,9 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
-  // ✅ API Call 1: Submit Progress Update
+  // ✅ API Call 1: Submit Progress Update using Zustand token
   const submitProgressUpdate = async () => {
-    const authToken = getAuthToken();
-    if (!authToken) {
+    if (!isAuthenticated || !token) {
       throw new Error("Authentication required");
     }
 
@@ -153,7 +160,7 @@ export default function WorkInProgressForm({ onLogout }) {
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`
+          "Authorization": `Bearer ${token}` // Use token from Zustand store
         }
       }
     );
@@ -161,10 +168,9 @@ export default function WorkInProgressForm({ onLogout }) {
     return response;
   };
 
-  // ✅ API Call 2: Submit Installment (for each row)
+  // ✅ API Call 2: Submit Installment using Zustand token
   const submitInstallment = async (installmentData) => {
-    const authToken = getAuthToken();
-    if (!authToken) {
+    if (!isAuthenticated || !token) {
       throw new Error("Authentication required");
     }
 
@@ -182,7 +188,7 @@ export default function WorkInProgressForm({ onLogout }) {
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`
+          "Authorization": `Bearer ${token}` // Use token from Zustand store
         }
       }
     );
@@ -192,8 +198,7 @@ export default function WorkInProgressForm({ onLogout }) {
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("userData");
+      logout(); // Use Zustand logout function
       navigate("/");
     }
   };
@@ -202,7 +207,7 @@ export default function WorkInProgressForm({ onLogout }) {
     navigate(-1);
   };
 
-  // ✅ Main Submit Handler
+  // ✅ Main Submit Handler with Zustand authentication
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -211,8 +216,8 @@ export default function WorkInProgressForm({ onLogout }) {
         return;
       }
 
-      const authToken = getAuthToken();
-      if (!authToken) {
+      // Check authentication using Zustand store
+      if (!isAuthenticated || !token) {
         alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
         navigate("/login");
         return;
@@ -279,8 +284,7 @@ export default function WorkInProgressForm({ onLogout }) {
             break;
           case 401:
             alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("userData");
+            logout(); // Use Zustand logout function
             navigate("/login");
             break;
           case 403:
@@ -303,12 +307,39 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="workprogress-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+          <div className="subbar">
+            <span className="dot" />
+            <h2>राशि प्रगति प्रपत्र</h2>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+              <div style={{ color: 'orange', marginBottom: '20px' }}>
+                प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('/login')}>
+                <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="workprogress-page">
       {/* ✅ Top bar */}
       <div className="header">
-        <TopBar />
-
+        <TopBar onLogout={onLogout} />
         <div className="subbar">
           <span className="dot" />
           <h2>राशि प्रगति प्रपत्र - Work ID: {workId}</h2>

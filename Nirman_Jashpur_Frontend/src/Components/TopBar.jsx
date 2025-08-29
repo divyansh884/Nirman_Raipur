@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-
-const TopBar = ({onLogout}) => {
+import useAuthStore from '../Store/useAuthStore.js';
+const TopBar = () => {
     const navigate = useNavigate();
       const location = useLocation();
        const params = useParams();
-
+      const { user, isAdmin, logout } = useAuthStore();
       // Build crumbs from current path
       const crumbs = React.useMemo(() => {
         const parts = location.pathname
@@ -17,6 +17,9 @@ const TopBar = ({onLogout}) => {
           );
         return [...parts].join(" / ");
       }, [location.pathname]);
+      const handleLogout = () => {
+    logout();
+  };
     return (
         <div className="top">
           <div className="brand">
@@ -40,13 +43,7 @@ const TopBar = ({onLogout}) => {
               className="logout" 
               aria-label="Logout" 
               type="button" 
-              onClick={onLogout || (() => {
-                if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                  localStorage.removeItem("authToken");
-                  localStorage.removeItem("userData");
-                  window.location.href = '/';
-                }
-              })}
+              onClick={handleLogout}
             >
                 <i className="fa-solid fa-power-off" />
               </button>

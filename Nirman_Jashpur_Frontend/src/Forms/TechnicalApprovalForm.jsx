@@ -3,10 +3,14 @@ import axios from "axios";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+
 export default function TechnicalApprovalPage({ onLogout }) {
   const navigate = useNavigate();
   const { workId } = useParams();
-  
+
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout } = useAuthStore();
 
   // Form state
   const [form, setForm] = useState({
@@ -22,14 +26,20 @@ export default function TechnicalApprovalPage({ onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Get authentication token
-  function getAuthToken() {
-    return localStorage.getItem("authToken");
-  }
-
   useEffect(() => {
     document.title = "निर्माण | तकनीकी स्वीकृति";
-  }, []);
+
+    // Check authentication on component mount
+    const checkAuth = () => {
+      if (!isAuthenticated || !token) {
+        alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+        navigate("/login");
+        return;
+      }
+    };
+
+    checkAuth();
+  }, [isAuthenticated, token, navigate]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -63,8 +73,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("userData");
+      logout(); // Use Zustand logout function
       navigate("/");
     }
   };
@@ -80,9 +89,8 @@ export default function TechnicalApprovalPage({ onLogout }) {
       return;
     }
 
-    // Check authentication
-    const authToken = getAuthToken();
-    if (!authToken) {
+    // Check authentication using Zustand store
+    if (!isAuthenticated || !token) {
       alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
       navigate("/login");
       return;
@@ -103,14 +111,14 @@ export default function TechnicalApprovalPage({ onLogout }) {
       console.log("📤 Sending payload to backend:", payload);
       console.log("✅ Action field automatically added:", payload.action);
 
-      // ✅ Updated API call with JSON content type
+      // ✅ Updated API call using token from Zustand store
       const response = await axios.post(
         `http://localhost:3000/api/work-proposals/${workId}/technical-approval`,
         payload,
         {
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
+            "Authorization": `Bearer ${token}` // Use token from Zustand store
           },
         }
       );
@@ -120,15 +128,6 @@ export default function TechnicalApprovalPage({ onLogout }) {
         try {
           const fileFormData = new FormData();
           fileFormData.append("document", form.document);
-          
-          // You might need a separate endpoint for document upload
-          // await axios.post(`http://localhost:3000/api/work-proposals/${workID}/documents`, fileFormData, {
-          //   headers: {
-          //     "Content-Type": "multipart/form-data",
-          //     "Authorization": `Bearer ${authToken}`
-          //   }
-          // });
-          
           console.log("📁 Document will be handled separately:", form.document.name);
         } catch (fileError) {
           console.warn("⚠️ Document upload failed:", fileError);
@@ -171,8 +170,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
         
         if (status === 401) {
           alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          logout(); // Use Zustand logout function
           navigate("/login");
         } else if (status === 403) {
           alert("आपको इस कार्य को करने की अनुमति नहीं है।");
@@ -193,11 +191,39 @@ export default function TechnicalApprovalPage({ onLogout }) {
     }
   };
 
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="workorder-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+          <div className="subbar">
+            <span className="dot" />
+            <h2>तकनीकी स्वीकृति</h2>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+              <div style={{ color: 'orange', marginBottom: '20px' }}>
+                प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('/login')}>
+                <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="workorder-page">
       {/* Top bar */}
       <div className="header">
-        <TopBar />
+        <TopBar onLogout={onLogout} />
 
         <div className="subbar">
           <span className="dot" />
