@@ -65,7 +65,12 @@ const workProgressSchema = new mongoose.Schema({
   lastModified: {
     type: Date,
     default: Date.now
+<<<<<<< HEAD
   }
+=======
+  },
+  // progressImages: imageSchema
+>>>>>>> c0a409aa9427767e33765b9a8588b6ab452d7298
 
 }, {
   timestamps: true,
