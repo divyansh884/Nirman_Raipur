@@ -39,6 +39,8 @@ app.use('/api/work-progress', require('./routes/workProgress')); // General prog
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/upload', require('./routes/upload')); // Upload routes (images + documents)
 
+app.use('/api/admin/user', require('./routes/admin.users'))
+app.use('/api/admin/department', require('./routes/admin.department'))
 
 
 
