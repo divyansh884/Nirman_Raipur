@@ -1,101 +1,66 @@
 import React, { useState } from "react";
+import useAuthStore from '../Store/useAuthStore.js';
 
 const LoginPage = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
   const [success, setSuccess] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Get auth store state and actions
+  const { login, isLoading, error, clearError } = useAuthStore();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     
+    // Clear previous errors
+    setLocalError("");
+    setSuccess("");
+    clearError();
+    
     // Basic validation
     if (!email.trim() || !password.trim()) {
-      setError("❌ कृपया सभी फ़ील्ड भरें");
-      setSuccess("");
+      setLocalError("❌ कृपया सभी फ़ील्ड भरें");
       return;
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError("❌ कृपया वैध ईमेल पता दर्ज करें");
-      setSuccess("");
+      setLocalError("❌ कृपया वैध ईमेल पता दर्ज करें");
       return;
     }
 
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-        }),
+      const result = await login({
+        email: email.trim(),
+        password: password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle different error scenarios
-        if (response.status === 401) {
-          throw new Error("❌ गलत ईमेल या पासवर्ड");
-        } else if (response.status === 400) {
-          throw new Error("❌ " + (data.message || "गलत डेटा प्रदान किया गया"));
-        } else if (response.status === 500) {
-          throw new Error("❌ सर्वर त्रुटि। कृपया बाद में पुनः प्रयास करें");
-        } else {
-          throw new Error("❌ " + (data.message || "लॉगिन में त्रुटि हुई"));
-        }
+      if (result.success) {
+        setSuccess("✅ सफलतापूर्वक लॉगिन हो गए!");
+        
+        // Call success callback after a short delay
+        setTimeout(() => {
+          onLoginSuccess(result.data);
+        }, 1000);
       }
-
-      // Check if login was successful
-      if (!data.success) {
-        throw new Error("❌ " + (data.message || "लॉगिन में त्रुटि हुई"));
-      }
-
-      // Success response - store user data and token
-      console.log("Login successful:", data);
-      
-      if (data.data?.token) {
-        localStorage.setItem("authToken", data.data.token);
-      }
-      if (data.data?.user) {
-        localStorage.setItem("userData", JSON.stringify(data.data.user));
-      }
-
-      setSuccess("✅ सफलतापूर्वक लॉगिन हो गए!");
-      setError("");
-
-      // Call success callback with user data after a short delay
-      setTimeout(() => {
-        onLoginSuccess({
-          user: data.data.user,
-          token: data.data.token
-        });
-      }, 1000);
-
     } catch (error) {
-      console.error("Login error:", error);
-      
-      // Handle network errors
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setError("❌ नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें");
+      // Handle specific error types
+      if (error.message.includes('fetch')) {
+        setLocalError("❌ नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें");
+      } else if (error.message.includes('401')) {
+        setLocalError("❌ गलत ईमेल या पासवर्ड");
+      } else if (error.message.includes('500')) {
+        setLocalError("❌ सर्वर त्रुटि। कृपया बाद में पुनः प्रयास करें");
       } else {
-        setError(error.message || "❌ लॉगिन में त्रुटि हुई");
+        setLocalError("❌ " + error.message);
       }
-      setSuccess("");
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  // Display error from store or local error
+  const displayError = error || localError;
 
   return (
     <div
@@ -192,9 +157,9 @@ const LoginPage = ({ onLoginSuccess }) => {
             }}
           />
 
-          {error && (
+          {displayError && (
             <p style={{ color: "red", margin: "5px 0", fontSize: "14px" }}>
-              {error}
+              {displayError}
             </p>
           )}
           {success && (
