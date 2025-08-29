@@ -4,7 +4,7 @@ import axios from "axios";
 import "./WorkInProgressForm.css";
 import TopBar from "../Components/TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 export default function WorkInProgressForm({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -183,7 +183,7 @@ export default function WorkInProgressForm({ onLogout }) {
     console.log("📤 Submitting installment:", payload);
 
     const response = await axios.post(
-      `http://localhost:3000/api/work-proposals/${workId}/progress/installment`,
+      `${BASE_SERVER_URL}/work-proposals/${workId}/progress/installment`,
       payload,
       {
         headers: {

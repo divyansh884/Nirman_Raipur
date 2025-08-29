@@ -3,7 +3,7 @@ import "./Table.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopBar from "../Components/TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import {BASE_SERVER_URL} from '../constants.jsx';
 const Table1 = ({
   onLogout,
   onAddNew,
@@ -93,11 +93,11 @@ const Table1 = ({
       setLoading(true);
       setError("");
       
-      const response = await fetch(`http://localhost:3000/api/work-proposals?page=${page}&limit=${size}`, {
+      const response = await fetch(`${BASE_SERVER_URL}/work-proposals?page=${page}&limit=${size}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Use token from Zustand store
+          'Authorization': `Bearer ${token}` 
         }
       });
 
@@ -263,7 +263,7 @@ const Table1 = ({
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:3000/api/work-proposals/${id}`, {
+      const response = await fetch(`${BASE_SERVER_URL}/work-proposals/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
