@@ -186,7 +186,7 @@ const updateWorkProposal = async (req, res) => {
     const allowedUpdates = [
       'typeOfWork', 'nameOfWork', 'workAgency', 'scheme', 'nameOfJPDBT', 
       'nameOfGPWard', 'workDescription', 'financialYear', 'workDepartment',
-      'userDepartment', 'approvingDepartment', 'sanctionAmount', 'plan',
+      'approvingDepartment', 'sanctionAmount', 'plan',
       'assembly', 'longitude', 'latitude', 'typeOfLocation', 'city', 'ward',
       'workType', 'workName', 'appointedEngineer', 'appointedSDO',
       'estimatedCompletionDateOfWork', 'isDPROrNot', 'isTenderOrNot'

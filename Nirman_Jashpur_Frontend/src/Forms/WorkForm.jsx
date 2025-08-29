@@ -19,6 +19,10 @@ const initialState = {
   engineer: '',
   sdo: '',
   startDate: '',
+  city: '',
+  map: '',
+  landmarkNumber: '',
+  promise: '',
   // ✅ Added checkbox states
   isDPRNotReceived: false,
   isTenderRequired: false,
@@ -66,6 +70,10 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         engineer: prefilledData.details?.engineer || '',
         sdo: prefilledData.details?.sdo || '',
         startDate: prefilledData.details?.startDate || '',
+        city: prefilledData.details?.city || '',
+        map: prefilledData.details?.map || '',
+        landmarkNumber: prefilledData.details?.landmarkNumber || '',
+        promise: prefilledData.details?.promise || '',
         // ✅ Add checkbox prefilled data
         isDPRNotReceived: prefilledData.details?.isDPRNotReceived || false,
         isTenderRequired: prefilledData.details?.isTenderRequired || false,
@@ -196,8 +204,12 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         financialYear: form.workYear,
         workDepartment: form.dept,
         userDepartment: form.subDept,
+        city: form.city,
+        ward: form.ward,
+        appointedEngineer: form.engineer,
         approvingDepartment: form.centralDept,
         sanctionAmount: parseFloat(form.amount) || 0,
+
         estimatedCompletionDateOfWork: convertDateToISO(form.startDate),
         
         // Optional fields
@@ -206,11 +218,11 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         longitude: form.longitude ? parseFloat(form.longitude) : null,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
         typeOfLocation: form.areaType || null,
-        city: form.city || null,
-        ward: form.ward || null,
-        workType: form.workCategory || null,
+        
+        map: form.map || null,
+        landmarkNumber: form.landmarkNumber || null,
+        promise: form.promise || null,
         workName: form.workName,
-        appointedEngineer: form.engineer || null,
         appointedSDO: form.sdo || null,
         
         // ✅ Use checkbox values instead of hardcoded defaults
@@ -437,13 +449,37 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               {errors.workType && <small className="err">{errors.workType}</small>}
             </div>
             <div className="fld">
-              <label>कार्य श्रेणी <span className="req">*</span></label>
-              <select name="workCategory" value={form.workCategory} onChange={update} disabled={isSubmitting}>
-                <option value="">-- श्रेणी चुने --</option>
-                <option>नई</option>
-                <option>मरम्मत</option>
-              </select>
-              {errors.workCategory && <small className="err">{errors.workCategory}</small>}
+              <label>नक्शा</label>
+              <input 
+                name="map"
+                value={form.map} 
+                onChange={update} 
+                placeholder="नक्शा"
+                disabled={isSubmitting}
+              />
+              {errors.map && <small className="err">{errors.map}</small>}
+            </div>
+            <div className="fld">
+              <label>खसरा</label>
+              <input 
+                name="landmarkNumber"
+                value={form.landmarkNumber} 
+                onChange={update} 
+                placeholder="खसरा"
+                disabled={isSubmitting}
+              />
+              {errors.landmarkNumber && <small className="err">{errors.landmarkNumber}</small>}
+            </div>
+            <div className="fld">
+              <label>प्रस्ताव</label>
+              <input 
+                name="promise"
+                value={form.promise} 
+                onChange={update} 
+                placeholder="प्रस्ताव"
+                disabled={isSubmitting}
+              />
+              {errors.promise && <small className="err">{errors.promise}</small>}
             </div>
             <div className="fld">
               <label>कार्य का नाम <span className="req">*</span></label>
