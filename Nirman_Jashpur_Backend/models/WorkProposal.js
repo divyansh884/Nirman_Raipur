@@ -266,9 +266,9 @@ const workProposalSchema = new mongoose.Schema({
   
   // Type of work
   typeOfWork: {
-    type: String,
-    required: [true, 'Type of work is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TypeOfWork',
+    required: true
   },
   
   // Name of work
@@ -281,16 +281,16 @@ const workProposalSchema = new mongoose.Schema({
   
   // Work Agency
   workAgency: {
-    type: String,
-    required: [true, 'Work agency is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WorkAgency',
+    required: true
   },
   
   // Scheme
   scheme: {
-    type: String,
-    required: [true, 'Scheme is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Scheme',
+    required: true
   },
   
   // Name of JP/DBT
@@ -347,9 +347,9 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   workDepartment: {
-    type: String,
-    required: [true, 'Work department is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WorkDepartment',
+    required: true
   },
   
   userDepartment: {
@@ -393,21 +393,21 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   typeOfLocation: {
-    type: String,
-    trim: true,
-    default: null
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TypeOfLocation',
+    required: true
   },
   
   city: {
-    type: String,
-    trim: true,
-    default: null
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'City',
+    required: true
   },
   
   ward: {
-    type: String,
-    trim: true,
-    default: null
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ward',
+    required: true
   },
   
   //Karya Shreni
@@ -444,9 +444,9 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   appointedSDO: {
-    type: String,
-    trim: true,
-    default: null
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SDO',
+    required: true
   },
   
   estimatedCompletionDateOfWork: {
