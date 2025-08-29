@@ -48,7 +48,6 @@ router.post(
 router.get(
   '/departments',
   auth,
-  authorizeRole('Super Admin'),
   async (req, res) => {
     const departments = await Department.find().sort({ createdAt: -1 });
     res.json({ success: true, data: departments });
@@ -60,7 +59,6 @@ router.get(
 router.get(
   '/departments/:id',
   auth,
-  authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
     const department = await Department.findById(req.params.id);
