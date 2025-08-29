@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 export default function WorkOrderForm({ onLogout }) {
   const navigate = useNavigate();
   const { workId } = useParams();
@@ -142,7 +142,7 @@ export default function WorkOrderForm({ onLogout }) {
 
       // ✅ Step 6: API call with token from Zustand store
       const response = await axios.post(
-        `http://localhost:3000/api/work-proposals/${workId}/work-order`,
+        `${BASE_SERVER_URL}/work-proposals/${workId}/work-order`,
         payload,
         {
           headers: {

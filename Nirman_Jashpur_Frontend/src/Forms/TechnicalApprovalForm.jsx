@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 export default function TechnicalApprovalPage({ onLogout }) {
   const navigate = useNavigate();
   const { workId } = useParams();
@@ -113,7 +113,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
 
       // ✅ Updated API call using token from Zustand store
       const response = await axios.post(
-        `http://localhost:3000/api/work-proposals/${workId}/technical-approval`,
+        `${BASE_SERVER_URL}/work-proposals/${workId}/technical-approval`,
         payload,
         {
           headers: {

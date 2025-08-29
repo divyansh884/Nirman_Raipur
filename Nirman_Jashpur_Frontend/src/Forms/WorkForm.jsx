@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './WorkForm.css';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 const initialState = {
   workYear: '',
   dept: '',
@@ -235,7 +235,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
 
       console.log("📤 Sending work proposal data:", workProposalData);
 
-      const response = await fetch('http://localhost:3000/api/work-proposals', {
+      const response = await fetch(`${BASE_SERVER_URL}/work-proposals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
