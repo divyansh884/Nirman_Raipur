@@ -66,7 +66,6 @@ const workProgressSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // progressImages: imageSchema
 
 }, {
   timestamps: true,

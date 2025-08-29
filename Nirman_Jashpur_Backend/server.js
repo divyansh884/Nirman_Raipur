@@ -7,6 +7,15 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./utils/database');
 const config = require('./config/config');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const typeOfWorkRoutes = require("./routes/admin.typeOfWork");
+const workAgencyRoutes = require("./routes/admin.workAgency");
+const schemeRoutes = require("./routes/admin.scheme");
+const sdoRoutes = require("./routes/admin.sdo");
+const wardRoutes = require("./routes/admin.ward");
+const typeOfLocationRoutes = require("./routes/admin.typeOfLocation");
+const cityRoutes = require("./routes/admin.city");
+const workDepartmentRoutes = require("./routes/admin.department");
+
 
 
 const app = express();
@@ -42,8 +51,15 @@ app.use('/api/upload', require('./routes/upload')); // Upload routes (images + d
 app.use('/api/admin/user', require('./routes/admin.users'))
 app.use('/api/admin/department', require('./routes/admin.department'))
 
-
-
+// Sub-schema admin routes
+app.use("/api/admin/type-of-work", typeOfWorkRoutes);
+app.use("/api/admin/work-agency", workAgencyRoutes);
+app.use("/api/admin/scheme", schemeRoutes);
+app.use("/api/admin/sdo", sdoRoutes);
+app.use("/api/admin/ward", wardRoutes);
+app.use("/api/admin/type-of-location", typeOfLocationRoutes);
+app.use("/api/admin/city", cityRoutes);
+app.use("/api/admin/department", workDepartmentRoutes);
 
 
 // Health check endpoint
