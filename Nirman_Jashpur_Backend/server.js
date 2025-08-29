@@ -7,6 +7,9 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./utils/database');
 const config = require('./config/config');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const typeOfWorkRoutes = require("./routes/admin.typeOfWork");
+const workAgencyRoutes = require("./routes/admin.workAgency");
+const schemeRoutes = require("./routes/admin.scheme");
 
 
 const app = express();
@@ -41,6 +44,11 @@ app.use('/api/upload', require('./routes/upload')); // Upload routes (images + d
 
 app.use('/api/admin/user', require('./routes/admin.users'))
 app.use('/api/admin/department', require('./routes/admin.department'))
+
+// Sub-schema admin routes
+app.use("/api/admin/type-of-work", typeOfWorkRoutes);
+app.use("/api/admin/work-agency", workAgencyRoutes);
+app.use("/api/admin/scheme", schemeRoutes);
 
 
 

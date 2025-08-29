@@ -410,7 +410,20 @@ const workProposalSchema = new mongoose.Schema({
     default: null
   },
   
-  workType: {
+  //Karya Shreni
+  map: {
+    type: String,
+    trim: true,
+    default: null
+  },
+
+  landmarkNumber: {
+    type: String,
+    trim: true,
+    default: null
+  },
+
+  promise: {
     type: String,
     trim: true,
     default: null
@@ -422,6 +435,8 @@ const workProposalSchema = new mongoose.Schema({
     default: null
   },
   
+
+  //Important
   appointedEngineer: {
     type: String,
     trim: true,
