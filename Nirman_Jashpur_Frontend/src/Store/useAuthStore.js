@@ -2,6 +2,46 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Define page access permissions for each role
+const ROLE_PERMISSIONS = {
+  'Admin': [
+    'dashboard',
+    'technical-approval',
+    'administrative-approval', 
+    'work-progress',
+    'tender',
+    'work-order',
+    'work',
+    'users',
+    'reports',
+    'settings'
+  ],
+  'Administrative Approver': [
+    'dashboard',
+    'administrative-approval'
+  ],
+  'Technical Approver': [
+    'dashboard',
+    'technical-approval'
+  ],
+  'User': [
+    'dashboard',
+    'work'
+  ],
+  'Engineer': [
+    'dashboard',
+    'work-progress'
+  ],
+  'Tender Handler': [
+    'dashboard',
+    'tender'
+  ],
+  'Work Order Manager': [
+    'dashboard',
+    'work-order'
+  ]
+};
+
 const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -28,7 +68,15 @@ const useAuthStore = create(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.message || 'Login failed');
+            if (response.status === 401) {
+              throw new Error("❌ गलत ईमेल या पासवर्ड");
+            } else if (response.status === 400) {
+              throw new Error("❌ " + (data.message || "गलत डेटा प्रदान किया गया"));
+            } else if (response.status === 500) {
+              throw new Error("❌ सर्वर त्रुटि। कृपया बाद में पुनः प्रयास करें");
+            } else {
+              throw new Error("❌ " + (data.message || "लॉगिन में त्रुटि हुई"));
+            }
           }
 
           if (data.success && data.data?.token && data.data?.user) {
@@ -42,7 +90,7 @@ const useAuthStore = create(
             
             return { success: true, data: data.data };
           } else {
-            throw new Error('Invalid login response');
+            throw new Error('❌ अमान्य लॉगिन प्रतिक्रिया');
           }
         } catch (error) {
           set({
@@ -66,7 +114,7 @@ const useAuthStore = create(
         });
       },
 
-      // Helper functions for role checking
+      // Role checking functions
       hasRole: (requiredRole) => {
         const { user } = get();
         return user?.role === requiredRole;
@@ -79,7 +127,71 @@ const useAuthStore = create(
 
       isAdmin: () => {
         const { user } = get();
-        return user?.role === 'Admin' || user?.role === 'Super Admin';
+        return user?.role === 'Admin';
+      },
+
+      isAdministrativeApprover: () => {
+        const { user } = get();
+        return user?.role === 'Administrative Approver';
+      },
+
+      isTechnicalApprover: () => {
+        const { user } = get();
+        return user?.role === 'Technical Approver';
+      },
+
+      isEngineer: () => {
+        const { user } = get();
+        return user?.role === 'Engineer';
+      },
+
+      isTenderHandler: () => {
+        const { user } = get();
+        return user?.role === 'Tender Handler';
+      },
+
+      isWorkOrderManager: () => {
+        const { user } = get();
+        return user?.role === 'Work Order Manager';
+      },
+
+      isUser: () => {
+        const { user } = get();
+        return user?.role === 'User';
+      },
+
+      // Page access control
+      canAccessPage: (pageName) => {
+        const { user } = get();
+        if (!user || !user.role) return false;
+        
+        const allowedPages = ROLE_PERMISSIONS[user.role] || [];
+        return allowedPages.includes(pageName);
+      },
+
+      getAllowedPages: () => {
+        const { user } = get();
+        if (!user || !user.role) return [];
+        
+        return ROLE_PERMISSIONS[user.role] || [];
+      },
+
+      // Get user permissions summary
+      getUserPermissions: () => {
+        const { user } = get();
+        if (!user) return null;
+
+        return {
+          role: user.role,
+          allowedPages: ROLE_PERMISSIONS[user.role] || [],
+          canAccessTechnicalApproval: ROLE_PERMISSIONS[user.role]?.includes('technical-approval'),
+          canAccessAdministrativeApproval: ROLE_PERMISSIONS[user.role]?.includes('administrative-approval'),
+          canAccessWorkProgress: ROLE_PERMISSIONS[user.role]?.includes('work-progress'),
+          canAccessTender: ROLE_PERMISSIONS[user.role]?.includes('tender'),
+          canAccessWorkOrder: ROLE_PERMISSIONS[user.role]?.includes('work-order'),
+          canAccessWork: ROLE_PERMISSIONS[user.role]?.includes('work'),
+          isFullAdmin: user.role === 'Admin'
+        };
       },
 
       // Verify token with backend
@@ -103,7 +215,6 @@ const useAuthStore = create(
             }
           }
           
-          // Token is invalid, logout user
           get().logout();
           return false;
         } catch (error) {
@@ -116,12 +227,12 @@ const useAuthStore = create(
       clearError: () => set({ error: null }),
     }),
     {
-      name: 'auth-storage', // Storage key
+      name: 'nirman-auth-storage',
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
-      }), // Only persist these fields
+      }),
     }
   )
 );
