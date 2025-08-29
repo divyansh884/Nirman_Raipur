@@ -16,7 +16,7 @@ import {
 } from "lucide-react"; // icons
 import "./DashboardPage.css";
 import TopBar from "../Components/TopBar.jsx";
-
+import useAuthStore from '../Store/useAuthStore.js';
 export default function DashboardPage({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './WorkForm.css';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+
 const initialState = {
   workYear: '',
   dept: '',
@@ -34,10 +36,14 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
-   const params = useParams();
+  const params = useParams();
   const { workId } = useParams();
+
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout, user } = useAuthStore();
 
   // Build crumbs from current path
   const crumbs = React.useMemo(() => {
@@ -49,6 +55,15 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       );
     return [...parts].join(" / ");
   }, [location.pathname]);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      alert('प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।');
+      navigate('/login');
+      return;
+    }
+  }, [isAuthenticated, token, navigate]);
 
   useEffect(() => {
     if (prefilledData) {
@@ -151,39 +166,20 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
     return new Date(year, month - 1, day).toISOString();
   }
 
-  // Get authentication token from localStorage
-  function getAuthToken() {
-    return localStorage.getItem("authToken");
-  }
-
-  // Get user data from localStorage
-  function getUserData() {
-    try {
-      const userData = localStorage.getItem("userData");
-      return userData ? JSON.parse(userData) : null;
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      return null;
-    }
-  }
-
   async function submit(e){
     e.preventDefault();
     if(!validate()) return;
     
-    // Check if user is authenticated
-    const authToken = getAuthToken();
-    if (!authToken) {
+    // Check authentication using Zustand store
+    if (!isAuthenticated || !token) {
       alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
+      navigate('/login');
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      // Get user data for submittedBy field
-      const userData = getUserData();
-      
       // ✅ Calculate tender and DPR status based on checkboxes
       const isDPRRequired = !form.isDPRNotReceived; // If "DPR प्राप्त नहीं है" is checked, then DPR is NOT required
       const isTenderOrNot = form.isTenderRequired; // If "निविदा है" is checked, then tender is required
@@ -233,8 +229,8 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         workProgressStage: 'Pending Technical Approval',
         currentStatus: 'Pending Technical Approval',
         
-        // Get submittedBy from stored user data
-        submittedBy: userData?.id || currentUser?.id || null,
+        // Get submittedBy from Zustand user data
+        submittedBy: user?.id || currentUser?.id || null,
       };
 
       console.log("📤 Sending work proposal data:", workProposalData);
@@ -243,7 +239,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}` // Use token from Zustand store
         },
         body: JSON.stringify(workProposalData)
       });
@@ -254,8 +250,8 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         // Handle authentication errors specifically
         if (response.status === 401) {
           alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userData");
+          logout(); // Use Zustand logout function
+          navigate('/login');
           return;
         } else if (response.status === 403) {
           alert('आपको इस कार्य को करने की अनुमति नहीं है।');
@@ -283,8 +279,8 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         alert('नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।');
       } else if (error.message.includes('unauthorized') || error.message.includes('token')) {
         alert('प्राधिकरण त्रुटि। कृपया पुनः लॉगिन करें।');
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userData");
+        logout(); // Use Zustand logout function
+        navigate('/login');
       } else {
         alert('कार्य प्रस्ताव बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।');
       }
@@ -301,6 +297,35 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         onWorkAdded();
       }
     }
+  }
+
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="atw-wrapper">
+        <div className="atw-header-bar">
+          <div className="atw-header-left">
+            <h1 className="atw-title">निर्माण</h1>
+            <div className="atw-breadcrumbs">Work / Work-Add</div>
+          </div>
+        </div>
+        <div className="atw-main-card" role="region" aria-label="Authentication Required">
+          <div className="atw-card-head">प्रमाणीकरण आवश्यक</div>
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+            <div style={{ color: 'orange', marginBottom: '20px' }}>
+              प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+            </div>
+            <button 
+              className="atw-btn primary" 
+              onClick={() => navigate('/login')}
+            >
+              <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -558,8 +583,6 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               
               {/* ✅ Show validation error for checkbox logic */}
               {errors.tenderLogic && <small className="err">{errors.tenderLogic}</small>}
-              
-          
             </div>
           </div>
           
@@ -571,10 +594,6 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
           </div>
         </form>
       </div>
-      {/* <footer className="atw-footer">
-        <span>Copyright © 2025 निर्माण</span>
-        <span className="ver">Version 1.0</span>
-      </footer> */}
 
       {/* Success Modal */}
       {showSuccessModal && (
