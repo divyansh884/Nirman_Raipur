@@ -1,27 +1,26 @@
 import React, { useState, useEffect } from "react";
 import {
-  Home,
-  LogIn,
-  Download,
-  Map,
-  FileText,
-  ClipboardList,
-  BarChart,
-  Users,
-  Building2,
-  Settings,
+  Home,
+  LogIn,
+  Download,
+  Map,
+  FileText,
+  ClipboardList,
+  BarChart,
+  Users,
+  Building2,
+  Settings,
 } from "lucide-react";
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useNavigate,
-  Navigate,
-  useLocation,
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  Navigate,
+  useLocation,
 } from "react-router-dom";
 import "./App.css";
 import useAuthStore from "./Store/useAuthStore.js";
-
 // Your existing imports remain the same
 import LoginPage from "./Before_Login_pages/Login.jsx";
 import HomePage from "./Before_Login_pages/HomePage.jsx";
@@ -59,7 +58,12 @@ import AdminUserForm from "./Forms/AdminUserForm.jsx";
 import AdminWorkForm from "./Forms/AdminWorkForm.jsx";
 
 const App = () => {
-  const { isAuthenticated, user, verifyToken, isAdmin } = useAuthStore();
+  const { isAuthenticated, user, verifyToken, isAdmin, initializeAuth } = useAuthStore();
+
+  useEffect(() => {
+    // ✅ Initialize auth on app load
+    initializeAuth();
+  }, [initializeAuth]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,25 +73,24 @@ const App = () => {
     };
     checkAuth();
   }, [isAuthenticated, verifyToken]);
-  const { initializeAuth} = useAuthStore();
-  
-  useEffect(() => {
-    // ✅ Initialize auth on app load
-    initializeAuth();
-  }, [initializeAuth]);
 
   return (
     <Router>
       <div className="app-container">
-        {/* Public navbar (not logged in) */}
+        {/* ✅ FIXED: Show TopNavbar ONLY when NOT authenticated */}
         {!isAuthenticated && <TopNavbar />}
-        {/* Sidebar when logged in */}
+        
+        {/* ✅ FIXED: Show SideNavbar ONLY when authenticated */}
         {isAuthenticated && <SideNavbar />}
-        <main className={isAuthenticated ? "logged-in-main" : ""}>
+        
+        {/* ✅ FIXED: Apply logged-in-main class only when authenticated */}
+        <main className={isAuthenticated ? "logged-in-main" : "public-main"}>
           <Routes>
-            {/* Public routes */}
+            {/* Public routes - Always available */}
             <Route path="/" element={<HomePage />} />
-            {/* Login */}
+            <Route path="/download" element={<DownloadPage />} />
+            
+            {/* Login route - Redirect to dashboard if already logged in */}
             <Route
               path="/login"
               element={
@@ -98,48 +101,32 @@ const App = () => {
                 )
               }
             />
-            <Route path="/download" element={<DownloadPage />} />
-            {/* Private routes */}
-            {isAuthenticated && (
+            
+            {/* ✅ FIXED: Protected routes - Only render when authenticated */}
+            {isAuthenticated ? (
               <>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/work" element={<WorkPage />} />
-                <Route
-                  path="/Technical-Approval"
-                  element={<TechnicalApprovalPage />}
-                />
-                <Route
-                  path="/Administrative-Approval"
-                  element={<AdministrativeApprovalPage />}
-                />
+                <Route path="/Technical-Approval" element={<TechnicalApprovalPage />} />
+                <Route path="/Administrative-Approval" element={<AdministrativeApprovalPage />} />
                 <Route path="/Tender" element={<TenderPage />} />
                 <Route path="/Work-Order" element={<WorkOrderPage />} />
-                <Route
-                  path="/Work-In-Progress"
-                  element={<WorkProgressPage />}
-                />
-                {/*Report Routes*/}
+                <Route path="/Work-In-Progress" element={<WorkProgressPage />} />
+                
+                {/* Form Routes */}
                 <Route path="/add-work" element={<WorkForm />} />
                 <Route path="/work/:workId" element={<WorkDetailsPage />} />
-                <Route
-                  path="/Administrative-Approval-Form/:workId"
-                  element={<AdministrativeApprovalForm />}
-                />
-                <Route
-                  path="/Technical-Approval-Form/:workId"
-                  element={<TechnicalApprovalForm />}
-                />
+                <Route path="/Administrative-Approval-Form/:workId" element={<AdministrativeApprovalForm />} />
+                <Route path="/Technical-Approval-Form/:workId" element={<TechnicalApprovalForm />} />
                 <Route path="/Tender-Form/:workId" element={<TenderForm />} />
-                <Route
-                  path="/Work-Order-Form/:workId"
-                  element={<WorkOrderForm />}
-                />
-                <Route
-                  path="/Work-In-Progress-Form/:workId"
-                  element={<WorkInProgressForm />}
-                />
+                <Route path="/Work-Order-Form/:workId" element={<WorkOrderForm />} />
+                <Route path="/Work-In-Progress-Form/:workId" element={<WorkInProgressForm />} />
+                
+                {/* Profile and GIS */}
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/gis/map" element={<MyMap />} />
+                
+                {/* Report Routes */}
                 <Route path="/Report/Report1" element={<Report1 />} />
                 <Route path="/Report/Report2" element={<Report2 />} />
                 <Route path="/Report/Report3" element={<Report3 />} />
@@ -153,7 +140,7 @@ const App = () => {
                 <Route path="/Report/Report11" element={<Report11 />} />
                 <Route path="/Report/Report12" element={<Report12 />} />
                 
-                {/* Admin-only routes - Only accessible by admin users */}
+                {/* ✅ FIXED: Admin-only routes with proper conditional rendering */}
                 {isAdmin() && (
                   <>
                     <Route path="/Admin/AdminDepartmentForms" element={<AdminDepartmentForms />} />
@@ -161,7 +148,13 @@ const App = () => {
                     <Route path="/Admin/AdminWorkForms" element={<AdminWorkForm />} />
                   </>
                 )}
+                
+                {/* ✅ Redirect any unmatched routes to dashboard for authenticated users */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </>
+            ) : (
+              /* ✅ FIXED: Redirect unauthenticated users trying to access protected routes */
+              <Route path="*" element={<Navigate to="/login" replace />} />
             )}
           </Routes>
         </main>
@@ -173,6 +166,7 @@ const App = () => {
 const TopNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
   const NavLink = ({ to, label, icon }) => {
     const isActive = location.pathname === to;
     return (
@@ -185,6 +179,7 @@ const TopNavbar = () => {
       </button>
     );
   };
+  
   return (
     <header className="app-header">
       <div className="container">
@@ -195,10 +190,10 @@ const TopNavbar = () => {
           </div>
           <span className="jashpur-text">Raipur</span>
         </div>
-        <nav className="nav-desktop ">
+        <nav className="nav-desktop">
           <NavLink to="/" label="मुखपृष्ठ" icon={<Home />} />
           <NavLink to="/login" label="विभागीय लॉगिन" icon={<LogIn />} />
-          <NavLink to="/download" label="ऐप डाउनलोड करे" icon={<Download />} />
+          {/* <NavLink to="/download" label="ऐप डाउनलोड करे" icon={<Download />} /> */}
         </nav>
       </div>
     </header>
@@ -213,6 +208,7 @@ const SideNavbar = () => {
 
   const handleLogout = () => {
     logout();
+    navigate('/'); // ✅ FIXED: Redirect to home after logout
   };
 
   const items = [
@@ -220,11 +216,7 @@ const SideNavbar = () => {
     { to: "/work", label: "कार्य", icon: <ClipboardList /> },
     { to: "/gis/map", label: "GIS मैपिंग", icon: <Map /> },
     { to: "/Technical-Approval", label: "तकनीकी स्वीकृति", icon: <FileText /> },
-    {
-      to: "/Administrative-Approval",
-      label: "प्रशासकीय स्वीकृति",
-      icon: <FileText />,
-    },
+    { to: "/Administrative-Approval", label: "प्रशासकीय स्वीकृति", icon: <FileText /> },
     { to: "/Tender", label: "निविदा", icon: <FileText /> },
     { to: "/Work-Order", label: "कार्य आदेश", icon: <ClipboardList /> },
     { to: "/Work-In-Progress", label: "कार्य प्रगति", icon: <BarChart /> },
@@ -246,7 +238,7 @@ const SideNavbar = () => {
         { to: "/Report/Report12", label: "रिपोर्ट 12" },
       ],
     },
-    // Admin-only items - Only show if user is admin
+    // ✅ FIXED: Admin-only items with proper conditional rendering
     ...(isAdmin() ? [
       { to: "/Admin/AdminDepartmentForms", label: "विभाग प्रबंधन", icon: <Building2 /> },
       { to: "/Admin/AdminUserForms", label: "उपयोगकर्ता प्रबंधन", icon: <Users /> },
@@ -324,4 +316,5 @@ const SideNavbar = () => {
     </aside>
   );
 };
+
 export default App;
