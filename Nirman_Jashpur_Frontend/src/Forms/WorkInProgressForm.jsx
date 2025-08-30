@@ -155,7 +155,7 @@ export default function WorkInProgressForm({ onLogout }) {
     console.log("📤 Submitting progress update:", payload);
 
     const response = await axios.post(
-      `http://localhost:3000/api/work-proposals/${workId}/progress`,
+      `${BASE_SERVER_URL}/work-proposals/${workId}/progress`,
       payload,
       {
         headers: {

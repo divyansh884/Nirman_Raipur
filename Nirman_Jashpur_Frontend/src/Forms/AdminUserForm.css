@@ -1,6 +1,7 @@
 .admin-user-form .page-container {
   display: flex;
   flex-direction: column;
+  margin-top: -5vh;
   min-height: 100vh;
 }
 
@@ -186,7 +187,6 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0 15px;
-  font-size: 1rem;
   color: #111;
 }
 
@@ -208,6 +208,7 @@
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
   border-radius: 14px;
   transition: transform 0.2s ease;
+  
 }
 
 .admin-user-form .user-table tbody tr:hover {

@@ -1,6 +1,5 @@
-// stores/useAuthStore.js
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Define page access permissions for each role
 const ROLE_PERMISSIONS = {
@@ -14,7 +13,6 @@ const ROLE_PERMISSIONS = {
     'work',
     'users',
     'reports',
-    
   ],
   'Administrative Approver': [
     'dashboard',
@@ -48,11 +46,12 @@ const useAuthStore = create(
       // State
       user: null,
       token: null,
-      tokenExpiry: null, // ✅ Store token expiration time
+      tokenExpiry: null,
       isAuthenticated: false,
+      isAuthLoading: true,
       isLoading: false,
       error: null,
-      tokenCheckInterval: null, // ✅ Store interval ID for cleanup
+      tokenCheckInterval: null,
 
       // Actions
       login: async (credentials) => {
@@ -82,21 +81,20 @@ const useAuthStore = create(
           }
 
           if (data.success && data.data?.token && data.data?.user) {
-            // ✅ Calculate token expiry (assuming JWT or server provides expiry)
             const tokenExpiry = data.data.expiresAt 
               ? new Date(data.data.expiresAt).getTime()
-              : Date.now() + (24 * 60 * 60 * 1000); // Default 24 hours if no expiry provided
+              : Date.now() + (24 * 60 * 60 * 1000);
 
             set({
               user: data.data.user,
               token: data.data.token,
               tokenExpiry: tokenExpiry,
               isAuthenticated: true,
+              isAuthLoading: false,
               isLoading: false,
               error: null
             });
             
-            // ✅ Start token expiry monitoring
             get().startTokenExpiryCheck();
             
             return { success: true, data: data.data };
@@ -107,6 +105,7 @@ const useAuthStore = create(
           set({
             error: error.message,
             isLoading: false,
+            isAuthLoading: false,
             isAuthenticated: false,
             user: null,
             token: null,
@@ -116,11 +115,10 @@ const useAuthStore = create(
         }
       },
 
-      // ✅ Enhanced logout with cleanup
+      // ✅ Enhanced logout with sessionStorage clearing
       logout: () => {
         const { tokenCheckInterval } = get();
         
-        // Clear token check interval
         if (tokenCheckInterval) {
           clearInterval(tokenCheckInterval);
         }
@@ -130,20 +128,22 @@ const useAuthStore = create(
           token: null,
           tokenExpiry: null,
           isAuthenticated: false,
+          isAuthLoading: false,
           error: null,
           isLoading: false,
           tokenCheckInterval: null
         });
 
-        // ✅ Optional: Show logout message
-        console.log('🚪 User logged out - token cleared');
+        // ✅ Clear sessionStorage instead of localStorage
+        sessionStorage.removeItem('nirman-auth-storage');
+        
+        console.log('🚪 User logged out - session storage cleared');
       },
 
-      // ✅ Force logout due to token expiry
+      // ✅ Enhanced forceLogout with sessionStorage clearing
       forceLogout: (reason = 'Token expired') => {
         const { tokenCheckInterval } = get();
         
-        // Clear token check interval
         if (tokenCheckInterval) {
           clearInterval(tokenCheckInterval);
         }
@@ -153,38 +153,37 @@ const useAuthStore = create(
           token: null,
           tokenExpiry: null,
           isAuthenticated: false,
+          isAuthLoading: false,
           error: null,
           isLoading: false,
           tokenCheckInterval: null
         });
 
-        // ✅ Show user-friendly message
+        // ✅ Clear sessionStorage instead of localStorage
+        sessionStorage.removeItem('nirman-auth-storage');
+
         alert(`आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें। (${reason})`);
-        console.log(`🚪 Force logout: ${reason}`);
+        console.log(`🚪 Force logout: ${reason} - session storage cleared`);
         
-        // ✅ Redirect to login page
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
       },
 
-      // ✅ Check if token is expired
+      // Rest of your methods (isTokenExpired, startTokenExpiryCheck, verifyToken, etc.)
       isTokenExpired: () => {
         const { tokenExpiry } = get();
         if (!tokenExpiry) return true;
         return Date.now() > tokenExpiry;
       },
 
-      // ✅ Start periodic token expiry checking
       startTokenExpiryCheck: () => {
         const { tokenCheckInterval } = get();
         
-        // Clear existing interval
         if (tokenCheckInterval) {
           clearInterval(tokenCheckInterval);
         }
         
-        // Check token every 60 seconds
         const intervalId = setInterval(() => {
           const { isAuthenticated, token, isTokenExpired, forceLogout } = get();
           
@@ -193,12 +192,11 @@ const useAuthStore = create(
               forceLogout('Token expired');
             }
           }
-        }, 60000); // Check every 60 seconds
+        }, 60000);
         
         set({ tokenCheckInterval: intervalId });
       },
 
-      // ✅ Verify token with backend (enhanced)
       verifyToken: async () => {
         const { token, isTokenExpired, forceLogout } = get();
         
@@ -206,7 +204,6 @@ const useAuthStore = create(
           return false;
         }
 
-        // ✅ Check local expiry first
         if (isTokenExpired()) {
           forceLogout('Token expired locally');
           return false;
@@ -228,7 +225,6 @@ const useAuthStore = create(
             }
           }
           
-          // ✅ Token invalid on server
           if (response.status === 401) {
             forceLogout('Invalid token');
           } else {
@@ -243,30 +239,65 @@ const useAuthStore = create(
         }
       },
 
-      // ✅ Initialize auth state (call on app load)
       initializeAuth: async () => {
-        const { token, isAuthenticated, isTokenExpired, forceLogout, startTokenExpiryCheck } = get();
+        set({ isAuthLoading: true });
         
-        if (isAuthenticated && token) {
-          if (isTokenExpired()) {
-            forceLogout('Token expired on app load');
-            return false;
-          }
-          
-          // ✅ Verify token with server
-          const isValid = await get().verifyToken();
-          if (isValid) {
-            // ✅ Start monitoring if token is valid
-            startTokenExpiryCheck();
-            return true;
-          }
+        const { token, isTokenExpired, startTokenExpiryCheck } = get();
+        
+        if (!token) {
+          set({ 
+            isAuthLoading: false, 
+            isAuthenticated: false 
+          });
           return false;
         }
         
-        return false;
+        if (isTokenExpired()) {
+          sessionStorage.removeItem('nirman-auth-storage');
+          set({ 
+            isAuthLoading: false, 
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            tokenExpiry: null
+          });
+          return false;
+        }
+        
+        try {
+          const isValid = await get().verifyToken();
+          if (isValid) {
+            set({ 
+              isAuthLoading: false, 
+              isAuthenticated: true 
+            });
+            startTokenExpiryCheck();
+            return true;
+          } else {
+            sessionStorage.removeItem('nirman-auth-storage');
+            set({ 
+              isAuthLoading: false, 
+              isAuthenticated: false,
+              user: null,
+              token: null,
+              tokenExpiry: null
+            });
+            return false;
+          }
+        } catch (error) {
+          console.error('Auth initialization failed:', error);
+          sessionStorage.removeItem('nirman-auth-storage');
+          set({ 
+            isAuthLoading: false, 
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            tokenExpiry: null
+          });
+          return false;
+        }
       },
 
-      // ✅ API call helper with automatic token handling
       apiCall: async (url, options = {}) => {
         const { token, isTokenExpired, forceLogout, isAuthenticated } = get();
         
@@ -279,7 +310,6 @@ const useAuthStore = create(
           throw new Error('Token expired');
         }
         
-        // ✅ Add auth header
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -292,7 +322,6 @@ const useAuthStore = create(
             headers
           });
           
-          // ✅ Handle 401 responses automatically
           if (response.status === 401) {
             forceLogout('Unauthorized - token invalid');
             throw new Error('Unauthorized');
@@ -354,7 +383,6 @@ const useAuthStore = create(
         return user?.role === 'User';
       },
 
-      // Page access control (unchanged)
       canAccessPage: (pageName) => {
         const { user } = get();
         if (!user || !user.role) return false;
@@ -391,10 +419,12 @@ const useAuthStore = create(
     }),
     {
       name: 'nirman-auth-storage',
+      // ✅ KEY CHANGE: Use sessionStorage instead of localStorage
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,
-        tokenExpiry: state.tokenExpiry, // ✅ Persist token expiry
+        tokenExpiry: state.tokenExpiry,
         isAuthenticated: state.isAuthenticated,
       }),
     }

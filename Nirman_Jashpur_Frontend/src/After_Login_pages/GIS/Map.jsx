@@ -3,8 +3,9 @@ import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import TopBar from "../../Components/TopBar";
+import TopBar from "../../Components/TopBar.jsx";
 // ✅ Single icon for all markers
+import { BASE_SERVER_URL } from '../../constants.jsx';
 const workIcon = L.icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
@@ -42,7 +43,7 @@ export default function WorksMap({ onLogout }) {
   const fetchWorks = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:3000/api/work-proposals", {
+      const res = await fetch(`${BASE_SERVER_URL}/work-proposals`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${authToken}`,

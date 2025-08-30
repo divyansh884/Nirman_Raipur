@@ -41,7 +41,7 @@ import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
 import Profile from "./After_Login_pages/Profile.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
-import Report1 from "./After_Login_pages/Reports/Report1.jsx";
+// import Report1 from "./After_Login_pages/Reports/Report1.jsx";
 import Report2 from "./After_Login_pages/Reports/Report2.jsx";
 import Report3 from "./After_Login_pages/Reports/Report3.jsx";
 import Report4 from "./After_Login_pages/Reports/Report4.jsx";
@@ -58,21 +58,61 @@ import AdminUserForm from "./Forms/AdminUserForm.jsx";
 import AdminWorkForm from "./Forms/AdminWorkForm.jsx";
 
 const App = () => {
-  const { isAuthenticated, user, verifyToken, isAdmin, initializeAuth } = useAuthStore();
+ // ✅ Fixed version
+// ✅ CORRECT: All hooks at the top level, before any returns
+const { 
+  isAuthenticated, 
+  user, 
+  verifyToken, 
+  isAdmin, 
+  initializeAuth,
+  isAuthLoading  
+} = useAuthStore();
 
-  useEffect(() => {
-    // ✅ Initialize auth on app load
-    initializeAuth();
-  }, [initializeAuth]);
+// ✅ CORRECT: All useEffect calls before conditional return
+useEffect(() => {
+  initializeAuth();
+}, [initializeAuth]);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isAuthenticated) {
-        await verifyToken();
-      }
-    };
-    checkAuth();
-  }, [isAuthenticated, verifyToken]);
+useEffect(() => {
+  const checkAuth = async () => {
+    if (isAuthenticated) {
+      await verifyToken();
+    }
+  };
+  checkAuth();
+}, [isAuthenticated, verifyToken]);
+
+// ✅ CORRECT: Conditional return AFTER all hooks
+if (isAuthLoading) {
+  return (
+    <div className="loading-container" style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      flexDirection: 'column',
+      gap: '1rem'
+    }}>
+      <div className="spinner" style={{
+        width: '40px',
+        height: '40px',
+        border: '4px solid #e5e7eb',
+        borderTop: '4px solid #3b82f6',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }}></div>
+      <p>प्रमाणीकरण जांच रहे हैं...</p>
+    </div>
+  );
+}
+
+// Rest of your component...
+
+
+// ✅ Verify token when authentication state changes
+
+
 
   return (
     <Router>
@@ -84,7 +124,7 @@ const App = () => {
         {isAuthenticated && <SideNavbar />}
         
         {/* ✅ FIXED: Apply logged-in-main class only when authenticated */}
-        <main className={isAuthenticated ? "logged-in-main" : "public-main"}>
+        <main className={isAuthenticated ? "logged-in-main" : ""}>
           <Routes>
             {/* Public routes - Always available */}
             <Route path="/" element={<HomePage />} />
@@ -127,7 +167,7 @@ const App = () => {
                 <Route path="/gis/map" element={<MyMap />} />
                 
                 {/* Report Routes */}
-                <Route path="/Report/Report1" element={<Report1 />} />
+                {/* <Route path="/Report/Report1" element={<Report1 />} /> */}
                 <Route path="/Report/Report2" element={<Report2 />} />
                 <Route path="/Report/Report3" element={<Report3 />} />
                 <Route path="/Report/Report4" element={<Report4 />} />
@@ -224,18 +264,18 @@ const SideNavbar = () => {
       label: "रिपोर्ट",
       icon: <FileText />,
       children: [
-        { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
-        { to: "/Report/Report2", label: "रिपोर्ट 2" },
-        { to: "/Report/Report3", label: "रिपोर्ट 3" },
-        { to: "/Report/Report4", label: "रिपोर्ट 4" },
-        { to: "/Report/Report5", label: "रिपोर्ट 5" },
-        { to: "/Report/Report6", label: "रिपोर्ट 6" },
-        { to: "/Report/Report7", label: "रिपोर्ट 7" },
-        { to: "/Report/Report8", label: "रिपोर्ट 8" },
-        { to: "/Report/Report9", label: "रिपोर्ट 9" },
-        { to: "/Report/Report10", label: "रिपोर्ट 10" },
-        { to: "/Report/Report11", label: "रिपोर्ट 11" },
-        { to: "/Report/Report12", label: "रिपोर्ट 12" },
+        // { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
+        { to: "/Report/Report2", label: "डैशबोर्ड रिपोर्ट" },
+        { to: "/Report/Report3", label: "विभागवार सूची" },
+        { to: "/Report/Report4", label: "स्थितिवार सूची" },
+        { to: "/Report/Report5", label: "वित्तीय वार्षिक रिपोर्ट" },
+        { to: "/Report/Report6", label: "कार्य प्रगति रिपोर्ट" },
+        { to: "/Report/Report7", label: "एजेंसीवार विस्तृत रिपोर्ट" },
+        { to: "/Report/Report8", label: "ब्लॉकवार रिपोर्ट" },
+        { to: "/Report/Report9", label: "योजनावार रिपोर्ट" },
+        { to: "/Report/Report10", label: "लंबित कार्य रिपोर्ट" },
+        { to: "/Report/Report11", label: "अंतिम स्थिति रिपोर्ट" },
+        { to: "/Report/Report12", label: "अभियंतावार रिपोर्ट" },
       ],
     },
     // ✅ FIXED: Admin-only items with proper conditional rendering

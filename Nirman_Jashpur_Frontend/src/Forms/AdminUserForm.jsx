@@ -4,7 +4,7 @@ import "./AdminUserForm.css";
 import TopBar from "../Components/TopBar";
 import "../App.css";
 import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 function AdminUserForm({ onLogout }) {
   const navigate = useNavigate();
   
@@ -58,7 +58,7 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch("http://localhost:3000/api/admin/user", {
+      const res = await fetch(`${BASE_SERVER_URL}/api/admin/user`, {
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -135,7 +135,7 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch("http://localhost:3000/api/admin/user", {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/user`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -201,7 +201,7 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`http://localhost:3000/api/admin/user/${id}`, {
+      const res = await fetch(`$/admin/user/${id}`, {
         method: "DELETE",
         headers: { 
           "Authorization": `Bearer ${token}`,

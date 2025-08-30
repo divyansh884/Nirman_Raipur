@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "../Components/TopBar";
 import "./AdminDepartmentForms.css";
 import useAuthStore from '../Store/useAuthStore.js';
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 function AdminDepartmentForms({ onLogout }) {
   const navigate = useNavigate();
   const { token, isAuthenticated, logout, canAccessPage } = useAuthStore();
@@ -34,7 +34,7 @@ function AdminDepartmentForms({ onLogout }) {
   const fetchDepartments = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:3000/api/admin/department/departments", {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/department/departments`, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await res.json();
@@ -84,7 +84,7 @@ function AdminDepartmentForms({ onLogout }) {
     }
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:3000/api/admin/department/departments", {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/department/departments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(currentDept),
@@ -144,7 +144,7 @@ function AdminDepartmentForms({ onLogout }) {
 
   return (
     <div className="admin-page-container">
-      <div className="admin-page-header"><TopBar onLogout={onLogout} /></div>
+      <div className="header"><TopBar onLogout={onLogout} /></div>
       <div className="admin-main-content">
         <header className="admin-page-header"><h1>डिपार्टमेंट पृष्ठ</h1></header>
         <main>
