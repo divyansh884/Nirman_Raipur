@@ -14,6 +14,7 @@ const ROLE_PERMISSIONS = {
     'work',
     'users',
     'reports',
+    
   ],
   'Administrative Approver': [
     'dashboard',
