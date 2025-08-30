@@ -59,7 +59,7 @@ app.use("/api/admin/sdo", sdoRoutes);
 app.use("/api/admin/ward", wardRoutes);
 app.use("/api/admin/type-of-location", typeOfLocationRoutes);
 app.use("/api/admin/city", cityRoutes);
-app.use("/api/admin/department", workDepartmentRoutes);
+app.use("/api/admin/work-department", workDepartmentRoutes);
 
 
 // Health check endpoint
