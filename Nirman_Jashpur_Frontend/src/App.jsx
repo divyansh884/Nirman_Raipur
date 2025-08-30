@@ -69,6 +69,12 @@ const App = () => {
     };
     checkAuth();
   }, [isAuthenticated, verifyToken]);
+  const { initializeAuth} = useAuthStore();
+  
+  useEffect(() => {
+    // ✅ Initialize auth on app load
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <Router>

@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./AdminUserForm.css";
 import TopBar from "../Components/TopBar";
 import "../App.css";
+import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
 
-function AdminUserForm() {
+function AdminUserForm({ onLogout }) {
+  const navigate = useNavigate();
+  
+  // Get authentication from Zustand store
+  const { token, isAuthenticated, logout, isAdmin, canAccessPage } = useAuthStore();
+  
   const [users, setUsers] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
     email: "",
@@ -18,25 +26,72 @@ function AdminUserForm() {
   });
   const [errors, setErrors] = useState({});
 
-  // Fetch users on mount
+  // Check authentication and permissions on mount
   useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const authToken = localStorage.getItem("authToken");
-        const res = await fetch("http://localhost:3000/api/admin/user", {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        const data = await res.json();
-        const normalizedUsers = Array.isArray(data.data)
-          ? data.data.map((u) => ({ id: u.id || u._id, ...u }))
-          : [];
-        setUsers(normalizedUsers);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
+    const checkAuthAndFetchUsers = async () => {
+      // Check if user is authenticated
+      if (!isAuthenticated || !token) {
+        alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+        navigate("/login");
+        return;
       }
+
+      // Check if user can access users page (admin only)
+      if (!canAccessPage('users')) {
+        alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+        navigate("/dashboard");
+        return;
+      }
+
+      await fetchUsers();
+    };
+
+    checkAuthAndFetchUsers();
+  }, [isAuthenticated, token, navigate, canAccessPage]);
+
+  // Fetch users with Zustand authentication
+  const fetchUsers = async () => {
+    if (!isAuthenticated || !token) {
+      navigate("/login");
+      return;
     }
-    fetchUsers();
-  }, []);
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("http://localhost:3000/api/admin/user", {
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          navigate("/login");
+          return;
+        }
+        throw new Error(data.message || 'Failed to fetch users');
+      }
+
+      const normalizedUsers = Array.isArray(data.data)
+        ? data.data.map((u) => ({ id: u.id || u._id, ...u }))
+        : [];
+      setUsers(normalizedUsers);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        logout();
+        navigate("/login");
+      } else {
+        alert("उपयोगकर्ता लोड करने में त्रुटि: " + error.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -52,24 +107,39 @@ function AdminUserForm() {
     if (!newUser.fullName.trim()) tempErrors.fullName = "यह फ़ील्ड आवश्यक है।";
     if (!newUser.role.trim()) tempErrors.role = "भूमिका आवश्यक है।";
     if (!newUser.department.trim()) tempErrors.department = "विभाग आवश्यक है।";
-    // Additional validations (e.g. contact number format) can be added here
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (newUser.email && !emailRegex.test(newUser.email)) {
+      tempErrors.email = "वैध ईमेल पता दर्ज करें।";
+    }
+    
     return tempErrors;
   };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
+    
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
+
+    // Check authentication before adding user
+    if (!isAuthenticated || !token) {
+      logout();
+      navigate("/login");
+      return;
+    }
+
     try {
-      const authToken = localStorage.getItem("authToken");
+      setIsLoading(true);
       const res = await fetch("http://localhost:3000/api/admin/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify(newUser),
       });
@@ -77,6 +147,12 @@ function AdminUserForm() {
       const responseData = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          navigate("/login");
+          return;
+        }
+        
         const message =
           responseData.message ||
           (responseData.errors && responseData.errors.map((e) => e.msg).join(", ")) ||
@@ -88,6 +164,7 @@ function AdminUserForm() {
       const normalizedUser = { id: addedUser.id || addedUser._id, ...addedUser };
       setUsers((prev) => [...prev, normalizedUser]);
 
+      // Reset form
       setNewUser({
         username: "",
         email: "",
@@ -100,32 +177,112 @@ function AdminUserForm() {
       });
       setShowAddUser(false);
       setErrors({});
+      
+      alert("उपयोगकर्ता सफलतापूर्वक जोड़ा गया!");
     } catch (error) {
       console.error("Error adding user:", error);
-      alert(error.message); // Show error to user
+      alert("उपयोगकर्ता जोड़ने में त्रुटि: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("क्या आप वाकई इस उपयोगकर्ता को हटाना चाहते हैं?")) {
+      return;
+    }
+
+    // Check authentication before deleting
+    if (!isAuthenticated || !token) {
+      logout();
+      navigate("/login");
+      return;
+    }
+
     try {
-      const authToken = localStorage.getItem("authToken");
+      setIsLoading(true);
       const res = await fetch(`http://localhost:3000/api/admin/user/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
       });
-      if (!res.ok) throw new Error("Failed to delete user");
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          navigate("/login");
+          return;
+        }
+        throw new Error("Failed to delete user");
+      }
+      
       setUsers((prev) => prev.filter((user) => user.id !== id));
+      alert("उपयोगकर्ता सफलतापूर्वक हटाया गया!");
     } catch (error) {
       console.error("Delete failed:", error);
-      alert("User deletion failed");
+      alert("उपयोगकर्ता हटाने में त्रुटि: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="admin-user-form">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+        </div>
+        <div className="page-container">
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+            <div style={{ color: 'orange', marginBottom: '20px' }}>
+              प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+            </div>
+            <button 
+              className="btn-primary" 
+              onClick={() => navigate('/login')}
+            >
+              लॉगिन पेज पर जाएं
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show permission error if user can't access this page
+  if (!canAccessPage('users')) {
+    return (
+      <div className="admin-user-form">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+        </div>
+        <div className="page-container">
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <i className="fa-solid fa-ban" style={{ fontSize: '24px', marginBottom: '10px', color: 'red' }}></i>
+            <div style={{ color: 'red', marginBottom: '20px' }}>
+              आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।
+            </div>
+            <button 
+              className="btn-primary" 
+              onClick={() => navigate('/dashboard')}
+            >
+              डैशबोर्ड पर जाएं
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="admin-user-form">
         <div className="header">
-          <TopBar />
+          <TopBar onLogout={onLogout} />
         </div>
 
         <br />
@@ -140,8 +297,9 @@ function AdminUserForm() {
               <button
                 onClick={() => setShowAddUser(true)}
                 className="btn-primary"
+                disabled={isLoading}
               >
-                नया उपयोगकर्ता जोड़ें
+                {isLoading ? "लोड हो रहा है..." : "नया उपयोगकर्ता जोड़ें"}
               </button>
             </div>
 
@@ -152,6 +310,7 @@ function AdminUserForm() {
                     className="modal-close-btn"
                     onClick={() => setShowAddUser(false)}
                     aria-label="Close"
+                    disabled={isLoading}
                   >
                     ×
                   </button>
@@ -163,6 +322,7 @@ function AdminUserForm() {
                       placeholder="उपयोगकर्ता नाम"
                       value={newUser.username}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
                     {errors.username && (
                       <span className="error-msg">{errors.username}</span>
@@ -174,6 +334,7 @@ function AdminUserForm() {
                       placeholder="ईमेल"
                       value={newUser.email}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
                     {errors.email && (
                       <span className="error-msg">{errors.email}</span>
@@ -185,6 +346,7 @@ function AdminUserForm() {
                       placeholder="पासवर्ड"
                       value={newUser.password}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
                     {errors.password && (
                       <span className="error-msg">{errors.password}</span>
@@ -196,18 +358,27 @@ function AdminUserForm() {
                       placeholder="पूरा नाम"
                       value={newUser.fullName}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
                     {errors.fullName && (
                       <span className="error-msg">{errors.fullName}</span>
                     )}
 
-                    <input
-                      type="text"
+                    <select
                       name="role"
-                      placeholder="भूमिका"
                       value={newUser.role}
                       onChange={handleInputChange}
-                    />
+                      disabled={isLoading}
+                    >
+                      <option value="">भूमिका चुनें</option>
+                      <option value="Super Admin">Super Admin</option>
+                      <option value="Administrative Approver">Administrative Approver</option>
+                      <option value="Technical Approver">Technical Approver</option>
+                      <option value="Engineer">Engineer</option>
+                      <option value="Tender Manager">Tender Manager</option>
+                      <option value="Work Order Manager">Work Order Manager</option>
+                      <option value="User">User</option>
+                    </select>
                     {errors.role && (
                       <span className="error-msg">{errors.role}</span>
                     )}
@@ -218,6 +389,7 @@ function AdminUserForm() {
                       placeholder="विभाग"
                       value={newUser.department}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
                     {errors.department && (
                       <span className="error-msg">{errors.department}</span>
@@ -229,6 +401,7 @@ function AdminUserForm() {
                       placeholder="पदनाम"
                       value={newUser.designation}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
 
                     <input
@@ -237,11 +410,16 @@ function AdminUserForm() {
                       placeholder="संपर्क नंबर"
                       value={newUser.contactNumber}
                       onChange={handleInputChange}
+                      disabled={isLoading}
                     />
 
                     <center>
-                      <button type="submit" className="btn-primary">
-                        उपयोगकर्ता जोड़ें
+                      <button 
+                        type="submit" 
+                        className="btn-primary"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "जोड़ा जा रहा है..." : "उपयोगकर्ता जोड़ें"}
                       </button>
                     </center>
                   </form>
@@ -251,7 +429,11 @@ function AdminUserForm() {
 
             <section className="user-table-section">
               <h2>मौजूदा उपयोगकर्ता</h2>
-              {users.length === 0 ? (
+              {isLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p>लोड हो रहा है...</p>
+                </div>
+              ) : users.length === 0 ? (
                 <p className="empty-text">
                   कोई उपयोगकर्ता उपलब्ध नहीं है। ऊपर नया उपयोगकर्ता जोड़ें।
                 </p>
@@ -293,8 +475,9 @@ function AdminUserForm() {
                             <button
                               className="btn-danger"
                               onClick={() => handleDelete(id)}
+                              disabled={isLoading}
                             >
-                              हटाएं
+                              {isLoading ? "..." : "हटाएं"}
                             </button>
                           </td>
                         </tr>
