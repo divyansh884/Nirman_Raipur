@@ -5,7 +5,6 @@ const documentSchema = new mongoose.Schema(
     key: {
       type: String,
       required: true,
-      unique: true, // each object key is unique in S3
     },
     size: {
       type: Number,
