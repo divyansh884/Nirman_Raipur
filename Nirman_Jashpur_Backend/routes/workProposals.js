@@ -15,43 +15,36 @@ const {
 // Validation middleware
 const workProposalValidation = [
   // change this
-  body("typeOfWork").notEmpty().withMessage("Type of work is required"),
-  body("nameOfWork").notEmpty().withMessage("Name of work is required"),
+  body("typeOfWork").trim().isMongoId().withMessage("Invalid Type of work id"),
+  body("nameOfWork").trim().notEmpty().withMessage("Name of work is required"),
   // change this
-  body("workAgency").notEmpty().withMessage("Work agency is required"),
+  body("workAgency").trim().isMongoId().withMessage("Invalid Work agency id"),
   // change this
-  body("scheme").notEmpty().withMessage("Scheme is required"),
-  body("workDescription")
+  body("scheme").trim().isMongoId().withMessage("Invalid Scheme id"),
+  body("workDescription").trim()
     .notEmpty()
     .withMessage("Work description is required"),
-  body("financialYear").notEmpty().withMessage("Financial year is required"),
+  body("financialYear").trim().notEmpty().withMessage("Financial year is required"),
   // change this
-  body("workDepartment").notEmpty().withMessage("Work department is required"),
+  body("workDepartment").trim().isMongoId().withMessage("Invalid Work department id"),
   // change this
-  body("approvingDepartment")
-    .notEmpty()
-    .withMessage("Approving department is required"),
-  body("sanctionAmount")
+  body("approvingDepartment").trim().isMongoId()
+    .withMessage("Invalid Approving department id"),
+  body("sanctionAmount").trim()
     .isNumeric()
     .withMessage("Sanction amount must be a number"),
-  body("estimatedCompletionDateOfWork")
+  body("estimatedCompletionDateOfWork").trim()
     .isISO8601()
     .withMessage("Valid completion date is required"),
-  body("city")
-    .custom((val) => mongoose.Types.ObjectId.isValid(val))
-    .withMessage("Invalid city id"),
-  body("typeOfLocation")
-    .custom((val) => mongoose.Types.ObjectId.isValid(val))
+  body("city").trim().isMongoId().withMessage("Invalid city id"),
+  body("typeOfLocation").trim().isMongoId()
     .withMessage("Invalid typeOfLocation id"),
-  body("ward")
-    .custom((val) => mongoose.Types.ObjectId.isValid(val))
+  body("ward").trim().isMongoId()
     .withMessage("Invalid ward id"),
-  body("sdo")
-    .custom((val) => mongoose.Types.ObjectId.isValid(val))
+  body("appointedSDO").trim().isMongoId()
     .withMessage("Invalid sdo id"),
-  body("appointedEngineer")
-    .custom((val) => mongoose.Types.ObjectId.isValid(val))
-    .withMessage("Invalid appointedEngineer id"),
+  body("appointedEngineer").trim().isMongoId()
+    .withMessage("Invalid appointed Engineer id"),
 ];
 
 const technicalApprovalValidation = [
@@ -136,4 +129,3 @@ router.post(
 );
 
 module.exports = router;
-
