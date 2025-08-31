@@ -344,7 +344,7 @@ const workProposalSchema = new mongoose.Schema({
   
   workDepartment: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'WorkDepartment',
+    ref: 'Department',
     required: true
   },
   

@@ -2,7 +2,7 @@ const mongoose= require("mongoose");
 
 const workDeptSchema= new mongoose.Schema(
     {
-        workDeptName:{
+        name:{
             type:String,
             unique:true,
             trim:true,

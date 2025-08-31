@@ -10,6 +10,4 @@ const typeOfWorkSchema = new mongoose.Schema({
   }
 });
 
-module.exports = {
-  TypeOfWork: mongoose.model('TypeOfWork', typeOfWorkSchema)
-};
+module.exports = mongoose.model('TypeOfWork', typeOfWorkSchema);

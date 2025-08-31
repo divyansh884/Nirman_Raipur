@@ -9,6 +9,4 @@ const schemeSchema = new mongoose.Schema({
   }
 });
 
-module.exports = {
-  Scheme: mongoose.model('Scheme', schemeSchema)
-};
+module.exports = mongoose.model('Scheme', schemeSchema);

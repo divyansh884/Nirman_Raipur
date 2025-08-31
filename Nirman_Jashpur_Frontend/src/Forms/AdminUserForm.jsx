@@ -58,7 +58,7 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`${BASE_SERVER_URL}/api/admin/user`, {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/user`, {
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
