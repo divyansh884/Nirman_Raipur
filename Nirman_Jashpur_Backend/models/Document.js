@@ -11,10 +11,6 @@ const documentSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    lastModified: {
-      type: Date,
-      required: true,
-    },
     storageClass: {
       type: String,
       default: "STANDARD",

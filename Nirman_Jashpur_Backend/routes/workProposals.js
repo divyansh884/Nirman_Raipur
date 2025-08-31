@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
-const { auth } = require("../middleware/auth");
+const { auth, authorizeRole } = require("../middleware/auth");
 const {
   createWorkProposal,
   getWorkProposals,
@@ -11,6 +11,10 @@ const {
   technicalApproval,
   administrativeApproval,
 } = require("../controllers/workProposalController");
+const {
+  uploadDocMiddleware,
+  s3UploadMiddleware,
+} = require("../middleware/upload");
 
 // Validation middleware
 const workProposalValidation = [
@@ -21,29 +25,42 @@ const workProposalValidation = [
   body("workAgency").trim().isMongoId().withMessage("Invalid Work agency id"),
   // change this
   body("scheme").trim().isMongoId().withMessage("Invalid Scheme id"),
-  body("workDescription").trim()
+  body("workDescription")
+    .trim()
     .notEmpty()
     .withMessage("Work description is required"),
-  body("financialYear").trim().notEmpty().withMessage("Financial year is required"),
+  body("financialYear")
+    .trim()
+    .notEmpty()
+    .withMessage("Financial year is required"),
   // change this
-  body("workDepartment").trim().isMongoId().withMessage("Invalid Work department id"),
+  body("workDepartment")
+    .trim()
+    .isMongoId()
+    .withMessage("Invalid Work department id"),
   // change this
-  body("approvingDepartment").trim().isMongoId()
+  body("approvingDepartment")
+    .trim()
+    .isMongoId()
     .withMessage("Invalid Approving department id"),
-  body("sanctionAmount").trim()
+  body("sanctionAmount")
+    .trim()
     .isNumeric()
     .withMessage("Sanction amount must be a number"),
-  body("estimatedCompletionDateOfWork").trim()
+  body("estimatedCompletionDateOfWork")
+    .trim()
     .isISO8601()
     .withMessage("Valid completion date is required"),
   body("city").trim().isMongoId().withMessage("Invalid city id"),
-  body("typeOfLocation").trim().isMongoId()
+  body("typeOfLocation")
+    .trim()
+    .isMongoId()
     .withMessage("Invalid typeOfLocation id"),
-  body("ward").trim().isMongoId()
-    .withMessage("Invalid ward id"),
-  body("appointedSDO").trim().isMongoId()
-    .withMessage("Invalid sdo id"),
-  body("appointedEngineer").trim().isMongoId()
+  body("ward").trim().isMongoId().withMessage("Invalid ward id"),
+  body("appointedSDO").trim().isMongoId().withMessage("Invalid sdo id"),
+  body("appointedEngineer")
+    .trim()
+    .isMongoId()
     .withMessage("Invalid appointed Engineer id"),
 ];
 
@@ -110,6 +127,9 @@ router.delete("/:id", auth, deleteWorkProposal);
 router.post(
   "/:id/technical-approval",
   auth,
+  authorizeRole("Technical Approver"),
+  uploadDocMiddleware,
+  s3UploadMiddleware,
   technicalApprovalValidation,
   technicalApproval,
 );
