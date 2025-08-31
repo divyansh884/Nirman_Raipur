@@ -76,7 +76,11 @@ const administrativeApprovalSchema = new mongoose.Schema(
       default: null,
     },
     attachedFile: documentSchema,
-    approvedBy: imageSchema,
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     rejectionReason: {
       type: String,
       default: null,
