@@ -2,15 +2,16 @@ import React, { useState, useEffect, useMemo } from "react";
 import "./Table.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopBar from "../Components/TopBar.jsx";
-import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
-import {BASE_SERVER_URL} from '../constants.jsx';
+import useAuthStore from '../Store/useAuthStore.js';
+import { BASE_SERVER_URL } from '../constants.jsx';
+
 const Table1 = ({
   onLogout,
   onAddNew,
   addButtonLabel,
   showAddButton,
   onView,
-  workStage = null, // Filter by work stage
+  workStage = null,
   pageTitle = "कार्य की सूची",
 }) => {
   const [data, setData] = useState([]);
@@ -21,6 +22,11 @@ const Table1 = ({
     plan: "",
     q: "",
     city: "",
+    workDepartment: "",
+    assembly: "",
+    engineer: "",
+    ward: "",
+    typeOfLocation: ""
   });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
@@ -33,25 +39,120 @@ const Table1 = ({
     total: 0,
     limit: 10
   });
-  
+
+  // Dynamic dropdown data
+  const [dropdownData, setDropdownData] = useState({
+    typeOfWorks: [],
+    schemes: [],
+    cities: [],
+    workDepartments: [],
+    wards: [],
+    typeOfLocations: [],
+    workAgencies: [],
+    engineers: []
+  });
+
   const navigate = useNavigate();
   const location = useLocation();
   const pathParts = location.pathname.split("/").filter(Boolean);
 
   // Get authentication from Zustand store
-  const { token, isAuthenticated, logout } = useAuthStore();
+  const { token, isAuthenticated, logout, verifyToken, user } = useAuthStore();
+
+  // Check if user is admin
+  const isAdmin = user?.role === 'Super Admin' || user?.role === 'Admin';
 
   // Check authentication status
   useEffect(() => {
-    if (!isAuthenticated || !token) {
-      setError("Authentication required. Please login.");
-      setLoading(false);
-      return;
-    }
-  }, [isAuthenticated, token]);
+    const checkAuth = async () => {
+      if (!isAuthenticated || !token) {
+        setError("Authentication required. Please login.");
+        setLoading(false);
+        return;
+      }
+      
+      const isValid = await verifyToken();
+      if (!isValid) {
+        setError("Session expired. Please login again.");
+        setLoading(false);
+        return;
+      }
+    };
+    
+    checkAuth();
+  }, [isAuthenticated, token, verifyToken]);
 
-  // NEW: Check if delete button should be shown based on page
+  // Fetch dropdown data from admin APIs
+  const fetchDropdownData = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      const endpoints = [
+        { key: 'typeOfWorks', url: '/admin/type-of-work' },
+        { key: 'schemes', url: '/admin/scheme' },
+        { key: 'cities', url: '/admin/city' },
+        { key: 'workDepartments', url: '/admin/department' },
+        { key: 'wards', url: '/admin/ward' },
+        { key: 'typeOfLocations', url: '/admin/type-of-location' },
+        { key: 'workAgencies', url: '/admin/work-agency' }
+      ];
+
+      // Fetch regular dropdown data
+      const promises = endpoints.map(endpoint =>
+        fetch(`${BASE_SERVER_URL}${endpoint.url}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch ${endpoint.key}`);
+          return res.json();
+        }).then(data => ({ 
+          key: endpoint.key, 
+          data: data.success ? data.data : (data.data || data) 
+        }))
+      );
+
+      // Add engineers fetch promise
+      const engineersPromise = fetch(`${BASE_SERVER_URL}/admin/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch users');
+        return res.json();
+      }).then(data => {
+        const allUsers = data.success ? data.data : (data.data || data || []);
+        const engineers = Array.isArray(allUsers) 
+          ? allUsers.filter(user => user.role === 'Engineer' && user.isActive === true)
+          : [];
+        
+        return { key: 'engineers', data: engineers };
+      }).catch(err => {
+        console.error('Error fetching engineers:', err);
+        return { key: 'engineers', data: [] };
+      });
+
+      const allPromises = [...promises, engineersPromise];
+      const results = await Promise.all(allPromises);
+      const newDropdownData = {};
+      
+      results.forEach(result => {
+        newDropdownData[result.key] = Array.isArray(result.data) ? result.data : [];
+      });
+
+      setDropdownData(newDropdownData);
+
+    } catch (err) {
+      console.error('Error fetching dropdown data:', err);
+    }
+  };
+
+  // Check if delete button should be shown based on page and user role
   function canShowDeleteButton() {
+    if (!isAdmin) return false; // Only admins can delete
+    
     const allowedPages = [
       "प्रशासकीय स्वीकृति",
       "तकनीकी स्वीकृति",
@@ -60,14 +161,14 @@ const Table1 = ({
     return allowedPages.includes(addButtonLabel);
   }
 
-  // Transform API response data to match table format
+  // Enhanced transform function for approval-focused data
   function transformApiData(apiData) {
     return apiData.map((item) => ({
       id: item._id || item.id,
       name: item.nameOfWork || '',
-      area: item.city || item.nameOfGPWard || item.ward || '',
-      agency: item.workAgency || '',
-      plan: item.scheme || '',
+      area: item.city?.name || item.city || item.nameOfGPWard || item.ward?.name || '',
+      agency: item.workAgency?.name || item.workAgency || 'N/A',
+      plan: item.scheme?.name || item.scheme || '',
       techApproval: item.technicalApproval?.approvalNumber || item.technicalApproval?.status || "लंबित",
       adminApproval: item.administrativeApproval?.approvalNumber || item.administrativeApproval?.status || "लंबित", 
       tenderApproval: item.tenderProcess?.status || (item.isTenderOrNot ? "निविदा स्वीकृत" : "निविदा लागू नहीं है"),
@@ -80,9 +181,8 @@ const Table1 = ({
     }));
   }
 
-  // Fetch data from API using Zustand token
+  // Fetch data from API
   async function fetchWorkProposals() {
-    // Check authentication first
     if (!isAuthenticated || !token) {
       setError("Authentication required. Please login.");
       setLoading(false);
@@ -93,11 +193,24 @@ const Table1 = ({
       setLoading(true);
       setError("");
       
-      const response = await fetch(`${BASE_SERVER_URL}/work-proposals?page=${page}&limit=${size}`, {
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: size.toString()
+      });
+
+      // Add filters to query if they exist
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value.trim() !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      
+      const response = await fetch(`${BASE_SERVER_URL}/work-proposals?${queryParams}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -105,7 +218,6 @@ const Table1 = ({
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Token is invalid, logout user
           logout();
           setError("Session expired. Please login again.");
           return;
@@ -132,9 +244,10 @@ const Table1 = ({
     }
   }
 
-  // Only fetch data if authenticated
+  // Fetch both work proposals and dropdown data
   useEffect(() => {
     if (isAuthenticated && token) {
+      fetchDropdownData();
       fetchWorkProposals();
     }
   }, [page, size, isAuthenticated, token]);
@@ -169,7 +282,6 @@ const Table1 = ({
     if (!workStage) {
       return data;
     }
-
     return data.filter((item) => {
       return item.details === workStage;
     });
@@ -177,12 +289,12 @@ const Table1 = ({
 
   const filtered = useMemo(() => {
     return stageFiltered.filter((d) => {
-      if (filters.type && d.type && d.type.indexOf(filters.type) === -1) return false;
-      if (filters.plan && (d.plan || "").indexOf(filters.plan) === -1) return false;
-      if (filters.city && d.area && d.area.indexOf(filters.city) === -1) return false;
+      if (filters.type && !d.name.toLowerCase().includes(filters.type.toLowerCase())) return false;
+      if (filters.plan && !d.plan.toLowerCase().includes(filters.plan.toLowerCase())) return false;
+      if (filters.city && !d.area.toLowerCase().includes(filters.city.toLowerCase())) return false;
       if (filters.q) {
-        const hay = Object.values(d).join(" ").toLowerCase();
-        if (hay.indexOf(filters.q.toLowerCase()) === -1) return false;
+        const searchText = Object.values(d).join(" ").toLowerCase();
+        if (!searchText.includes(filters.q.toLowerCase())) return false;
       }
       return true;
     });
@@ -218,7 +330,17 @@ const Table1 = ({
   }
 
   function resetFilters() {
-    setFilters({ type: "", plan: "", q: "", city: "" });
+    setFilters({ 
+      type: "", 
+      plan: "", 
+      q: "", 
+      city: "",
+      workDepartment: "",
+      assembly: "",
+      engineer: "",
+      ward: "",
+      typeOfLocation: ""
+    });
     setPage(1);
   }
 
@@ -251,8 +373,13 @@ const Table1 = ({
     URL.revokeObjectURL(a.href);
   }
 
-  // ENHANCED: Improved delete function with Zustand authentication
+  // Enhanced delete function with admin check
   async function deleteRow(id) {
+    if (!isAdmin) {
+      showToast("केवल प्रशासकों को कार्य हटाने की अनुमति है।");
+      return;
+    }
+
     if (!window.confirm("क्या आप वाकई इस कार्य को हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।")) return;
     
     if (!isAuthenticated || !token) {
@@ -267,13 +394,13 @@ const Table1 = ({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Use token from Zustand store
+          'Authorization': `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          logout(); // Logout using Zustand
+          logout();
           setError("Session expired. Please login again.");
           return;
         }
@@ -283,7 +410,7 @@ const Table1 = ({
         }
         if (response.status === 404) {
           showToast("कार्य नहीं मिला। यह पहले से हटाया जा चुका हो सकता है।");
-          refreshData(); // Refresh to update the list
+          refreshData();
           return;
         }
         
@@ -291,7 +418,6 @@ const Table1 = ({
         throw new Error(result.message || `Failed to delete work proposal (Status: ${response.status})`);
       }
 
-      // Success - refresh data
       await refreshData();
       showToast("कार्य सफलतापूर्वक हटाया गया।");
       
@@ -463,7 +589,7 @@ const Table1 = ({
       <div className="wrap">
         <section className="panel">
           <div className="p-body">
-            {/* Filters section remains the same */}
+            {/* Enhanced Filters with Dynamic Data */}
             <div className="filters">
               <div className="field">
                 <label>कार्य के प्रकार</label>
@@ -476,40 +602,52 @@ const Table1 = ({
                   }}
                 >
                   <option value="">--कार्य के प्रकार चुने--</option>
-                  <option>सीसी रोड</option>
-                  <option>पंचायती भवन</option>
-                  <option>भवन निर्माण</option>
-                  <option>नाली निर्माण</option>
-                  <option>सड़क मरम्मत</option>
+                  {dropdownData.typeOfWorks.map((item) => (
+                    <option key={item._id || item.id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>कार्य विभाग</label>
-                <select className="select">
+                <select 
+                  className="select"
+                  value={filters.workDepartment}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, workDepartment: e.target.value }));
+                    setPage(1);
+                  }}
+                >
                   <option value="">--कार्य विभाग चुने--</option>
-                  <option>आदिवासी विकास विभाग, जशपुर</option>
-                  <option>जनपद पंचायत</option>
-                  <option>जिला पंचायत</option>
-                  <option>राजस्व</option>
+                  {dropdownData.workDepartments.map((item) => (
+                    <option key={item._id || item.id} value={item.name || item.workDeptName}>
+                      {item.name || item.workDeptName}
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div className="field">
-                <label>विधानसभा</label>
-                <select className="select">
-                  <option value="">--विधानसभा चुने--</option>
-                  <option>कुनकुरी</option>
-                  <option>जशपुर</option>
-                  <option>पत्थलगांव</option>
-                </select>
-              </div>
+
               <div className="field">
                 <label>इंजीनियर</label>
-                <select className="select">
+                <select 
+                  className="select"
+                  value={filters.engineer}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, engineer: e.target.value }));
+                    setPage(1);
+                  }}
+                >
                   <option value="">--इंजीनियर चुने--</option>
-                  <option>Engineer A</option>
-                  <option>Engineer B</option>
+                  {dropdownData.engineers.map((engineer) => (
+                    <option key={engineer.id || engineer._id} value={engineer.id || engineer._id}>
+                      {engineer.fullName} ({engineer.role})
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>योजना</label>
                 <select
@@ -521,11 +659,14 @@ const Table1 = ({
                   }}
                 >
                   <option value="">--योजना चुने--</option>
-                  <option>CM योजना</option>
-                  <option>Block Plan</option>
-                  <option>Suguja Chhetra Pradhikaran</option>
+                  {dropdownData.schemes.map((item) => (
+                    <option key={item._id || item.id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>कार्य विवरण</label>
                 <select className="select">
@@ -535,14 +676,19 @@ const Table1 = ({
                   <option>भवन निर्माण</option>
                 </select>
               </div>
+
               <div className="field">
                 <label>क्षेत्र</label>
                 <select className="select">
                   <option value="">--क्षेत्र चुने--</option>
-                  <option>ग्राम</option>
-                  <option>शहर</option>
+                  {dropdownData.typeOfLocations.map((item) => (
+                    <option key={item._id || item.id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>शहर</label>
                 <select
@@ -554,30 +700,39 @@ const Table1 = ({
                   }}
                 >
                   <option value="">--शहर चुने--</option>
-                  <option>बगीचा</option>
-                  <option>दुलदुला</option>
-                  <option>फरसाबहार</option>
-                  <option>कांसाबेल</option>
-                  <option>कोटबा</option>
-                  <option>मनोरा</option>
-                  <option>कुनकुरी</option>
-                  <option>जशपुर नगर</option>
-                  <option>पत्थलगांव</option>
+                  {dropdownData.cities.map((item) => (
+                    <option key={item._id || item.id} value={item.name || item.cityName}>
+                      {item.name || item.cityName}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>वार्ड</label>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="वार्ड का नाम लिखें"
-                />
+                <select
+                  className="select"
+                  value={filters.ward}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, ward: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--वार्ड चुने--</option>
+                  {dropdownData.wards.map((item) => (
+                    <option key={item._id || item.id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div className="field full">
                 <label>दिनांक के अनुसार खोज</label>
-                <input className="input" placeholder="dd-mm-yyyy" />
+                <input className="input" placeholder="dd-mm-yyyy" type="date" />
               </div>
             </div>
+
             <div className="actions">
               <button
                 className="btn blue"
@@ -632,6 +787,7 @@ const Table1 = ({
             </div>
           </div>
         </section>
+
         <section className="panel table-card">
           <div className="table-head">
             <div>{getStageTitle()}</div>
@@ -718,7 +874,6 @@ const Table1 = ({
                           >
                             <i className="fa-solid fa-eye" />
                           </button>
-                          {/* CONDITIONAL DELETE BUTTON - Only show on specific pages */}
                           {canShowDeleteButton() && (
                             <button
                               className="icon-btn del"
@@ -785,6 +940,10 @@ const Table1 = ({
             <div style={{ marginTop: '10px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
               Showing {Math.min(start + 1, totalFilteredItems)} to {Math.min(start + size, totalFilteredItems)} of {totalFilteredItems} entries
               {workStage && <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>({workStage})</span>}
+              {isAdmin && <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>(Admin)</span>}
+              <span style={{ marginLeft: '10px', color: '#007bff' }}>
+                इंजीनियर: {dropdownData.engineers.length}
+              </span>
             </div>
           </div>
         </section>

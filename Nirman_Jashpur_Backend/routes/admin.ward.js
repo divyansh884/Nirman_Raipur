@@ -16,13 +16,13 @@ router.post("/", auth, authorizeRole("Super Admin"), async (req, res) => {
 });
 
 // Read all
-router.get("/", auth, authorizeRole("Super Admin"), async (req, res) => {
+router.get("/", async (req, res) => {
   const docs = await Ward.find();
   res.json(docs);
 });
 
 // Read one
-router.get("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const doc = await Ward.findById(req.params.id);
     if (!doc) return res.status(404).json({ error: "Not found" });

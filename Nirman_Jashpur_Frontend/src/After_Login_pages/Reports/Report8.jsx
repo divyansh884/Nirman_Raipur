@@ -25,11 +25,11 @@ const Report8 = ({ onLogout }) => {
       return;
     }
 
-    if (!canAccessPage('reports')) {
-      alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
-      navigate('/dashboard');
-      return;
-    }
+    // if (!canAccessPage('reports')) {
+    //   alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+    //   navigate('/dashboard');
+    //   return;
+    // }
 
     fetchBlockData();
   }, [isAuthenticated, token, navigate, canAccessPage]);

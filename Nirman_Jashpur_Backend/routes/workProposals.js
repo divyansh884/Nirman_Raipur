@@ -55,10 +55,6 @@ const technicalApprovalValidation = [
     .if(body("action").equals("approve"))
     .notEmpty()
     .withMessage("Approval number is required for approval"),
-  body("amountOfTechnicalSanction")
-    .if(body("action").equals("approve"))
-    .isNumeric()
-    .withMessage("Technical sanction amount is required for approval"),
   body("rejectionReason")
     .if(body("action").equals("reject"))
     .notEmpty()

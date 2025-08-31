@@ -138,8 +138,8 @@ router.post(
 // --- LIST USERS ---
 router.get(
   "/",
-  auth,
-  authorizeRole("Super Admin"),
+  // auth,
+  // authorizeRole("Super Admin"),
   validate([
     query("q").optional().isString(),
     query("role").optional().isString(),
@@ -179,8 +179,8 @@ router.get(
 // --- GET ONE USER ---
 router.get(
   "/:id",
-  auth,
-  authorizeRole("Super Admin"),
+  // auth,
+  // authorizeRole("Super Admin"),
   validate([param("id").isMongoId()]),
   async (req, res) => {
     const user = await User.findById(req.params.id)

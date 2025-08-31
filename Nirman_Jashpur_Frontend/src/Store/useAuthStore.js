@@ -18,31 +18,37 @@ const ROLE_PERMISSIONS = {
   'Administrative Approver': [
     'dashboard',
     'administrative-approval',
-     'profile'
+    'reports',
+    'profile'
   ],
   'Technical Approver': [
     'dashboard',
     'technical-approval',
-     'profile'
+    'reports',
+    'profile'
   ],
   'User': [
     'dashboard',
     'work',
-     'profile'
+    'reports',
+    'profile'
   ],
   'Engineer': [
     'dashboard',
     'work-progress',
+    'reports',
      'profile'
   ],
   'Tender Manager': [
     'dashboard',
     'tender',
+    'reports',
      'profile'
   ],
   'Work Order Manager': [
     'dashboard',
     'work-order',
+    'reports',
      'profile'
   ]
 };

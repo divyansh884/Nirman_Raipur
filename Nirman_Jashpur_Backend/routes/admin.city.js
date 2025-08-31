@@ -64,8 +64,8 @@ router.post(
 // GET /api/admin/city
 router.get(
   "/",
-  auth,
-  authorizeRole("Super Admin"),
+  // auth,
+  // authorizeRole("Super Admin"),
   async (req, res) => {
     try {
       const cities = await City.find().sort({ createdAt: -1 });
@@ -85,8 +85,8 @@ router.get(
 // GET /api/admin/city/:id
 router.get(
   "/:id",
-  auth,
-  authorizeRole("Super Admin"),
+  // auth,
+  // authorizeRole("Super Admin"),
   validate([param("id").isMongoId()]),
   async (req, res) => {
     try {

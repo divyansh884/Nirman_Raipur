@@ -61,8 +61,8 @@ router.post(
 // --- READ ALL ---
 router.get(
   '/',
-  auth,
-  authorizeRole('Super Admin'),
+  // auth,
+  // authorizeRole('Super Admin'),
   async (req, res) => {
     try {
       const departments = await WorkDept.find().sort({ createdAt: -1 });
@@ -81,8 +81,8 @@ router.get(
 // --- READ ONE ---
 router.get(
   '/:id',
-  auth,
-  authorizeRole('Super Admin'),
+  // auth,
+  // authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
     try {

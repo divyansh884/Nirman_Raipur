@@ -1,6 +1,6 @@
 const multer = require("multer");
 const s3 = require("../utils/s3");
-const S3File = require("../models/WorkProposal"); // ✅ import your schema
+const {documentModel : S3File} = require("../models/Document");
 
 // store files in memory before uploading
 const upload = multer({ storage: multer.memoryStorage() });

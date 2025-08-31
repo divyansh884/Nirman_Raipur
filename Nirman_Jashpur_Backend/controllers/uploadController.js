@@ -1,7 +1,7 @@
 const multer = require("multer");
 const s3 = require("../utils/s3");
 
-const ImageGroup = require("../models/WorkProposal")
+const ImageGroup = require("../models/Image").imageModel;
 
 // store files in memory before uploading to S3
 const upload = multer({ storage: multer.memoryStorage() });

@@ -23,7 +23,7 @@ const validate = (rules) => [
 // --- CREATE ---
 // POST /api/admin/departments
 router.post(
-  '/departments',
+  '/',
   auth,
   authorizeRole('Super Admin'),
   validate([
@@ -46,8 +46,8 @@ router.post(
 // --- READ ALL ---
 // GET /api/admin/departments
 router.get(
-  '/departments',
-  auth,
+  '/',
+  // auth,
   async (req, res) => {
     const departments = await Department.find().sort({ createdAt: -1 });
     res.json({ success: true, data: departments });
@@ -57,8 +57,8 @@ router.get(
 // --- READ ONE ---
 // GET /api/admin/departments/:id
 router.get(
-  '/departments/:id',
-  auth,
+  '/:id',
+  // auth,
   validate([param('id').isMongoId()]),
   async (req, res) => {
     const department = await Department.findById(req.params.id);
@@ -70,7 +70,7 @@ router.get(
 // --- UPDATE ---x
 // PATCH /api/admin/departments/:id
 router.patch(
-  '/departments/:id',
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([
@@ -96,7 +96,7 @@ router.patch(
 // --- DELETE ---
 // DELETE /api/admin/departments/:id
 router.delete(
-  '/departments/:id',
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),

@@ -1,60 +1,91 @@
 import React, { useState, useEffect } from 'react';
 import './WorkForm.css';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';
+
+// Generate dynamic financial years (current + past 5 years)
+const generateFinancialYears = () => {
+  const years = [];
+  const currentDate = new Date();
+  let currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // Months are 0-based
+
+  // Financial Year starts from April (if current month is Jan-Mar, use previous year)
+  if (currentMonth <= 3) {
+    currentYear = currentYear - 1;
+  }
+
+  // Generate current financial year and previous 5 years
+  for (let i = 0; i <= 5; i++) {
+    const startYear = currentYear - i;
+    const endYear = String(startYear + 1).slice(2); // Get last 2 digits
+    years.push(`${startYear}-${endYear}`);
+  }
+
+  return years;
+};
+
 const initialState = {
-  workYear: '',
-  dept: '',
-  subDept: '',
-  centralDept: '',
+  financialYear: '', // Will be set to current financial year
+  workDepartment: '',
+  userDepartment: '', // subDept
+  approvingDepartment: '', // centralDept
+  workAgency: '', // ✅ Work Agency field
   scheme: '',
-  amount: '',
   longitude: '',
   latitude: '',
-  areaType: '',
-  block: '',
-  ward: '',
-  workType: '',
-  workCategory: '',
-  workName: '',
-  engineer: '',
-  sdo: '',
-  startDate: '',
+  typeOfLocation: '',
   city: '',
+  ward: '',
+  typeOfWork: '',
+  nameOfWork: '',
+  workDescription: '',
+  appointedEngineer: '',
+  appointedSDO: '',
+  estimatedCompletionDateOfWork: '',
   map: '',
   landmarkNumber: '',
   promise: '',
-  // ✅ Added checkbox states
-  isDPRNotReceived: false,
-  isTenderRequired: false,
-  isTenderNotReceived: false
+  workName: '',
+  nameOfJPDBT: '',
+  nameOfGPWard: '',
+  plan: '',
+  assembly: '',
+  workOrderAmount: '',
+  // ✅ Checkbox states
+  isDPROrNot: true, // Default true (DPR received)
+  isTenderOrNot: false, // Default false (no tender required)
 };
 
-export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
+export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
   const [form, setForm] = useState(initialState);
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
+  // Dynamic dropdown data
+  const [dropdownData, setDropdownData] = useState({
+    typeOfWorks: [],
+    schemes: [],
+    cities: [],
+    workDepartments: [],
+    wards: [],
+    typeOfLocations: [],
+    workAgencies: [],
+    engineers: [],
+    sdos: []
+  });
+
   const navigate = useNavigate();
   const location = useLocation();
-  const params = useParams();
   const { workId } = useParams();
 
   // Get authentication from Zustand store
   const { token, isAuthenticated, logout, user } = useAuthStore();
 
-  // Build crumbs from current path
-  const crumbs = React.useMemo(() => {
-    const parts = location.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((s) =>
-        s.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())
-      );
-    return [...parts].join(" / ");
-  }, [location.pathname]);
+  // Generate financial years
+  const financialYears = generateFinancialYears();
 
   // Check authentication on component mount
   useEffect(() => {
@@ -63,70 +94,148 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       navigate('/login');
       return;
     }
+
+    // Set default financial year to current year
+    setForm(prev => ({
+      ...prev,
+      financialYear: financialYears[0] // Current financial year
+    }));
+
+    // Fetch dropdown data
+    fetchDropdownData();
   }, [isAuthenticated, token, navigate]);
 
+  // Fetch dropdown data from backend
+  const fetchDropdownData = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      const endpoints = [
+        { key: 'typeOfWorks', url: '/admin/type-of-work' },
+        { key: 'schemes', url: '/admin/scheme' },
+        { key: 'cities', url: '/admin/city' },
+        { key: 'workDepartments', url: '/admin/department' },
+        { key: 'wards', url: '/admin/ward' },
+        { key: 'typeOfLocations', url: '/admin/type-of-location' },
+        { key: 'workAgencies', url: '/admin/work-agency' },
+        { key: 'sdos', url: '/admin/sdo' }
+      ];
+
+      // Fetch regular dropdown data
+      const promises = endpoints.map(endpoint =>
+        fetch(`${BASE_SERVER_URL}${endpoint.url}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch ${endpoint.key}`);
+          return res.json();
+        }).then(data => ({ 
+          key: endpoint.key, 
+          data: data.success ? data.data : (data.data || data) 
+        })).catch(err => {
+          console.error(`Error fetching ${endpoint.key}:`, err);
+          return { key: endpoint.key, data: [] };
+        })
+      );
+
+      // Fetch engineers (users with role 'Engineer')
+      const engineersPromise = fetch(`${BASE_SERVER_URL}/admin/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch users');
+        return res.json();
+      }).then(data => {
+        const allUsers = data.success ? data.data : (data.data || data || []);
+        const engineers = Array.isArray(allUsers) 
+          ? allUsers.filter(user => user.role === 'Engineer' && user.isActive === true)
+          : [];
+        return { key: 'engineers', data: engineers };
+      }).catch(err => {
+        console.error('Error fetching engineers:', err);
+        return { key: 'engineers', data: [] };
+      });
+
+      const allPromises = [...promises, engineersPromise];
+      const results = await Promise.all(allPromises);
+      const newDropdownData = {};
+      
+      results.forEach(result => {
+        newDropdownData[result.key] = Array.isArray(result.data) ? result.data : [];
+      });
+
+      setDropdownData(newDropdownData);
+      console.log('Dropdown data loaded:', newDropdownData);
+
+    } catch (err) {
+      console.error('Error fetching dropdown data:', err);
+    }
+  };
+
+  // Handle prefilled data
   useEffect(() => {
     if (prefilledData) {
-      setForm({
-        workYear: prefilledData.year || '',
-        dept: prefilledData.agency || '',
-        subDept: prefilledData.details?.subDept || '',
-        centralDept: prefilledData.details?.centralDept || '',
-        scheme: prefilledData.plan || '',
-        amount: prefilledData.amount || '',
-        longitude: prefilledData.details?.longitude || '',
-        latitude: prefilledData.details?.latitude || '',
-        areaType: prefilledData.details?.areaType || '',
-        block: prefilledData.vname || '',
-        ward: prefilledData.details?.ward || '',
-        workType: prefilledData.type || '',
-        workCategory: prefilledData.details?.workCategory || '',
-        workName: prefilledData.name || '',
-        engineer: prefilledData.details?.engineer || '',
-        sdo: prefilledData.details?.sdo || '',
-        startDate: prefilledData.details?.startDate || '',
-        city: prefilledData.details?.city || '',
-        map: prefilledData.details?.map || '',
-        landmarkNumber: prefilledData.details?.landmarkNumber || '',
-        promise: prefilledData.details?.promise || '',
-        // ✅ Add checkbox prefilled data
-        isDPRNotReceived: prefilledData.details?.isDPRNotReceived || false,
-        isTenderRequired: prefilledData.details?.isTenderRequired || false,
-        isTenderNotReceived: prefilledData.details?.isTenderNotReceived || false
-      });
+      setForm(prev => ({
+        ...prev,
+        financialYear: prefilledData.financialYear || prev.financialYear,
+        workDepartment: prefilledData.workDepartment || '',
+        userDepartment: prefilledData.userDepartment || '',
+        approvingDepartment: prefilledData.approvingDepartment || '',
+        workAgency: prefilledData.workAgency || '', // ✅ Added workAgency
+        scheme: prefilledData.scheme || '',
+        longitude: prefilledData.longitude || '',
+        latitude: prefilledData.latitude || '',
+        typeOfLocation: prefilledData.typeOfLocation || '',
+        city: prefilledData.city || '',
+        ward: prefilledData.ward || '',
+        typeOfWork: prefilledData.typeOfWork || '',
+        nameOfWork: prefilledData.nameOfWork || '',
+        workDescription: prefilledData.workDescription || '',
+        appointedEngineer: prefilledData.appointedEngineer || '',
+        appointedSDO: prefilledData.appointedSDO || '',
+        estimatedCompletionDateOfWork: prefilledData.estimatedCompletionDateOfWork || '',
+        map: prefilledData.map || '',
+        landmarkNumber: prefilledData.landmarkNumber || '',
+        promise: prefilledData.promise || '',
+        workName: prefilledData.workName || '',
+        isDPROrNot: prefilledData.isDPROrNot ?? true,
+        isTenderOrNot: prefilledData.isTenderOrNot ?? false
+      }));
     }
   }, [prefilledData]);
 
-  function update(e){
+  function update(e) {
     const { name, value, type, checked } = e.target;
-    
-    // ✅ Handle checkboxes differently
     const newValue = type === 'checkbox' ? checked : value;
     
-    setForm(f=>({...f,[name]: newValue}));
+    setForm(f => ({ ...f, [name]: newValue }));
     
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({...prev, [name]: ''}));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   }
 
-  function validate(){
-    const req = ['workYear','dept','subDept','centralDept','scheme','workType','workCategory','workName', 'startDate'];
+  function validate() {
+    const requiredFields = [
+      'financialYear', 'workDepartment', 'userDepartment', 'approvingDepartment', 
+      'workAgency', // ✅ Added workAgency as required
+      'scheme', 'typeOfWork', 'nameOfWork', 'workDescription', 'estimatedCompletionDateOfWork'
+    ];
     const err = {};
     
     // Check required fields
-    req.forEach(k=>{ 
-      if(!form[k] || form[k].trim() === '') {
-        err[k]='* आवश्यक'; 
+    requiredFields.forEach(k => { 
+      if (!form[k] || form[k].trim() === '') {
+        err[k] = '* आवश्यक'; 
       }
     });
     
     // Additional validations
-    if (form.amount && (isNaN(parseFloat(form.amount)) || parseFloat(form.amount) < 0)) {
-      err.amount = '* वैध राशि दर्ज करें (0 या अधिक)';
-    }
-    
     if (form.longitude && (isNaN(parseFloat(form.longitude)) || Math.abs(parseFloat(form.longitude)) > 180)) {
       err.longitude = '* वैध रेखांश दर्ज करें (-180 से 180)';
     }
@@ -135,42 +244,28 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       err.latitude = '* वैध अक्षांश दर्ज करें (-90 से 90)';
     }
     
-    if (form.startDate && form.startDate.trim() !== '') {
-      // Basic date format validation (dd-mm-yyyy)
-      const datePattern = /^\d{2}-\d{2}-\d{4}$/;
-      if (!datePattern.test(form.startDate)) {
-        err.startDate = '* तिथि dd-mm-yyyy प्रारूप में दर्ज करें';
-      } else {
-        // Validate if it's a valid date
-        const [day, month, year] = form.startDate.split('-');
-        const dateObj = new Date(year, month - 1, day);
-        if (dateObj.getDate() != day || dateObj.getMonth() != month - 1 || dateObj.getFullYear() != year) {
-          err.startDate = '* वैध तिथि दर्ज करें';
-        }
-      }
-    }
-    
-    // ✅ Validation for checkbox logic
-    if (form.isTenderRequired && form.isTenderNotReceived) {
-      err.tenderLogic = '* निविदा है और निविदा प्राप्त नहीं है - दोनों एक साथ नहीं हो सकते';
+    if (form.workOrderAmount && (isNaN(parseFloat(form.workOrderAmount)) || parseFloat(form.workOrderAmount) < 0)) {
+      err.workOrderAmount = '* वैध राशि दर्ज करें (0 या अधिक)';
     }
     
     setErrors(err);
-    return Object.keys(err).length===0;
+    return Object.keys(err).length === 0;
   }
 
-  // Convert dd-mm-yyyy to Date object
+  // Convert date to ISO format
   function convertDateToISO(dateString) {
     if (!dateString) return null;
-    const [day, month, year] = dateString.split('-');
-    return new Date(year, month - 1, day).toISOString();
+    try {
+      return new Date(dateString).toISOString();
+    } catch {
+      return null;
+    }
   }
 
-  async function submit(e){
+  async function submit(e) {
     e.preventDefault();
-    if(!validate()) return;
+    if (!validate()) return;
     
-    // Check authentication using Zustand store
     if (!isAuthenticated || !token) {
       alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
       navigate('/login');
@@ -180,57 +275,42 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
     setIsSubmitting(true);
     
     try {
-      // ✅ Calculate tender and DPR status based on checkboxes
-      const isDPRRequired = !form.isDPRNotReceived; // If "DPR प्राप्त नहीं है" is checked, then DPR is NOT required
-      const isTenderOrNot = form.isTenderRequired; // If "निविदा है" is checked, then tender is required
-      
-      console.log("🔍 Checkbox values:");
-      console.log("isDPRNotReceived:", form.isDPRNotReceived, "=> isDPROrNot:", isDPRRequired);
-      console.log("isTenderRequired:", form.isTenderRequired, "=> isTenderOrNot:", isTenderOrNot);
-      console.log("isTenderNotReceived:", form.isTenderNotReceived);
-      
-      // Prepare data according to schema
+      // ✅ Prepare data according to the API body structure
       const workProposalData = {
-        // Required fields
-        typeOfWork: form.workType,
-        nameOfWork: form.workName,
-        workAgency: form.dept,
+        // Required fields from API body
+        typeOfWork: form.typeOfWork,
+        nameOfWork: form.nameOfWork,
+        workAgency: form.workAgency, // ✅ Use workAgency directly from form
         scheme: form.scheme,
-        workDescription: form.workName,
-        financialYear: form.workYear,
-        workDepartment: form.dept,
-        userDepartment: form.subDept,
+        nameOfJPDBT: form.nameOfJPDBT || 'Default JPDBT',
+        nameOfGPWard: form.nameOfGPWard || form.ward,
+        workDescription: form.workDescription,
+        financialYear: form.financialYear,
+        workDepartment: form.workDepartment,
+        approvingDepartment: form.approvingDepartment,
+        sanctionAmount: 0, // ✅ Hidden field - default to 0 as required
+        plan: form.plan || 'Default Plan',
+        assembly: form.assembly || 'Default Assembly',
+        longitude: form.longitude ? parseFloat(form.longitude) : 75.0364,
+        latitude: form.latitude ? parseFloat(form.latitude) : 23.3345,
+        typeOfLocation: form.typeOfLocation,
         city: form.city,
         ward: form.ward,
-        appointedEngineer: form.engineer,
-        approvingDepartment: form.centralDept,
-        sanctionAmount: parseFloat(form.amount) || 0,
-
-        estimatedCompletionDateOfWork: convertDateToISO(form.startDate),
+        workOrderAmount: form.workOrderAmount ? parseFloat(form.workOrderAmount) : 1400000,
+        map: form.map || 'https://example.com/maps/location.pdf',
+        landmarkNumber: form.landmarkNumber || 'LMK-DEFAULT',
+        promise: form.promise || 'Default Promise',
+        workName: form.workName || form.nameOfWork,
+        appointedEngineer: form.appointedEngineer,
+        appointedSDO: form.appointedSDO,
+        estimatedCompletionDateOfWork: convertDateToISO(form.estimatedCompletionDateOfWork),
+        isDPROrNot: form.isDPROrNot,
+        isTenderOrNot: form.isTenderOrNot,
         
-        // Optional fields
-        nameOfJPDBT: form.block || null,
-        nameOfGPWard: form.ward || null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
-        latitude: form.latitude ? parseFloat(form.latitude) : null,
-        typeOfLocation: form.areaType || null,
-        
-        map: form.map || null,
-        landmarkNumber: form.landmarkNumber || null,
-        promise: form.promise || null,
-        workName: form.workName,
-        appointedSDO: form.sdo || null,
-        
-        // ✅ Use checkbox values instead of hardcoded defaults
-        isDPROrNot: isDPRRequired,
-        isTenderOrNot: isTenderOrNot,
-        
-        // Default values
+        // System fields
         workProgressStage: 'Pending Technical Approval',
         currentStatus: 'Pending Technical Approval',
-        
-        // Get submittedBy from Zustand user data
-        submittedBy: user?.id || currentUser?.id || null,
+        submittedBy: user?.id || currentUser?.id || null
       };
 
       console.log("📤 Sending work proposal data:", workProposalData);
@@ -239,7 +319,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Use token from Zustand store
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(workProposalData)
       });
@@ -247,10 +327,9 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       const result = await response.json();
 
       if (!response.ok) {
-        // Handle authentication errors specifically
         if (response.status === 401) {
           alert('आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
-          logout(); // Use Zustand logout function
+          logout();
           navigate('/login');
           return;
         } else if (response.status === 403) {
@@ -266,20 +345,22 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
       setShowSuccessModal(true);
       
       // Reset form
-      setForm(initialState);
+      setForm({
+        ...initialState,
+        financialYear: financialYears[0] // Reset to current year
+      });
       setErrors({});
       
     } catch (error) {
       console.error('Error creating work proposal:', error);
       
-      // Handle specific error cases
       if (error.message.includes('validation')) {
         alert('कृपया सभी आवश्यक फ़ील्ड भरें और वैध डेटा दर्ज करें।');
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         alert('नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।');
       } else if (error.message.includes('unauthorized') || error.message.includes('token')) {
         alert('प्राधिकरण त्रुटि। कृपया पुनः लॉगिन करें।');
-        logout(); // Use Zustand logout function
+        logout();
         navigate('/login');
       } else {
         alert('कार्य प्रस्ताव बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।');
@@ -289,9 +370,12 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
     }
   }
 
-  function cancel(){
-    if(window.confirm('रद्द करें? भरी गयी जानकारी मिट जाएगी।')){
-      setForm(initialState); 
+  function cancel() {
+    if (window.confirm('रद्द करें? भरी गयी जानकारी मिट जाएगी।')) {
+      setForm({
+        ...initialState,
+        financialYear: financialYears[0]
+      }); 
       setErrors({});
       if (onWorkAdded) {
         onWorkAdded();
@@ -340,70 +424,94 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
         <div className="atw-card-head">कार्य जोड़ें</div>
         <form className="atw-form" onSubmit={submit} noValidate>
           <div className="atw-form-title" style={{marginTop:"10px"}}>कार्य जोड़ें</div>
+          
           {/* Row 1 */}
           <div className="atw-grid">
+            {/* ✅ Dynamic Financial Year Dropdown */}
             <div className="fld">
               <label>वित्तीय वर्ष <span className="req">*</span></label>
-              <select name="workYear" value={form.workYear} onChange={update} disabled={isSubmitting}>
+              <select name="financialYear" value={form.financialYear} onChange={update} disabled={isSubmitting}>
                 <option value="">-- वित्तीय वर्ष चुने --</option>
-                <option>2024-25</option>
-                <option>2023-24</option>
+                {financialYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
               </select>
-              {errors.workYear && <small className="err">{errors.workYear}</small>}
+              {errors.financialYear && <small className="err">{errors.financialYear}</small>}
             </div>
+
+            {/* ✅ Dynamic Work Department Dropdown */}
             <div className="fld">
               <label>कार्य विभाग <span className="req">*</span></label>
-              <select name="dept" value={form.dept} onChange={update} disabled={isSubmitting}>
+              <select name="workDepartment" value={form.workDepartment} onChange={update} disabled={isSubmitting}>
                 <option value="">-- कार्य विभाग चुने --</option>
-                <option>आदिवासी विकास विभाग, जशपुर</option>
-                <option>जनपद पंचायत</option>
+                {dropdownData.workDepartments.map((dept) => (
+                  <option key={dept._id || dept.id} value={dept._id || dept.id}>
+                    {dept.name || dept.workDeptName}
+                  </option>
+                ))}
               </select>
-              {errors.dept && <small className="err">{errors.dept}</small>}
+              {errors.workDepartment && <small className="err">{errors.workDepartment}</small>}
             </div>
+
             <div className="fld">
               <label>उपविभागीय विभाग <span className="req">*</span></label>
-              <select name="subDept" value={form.subDept} onChange={update} disabled={isSubmitting}>
+              <select name="userDepartment" value={form.userDepartment} onChange={update} disabled={isSubmitting}>
                 <option value="">-- उपविभागीय विभाग चुने --</option>
-                <option>उपविभाग A</option>
-                <option>उपविभाग B</option>
+                {dropdownData.workDepartments.map((dept) => (
+                  <option key={dept._id || dept.id} value={dept._id || dept.id}>
+                    {dept.name || dept.workDeptName}
+                  </option>
+                ))}
               </select>
-              {errors.subDept && <small className="err">{errors.subDept}</small>}
+              {errors.userDepartment && <small className="err">{errors.userDepartment}</small>}
             </div>
+
             <div className="fld">
               <label>स्वीकृतकर्ता विभाग <span className="req">*</span></label>
-              <select name="centralDept" value={form.centralDept} onChange={update} disabled={isSubmitting}>
+              <select name="approvingDepartment" value={form.approvingDepartment} onChange={update} disabled={isSubmitting}>
                 <option value="">-- स्वीकृतकर्ता विभाग चुने --</option>
-                <option>स्वीकृतकर्ता विभाग A</option>
-                <option>स्वीकृतकर्ता विभाग B</option>
+                {dropdownData.workDepartments.map((dept) => (
+                  <option key={dept._id || dept.id} value={dept._id || dept.id}>
+                    {dept.name || dept.workDeptName}
+                  </option>
+                ))}
               </select>
-              {errors.centralDept && <small className="err">{errors.centralDept}</small>}
+              {errors.approvingDepartment && <small className="err">{errors.approvingDepartment}</small>}
             </div>
           </div>
+
           {/* Row 2 */}
           <div className="atw-grid">
+            {/* ✅ Dynamic Scheme Dropdown */}
             <div className="fld">
               <label>योजना <span className="req">*</span></label>
               <select name="scheme" value={form.scheme} onChange={update} disabled={isSubmitting}>
                 <option value="">-- योजना चुने --</option>
-                <option>CM योजना</option>
-                <option>Block Plan</option>
+                {dropdownData.schemes.map((scheme) => (
+                  <option key={scheme._id || scheme.id} value={scheme._id || scheme.id}>
+                    {scheme.name}
+                  </option>
+                ))}
               </select>
               {errors.scheme && <small className="err">{errors.scheme}</small>}
             </div>
-            <div className="fld amt">
-              <label>राशि (₹) <span className="req">*</span></label>
-              <input 
-                name="amount" 
-                value={form.amount} 
-                onChange={update} 
-                placeholder="राशि" 
-                type="number" 
-                step="0.01" 
-                min="0"
-                disabled={isSubmitting}
-              />
-              {errors.amount && <small className="err">{errors.amount}</small>}
+
+            {/* ✅ ADDED Work Agency Dropdown */}
+            <div className="fld">
+              <label>कार्य एजेंसी <span className="req">*</span></label>
+              <select name="workAgency" value={form.workAgency} onChange={update} disabled={isSubmitting}>
+                <option value="">-- कार्य एजेंसी चुने --</option>
+                {dropdownData.workAgencies.map((agency) => (
+                  <option key={agency._id || agency.id} value={agency._id || agency.id}>
+                    {agency.name}
+                  </option>
+                ))}
+              </select>
+              {errors.workAgency && <small className="err">{errors.workAgency}</small>}
             </div>
+
             <div className="fld">
               <label>देशान्तर (Longitude)</label>
               <input 
@@ -417,6 +525,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               />
               {errors.longitude && <small className="err">{errors.longitude}</small>}
             </div>
+
             <div className="fld">
               <label>अक्षांश (Latitude)</label>
               <input 
@@ -431,166 +540,199 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               {errors.latitude && <small className="err">{errors.latitude}</small>}
             </div>
           </div>
+
           {/* Row 3 */}
           <div className="atw-grid">
+            {/* ✅ Dynamic Type of Location Dropdown */}
             <div className="fld">
               <label>क्षेत्र का प्रकार</label>
-              <select name="areaType" value={form.areaType} onChange={update} disabled={isSubmitting}>
+              <select name="typeOfLocation" value={form.typeOfLocation} onChange={update} disabled={isSubmitting}>
                 <option value="">-- प्रकार चुनें --</option>
-                <option>ग्राम</option>
-                <option>शहर</option>
+                {dropdownData.typeOfLocations.map((type) => (
+                  <option key={type._id || type.id} value={type._id || type.id}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* ✅ Dynamic City Dropdown */}
             <div className="fld">
               <label>शहर / नगर</label>
               <select name="city" value={form.city} onChange={update} disabled={isSubmitting}>
                 <option value="">-- शहर चुने --</option>
-                <option>बगीचा</option>
-                <option>दुलदुला</option>
-                <option>फरसाबहार</option>
-                <option>कांसाबेल</option>
-                <option>कोटबा</option>
-                <option>मनोरा</option>
-                <option>कुनकुरी</option>
-                <option>जशपुर नगर</option>
-                <option>पत्थलगांव</option>
+                {dropdownData.cities.map((city) => (
+                  <option key={city._id || city.id} value={city._id || city.id}>
+                    {city.name || city.cityName}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* ✅ Dynamic Ward Dropdown */}
             <div className="fld">
               <label>वार्ड / ग्राम</label>
               <select name="ward" value={form.ward} onChange={update} disabled={isSubmitting}>
                 <option value="">-- वार्ड चुने --</option>
-                <option>Ward 1</option>
-                <option>Ward 2</option>
+                {dropdownData.wards.map((ward) => (
+                  <option key={ward._id || ward.id} value={ward._id || ward.id}>
+                    {ward.name}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* ✅ Dynamic Work Type Dropdown */}
             <div className="fld">
               <label>कार्य के प्रकार <span className="req">*</span></label>
-              <select name="workType" value={form.workType} onChange={update} disabled={isSubmitting}>
+              <select name="typeOfWork" value={form.typeOfWork} onChange={update} disabled={isSubmitting}>
                 <option value="">-- कार्य के प्रकार चुने --</option>
-                <option>सीसी रोड</option>
-                <option>भवन निर्माण</option>
+                {dropdownData.typeOfWorks.map((type) => (
+                  <option key={type._id || type.id} value={type._id || type.id}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
-              {errors.workType && <small className="err">{errors.workType}</small>}
+              {errors.typeOfWork && <small className="err">{errors.typeOfWork}</small>}
             </div>
+          </div>
+
+          {/* Row 4 */}
+          <div className="atw-grid">
             <div className="fld">
               <label>नक्शा</label>
               <input 
                 name="map"
                 value={form.map} 
                 onChange={update} 
-                placeholder="नक्शा"
+                placeholder="नक्शा URL"
                 disabled={isSubmitting}
               />
-              {errors.map && <small className="err">{errors.map}</small>}
             </div>
+
             <div className="fld">
               <label>खसरा</label>
               <input 
                 name="landmarkNumber"
                 value={form.landmarkNumber} 
                 onChange={update} 
-                placeholder="खसरा"
+                placeholder="खसरा नंबर"
                 disabled={isSubmitting}
               />
-              {errors.landmarkNumber && <small className="err">{errors.landmarkNumber}</small>}
             </div>
+
             <div className="fld">
               <label>प्रस्ताव</label>
               <input 
                 name="promise"
                 value={form.promise} 
                 onChange={update} 
-                placeholder="प्रस्ताव"
+                placeholder="प्रस्ताव विवरण"
                 disabled={isSubmitting}
               />
-              {errors.promise && <small className="err">{errors.promise}</small>}
             </div>
+
             <div className="fld">
               <label>कार्य का नाम <span className="req">*</span></label>
               <input 
-                name="workName" 
-                value={form.workName} 
+                name="nameOfWork" 
+                value={form.nameOfWork} 
                 onChange={update} 
-                placeholder="कार्य नाम"
+                placeholder="कार्य का नाम"
                 disabled={isSubmitting}
               />
-              {errors.workName && <small className="err">{errors.workName}</small>}
+              {errors.nameOfWork && <small className="err">{errors.nameOfWork}</small>}
             </div>
+          </div>
+
+          {/* Row 5 */}
+          <div className="atw-grid">
+            {/* ✅ Dynamic Engineer Dropdown */}
             <div className="fld">
               <label>इंजीनियर अधिकारी</label>
-              <select name="engineer" value={form.engineer} onChange={update} disabled={isSubmitting}>
+              <select name="appointedEngineer" value={form.appointedEngineer} onChange={update} disabled={isSubmitting}>
                 <option value="">-- इंजीनियर चुने --</option>
-                <option>Engineer A</option>
-                <option>Engineer B</option>
+                {dropdownData.engineers.map((engineer) => (
+                  <option key={engineer.id || engineer._id} value={engineer.id || engineer._id}>
+                    {engineer.fullName} ({engineer.role})
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* ✅ Dynamic SDO Dropdown */}
             <div className="fld">
               <label>नियुक्त एसडीओ</label>
-              <select name="sdo" value={form.sdo} onChange={update} disabled={isSubmitting}>
+              <select name="appointedSDO" value={form.appointedSDO} onChange={update} disabled={isSubmitting}>
                 <option value="">-- एसडीओ चुनें --</option>
-                <option>SDO A</option>
-                <option>SDO B</option>
-                <option>SDO C</option>
+                {dropdownData.sdos.map((sdo) => (
+                  <option key={sdo._id || sdo.id} value={sdo._id || sdo.id}>
+                    {sdo.name}
+                  </option>
+                ))}
               </select>
             </div>
+
             <div className="fld">
-              <label>कार्य आरंभ तिथि <span className="req">*</span></label>
+              <label>कार्य पूर्ण होने की अनुमानित तिथि <span className="req">*</span></label>
               <input 
-                name="startDate" 
-                value={form.startDate} 
+                name="estimatedCompletionDateOfWork" 
+                value={form.estimatedCompletionDateOfWork} 
                 onChange={update} 
-                placeholder="dd-mm-yyyy"
+                type="date"
                 disabled={isSubmitting}
               />
-              {errors.startDate && <small className="err">{errors.startDate}</small>}
+              {errors.estimatedCompletionDateOfWork && <small className="err">{errors.estimatedCompletionDateOfWork}</small>}
             </div>
-            
-            {/* ✅ Updated checkbox section with proper state management */}
-            <div className="fld checkbox-col span2">
+
+            <div className="fld">
+              <label>कार्य विवरण <span className="req">*</span></label>
+              <textarea 
+                name="workDescription" 
+                value={form.workDescription} 
+                onChange={update} 
+                placeholder="कार्य का विस्तृत विवरण"
+                disabled={isSubmitting}
+                rows="3"
+              />
+              {errors.workDescription && <small className="err">{errors.workDescription}</small>}
+            </div>
+          </div>
+
+          {/* ✅ Checkbox Section */}
+          <div className="atw-grid">
+            <div className="fld checkbox-col span-2">
               <label className="chk">
                 <input 
                   type="checkbox" 
-                  name="isDPRNotReceived"
-                  checked={form.isDPRNotReceived}
+                  name="isDPROrNot"
+                  checked={form.isDPROrNot}
                   onChange={update}
                   disabled={isSubmitting} 
                 /> 
-                डी.पी.आर. प्राप्त नहीं है
+                डी.पी.आर. प्राप्त है
               </label>
               
               <label className="chk">
                 <input 
                   type="checkbox" 
-                  name="isTenderRequired"
-                  checked={form.isTenderRequired}
+                  name="isTenderOrNot"
+                  checked={form.isTenderOrNot}
                   onChange={update}
                   disabled={isSubmitting} 
                 /> 
-                निविदा है
+                निविदा आवश्यक है
               </label>
-              
-              <label className="chk">
-                <input 
-                  type="checkbox" 
-                  name="isTenderNotReceived"
-                  checked={form.isTenderNotReceived}
-                  onChange={update}
-                  disabled={isSubmitting} 
-                /> 
-                निविदा प्राप्त नहीं है
-              </label>
-              
-              {/* ✅ Show validation error for checkbox logic */}
-              {errors.tenderLogic && <small className="err">{errors.tenderLogic}</small>}
             </div>
           </div>
           
           <div className="atw-form-actions">
             <button type="submit" className="atw-btn primary" disabled={isSubmitting}>
-              {isSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
+              {isSubmitting ? 'सबमिट हो रहा है...' : 'SUBMIT'}
             </button>
-            <button type="button" className="atw-btn" onClick={cancel} disabled={isSubmitting}>CANCEL</button>
+            <button type="button" className="atw-btn" onClick={cancel} disabled={isSubmitting}>
+              CANCEL
+            </button>
           </div>
         </form>
       </div>
@@ -603,7 +745,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }){
               <div className="success-icon">
                 <i className="fas fa-check-circle"></i>
               </div>
-              <h3>कार्य सफलतापूर्वक अपडेट हुआ!</h3>
+              <h3>कार्य सफलतापूर्वक जोड़ा गया!</h3>
               <p>Work Proposal Created Successfully!</p>
               <button 
                 className="modal-btn"

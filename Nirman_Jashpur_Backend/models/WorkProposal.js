@@ -1,51 +1,5 @@
 const mongoose = require('mongoose');
 
-const documentSchema = new mongoose.Schema(
-  {
-    key: {
-      type: String,
-      required: true,
-      unique: true, // each object key is unique in S3
-    },
-    size: {
-      type: Number,
-      required: true,
-    },
-    lastModified: {
-      type: Date,
-      required: true,
-    },
-    storageClass: {
-      type: String,
-      default: "STANDARD",
-    },
-    eTag: {
-      type: String,
-      required: true,
-    },
-    url: {
-      type: String,
-      required: true,
-    },
-  },
-  { timestamps: true }
-);
-
-const imageSchema = new mongoose.Schema(
-  {
-    images: [
-      {
-        url: { type: String, required: true },
-        key: { type: String, required: true },
-        bucket: { type: String, required: true },
-        contentType: { type: String, required: true },
-        size: { type: Number, required: true },
-      },
-    ],
-  },
-  { timestamps: true }
-);
-
 
 // Technical Approval Schema
 const technicalApprovalSchema = new mongoose.Schema({
@@ -75,11 +29,20 @@ const technicalApprovalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: documentSchema,
+  attachedFile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document',
+    default: null
+  },
+  attachedImages: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Image',
+    required: true,
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    required: true
   },
   rejectionReason: {
     type: String,
@@ -115,7 +78,11 @@ const administrativeApprovalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: documentSchema,
+  attachedFile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document',
+    required: true,
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -141,7 +108,12 @@ const tenderProcessSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedDocument: documentSchema,
+  attachedFile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document',
+    required: false,
+    default: null
+  },
   issuedDates: {
     type: Date,
     default: null
@@ -181,7 +153,12 @@ const workOrderSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  attachedFile: documentSchema,
+  attachedFile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document',
+    required: false,
+    default: null
+  },
   issuedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -239,8 +216,17 @@ const workProgressSchema = new mongoose.Schema({
     max: 100,
     default: 0
   },
-  progressDocuments: documentSchema,
-  progressImages: imageSchema,
+  progressDocuments: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document',
+    required: false,
+    default: null
+  },
+  progressImages: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Image',
+    required: true
+  },
   lastUpdatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -258,7 +244,12 @@ const workProposalSchema = new mongoose.Schema({
   },
   
   // Image/Photo of work location
-  workLocationImage: imageSchema,
+  workLocationImage: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Image',
+    default: null,
+    required: false
+  },
   
   // Type of work
   typeOfWork: {

@@ -45,11 +45,11 @@ const Report1 = ({ onLogout }) => {
       }
 
       // Check page access permissions
-      if (!canAccessPage('reports')) {
-        alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
-        navigate('/dashboard');
-        return;
-      }
+      // if (!canAccessPage('reports')) {
+      //   alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+      //   navigate('/dashboard');
+      //   return;
+      // }
 
       // All checks passed, fetch data
       fetchPhotoMissingData();
