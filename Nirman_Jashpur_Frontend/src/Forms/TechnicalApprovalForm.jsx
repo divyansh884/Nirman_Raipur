@@ -20,6 +20,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
     forwardingDate: "",
     remarks: "",
     document: null,
+    workOrderAmount: null,
   });
 
   // Loading and error states
@@ -147,6 +148,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
         forwardingDate: "",
         remarks: "",
         document: null,
+        workOrderAmount: null,
       });
       
       // Clear file input

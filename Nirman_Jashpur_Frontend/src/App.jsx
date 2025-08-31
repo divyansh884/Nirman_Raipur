@@ -1,27 +1,26 @@
 import React, { useState, useEffect } from "react";
 import {
-  Home,
-  LogIn,
-  Download,
-  Map,
-  FileText,
-  ClipboardList,
-  BarChart,
-  Users,
-  Building2,
-  Settings,
+  Home,
+  LogIn,
+  Download,
+  Map,
+  FileText,
+  ClipboardList,
+  BarChart,
+  Users,
+  Building2,
+  Settings,
 } from "lucide-react";
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useNavigate,
-  Navigate,
-  useLocation,
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  Navigate,
+  useLocation,
 } from "react-router-dom";
 import "./App.css";
 import useAuthStore from "./Store/useAuthStore.js";
-
 // Your existing imports remain the same
 import LoginPage from "./Before_Login_pages/Login.jsx";
 import HomePage from "./Before_Login_pages/HomePage.jsx";
@@ -42,7 +41,7 @@ import WorkOrderForm from "./Forms/WorkOrderForm.jsx";
 import WorkInProgressForm from "./Forms/WorkInProgressForm.jsx";
 import Profile from "./After_Login_pages/Profile.jsx";
 import MyMap from "./After_Login_pages/GIS/Map.jsx";
-import Report1 from "./After_Login_pages/Reports/Report1.jsx";
+// import Report1 from "./After_Login_pages/Reports/Report1.jsx";
 import Report2 from "./After_Login_pages/Reports/Report2.jsx";
 import Report3 from "./After_Login_pages/Reports/Report3.jsx";
 import Report4 from "./After_Login_pages/Reports/Report4.jsx";
@@ -59,29 +58,79 @@ import AdminUserForm from "./Forms/AdminUserForm.jsx";
 import AdminWorkForm from "./Forms/AdminWorkForm.jsx";
 
 const App = () => {
-  const { isAuthenticated, user, verifyToken, isAdmin } = useAuthStore();
+ // ✅ Fixed version
+// ✅ CORRECT: All hooks at the top level, before any returns
+const { 
+  isAuthenticated, 
+  user, 
+  verifyToken, 
+  isAdmin, 
+  initializeAuth,
+  isAuthLoading  
+} = useAuthStore();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isAuthenticated) {
-        await verifyToken();
-      }
-    };
-    checkAuth();
-  }, [isAuthenticated, verifyToken]);
+// ✅ CORRECT: All useEffect calls before conditional return
+useEffect(() => {
+  initializeAuth();
+}, [initializeAuth]);
+
+useEffect(() => {
+  const checkAuth = async () => {
+    if (isAuthenticated) {
+      await verifyToken();
+    }
+  };
+  checkAuth();
+}, [isAuthenticated, verifyToken]);
+
+// ✅ CORRECT: Conditional return AFTER all hooks
+if (isAuthLoading) {
+  return (
+    <div className="loading-container" style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      flexDirection: 'column',
+      gap: '1rem'
+    }}>
+      <div className="spinner" style={{
+        width: '40px',
+        height: '40px',
+        border: '4px solid #e5e7eb',
+        borderTop: '4px solid #3b82f6',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }}></div>
+      <p>प्रमाणीकरण जांच रहे हैं...</p>
+    </div>
+  );
+}
+
+// Rest of your component...
+
+
+// ✅ Verify token when authentication state changes
+
+
 
   return (
     <Router>
       <div className="app-container">
-        {/* Public navbar (not logged in) */}
+        {/* ✅ FIXED: Show TopNavbar ONLY when NOT authenticated */}
         {!isAuthenticated && <TopNavbar />}
-        {/* Sidebar when logged in */}
+        
+        {/* ✅ FIXED: Show SideNavbar ONLY when authenticated */}
         {isAuthenticated && <SideNavbar />}
+        
+        {/* ✅ FIXED: Apply logged-in-main class only when authenticated */}
         <main className={isAuthenticated ? "logged-in-main" : ""}>
           <Routes>
-            {/* Public routes */}
+            {/* Public routes - Always available */}
             <Route path="/" element={<HomePage />} />
-            {/* Login */}
+            <Route path="/download" element={<DownloadPage />} />
+            
+            {/* Login route - Redirect to dashboard if already logged in */}
             <Route
               path="/login"
               element={
@@ -92,49 +141,33 @@ const App = () => {
                 )
               }
             />
-            <Route path="/download" element={<DownloadPage />} />
-            {/* Private routes */}
-            {isAuthenticated && (
+            
+            {/* ✅ FIXED: Protected routes - Only render when authenticated */}
+            {isAuthenticated ? (
               <>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/work" element={<WorkPage />} />
-                <Route
-                  path="/Technical-Approval"
-                  element={<TechnicalApprovalPage />}
-                />
-                <Route
-                  path="/Administrative-Approval"
-                  element={<AdministrativeApprovalPage />}
-                />
+                <Route path="/Technical-Approval" element={<TechnicalApprovalPage />} />
+                <Route path="/Administrative-Approval" element={<AdministrativeApprovalPage />} />
                 <Route path="/Tender" element={<TenderPage />} />
                 <Route path="/Work-Order" element={<WorkOrderPage />} />
-                <Route
-                  path="/Work-In-Progress"
-                  element={<WorkProgressPage />}
-                />
-                {/*Report Routes*/}
+                <Route path="/Work-In-Progress" element={<WorkProgressPage />} />
+                
+                {/* Form Routes */}
                 <Route path="/add-work" element={<WorkForm />} />
                 <Route path="/work/:workId" element={<WorkDetailsPage />} />
-                <Route
-                  path="/Administrative-Approval-Form/:workId"
-                  element={<AdministrativeApprovalForm />}
-                />
-                <Route
-                  path="/Technical-Approval-Form/:workId"
-                  element={<TechnicalApprovalForm />}
-                />
+                <Route path="/Administrative-Approval-Form/:workId" element={<AdministrativeApprovalForm />} />
+                <Route path="/Technical-Approval-Form/:workId" element={<TechnicalApprovalForm />} />
                 <Route path="/Tender-Form/:workId" element={<TenderForm />} />
-                <Route
-                  path="/Work-Order-Form/:workId"
-                  element={<WorkOrderForm />}
-                />
-                <Route
-                  path="/Work-In-Progress-Form/:workId"
-                  element={<WorkInProgressForm />}
-                />
+                <Route path="/Work-Order-Form/:workId" element={<WorkOrderForm />} />
+                <Route path="/Work-In-Progress-Form/:workId" element={<WorkInProgressForm />} />
+                
+                {/* Profile and GIS */}
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/gis/map" element={<MyMap />} />
-                <Route path="/Report/Report1" element={<Report1 />} />
+                
+                {/* Report Routes */}
+                {/* <Route path="/Report/Report1" element={<Report1 />} /> */}
                 <Route path="/Report/Report2" element={<Report2 />} />
                 <Route path="/Report/Report3" element={<Report3 />} />
                 <Route path="/Report/Report4" element={<Report4 />} />
@@ -147,7 +180,7 @@ const App = () => {
                 <Route path="/Report/Report11" element={<Report11 />} />
                 <Route path="/Report/Report12" element={<Report12 />} />
                 
-                {/* Admin-only routes - Only accessible by admin users */}
+                {/* ✅ FIXED: Admin-only routes with proper conditional rendering */}
                 {isAdmin() && (
                   <>
                     <Route path="/Admin/AdminDepartmentForms" element={<AdminDepartmentForms />} />
@@ -155,7 +188,13 @@ const App = () => {
                     <Route path="/Admin/AdminWorkForms" element={<AdminWorkForm />} />
                   </>
                 )}
+                
+                {/* ✅ Redirect any unmatched routes to dashboard for authenticated users */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </>
+            ) : (
+              /* ✅ FIXED: Redirect unauthenticated users trying to access protected routes */
+              <Route path="*" element={<Navigate to="/login" replace />} />
             )}
           </Routes>
         </main>
@@ -167,6 +206,7 @@ const App = () => {
 const TopNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
   const NavLink = ({ to, label, icon }) => {
     const isActive = location.pathname === to;
     return (
@@ -179,6 +219,7 @@ const TopNavbar = () => {
       </button>
     );
   };
+  
   return (
     <header className="app-header">
       <div className="container">
@@ -189,10 +230,10 @@ const TopNavbar = () => {
           </div>
           <span className="jashpur-text">Raipur</span>
         </div>
-        <nav className="nav-desktop ">
+        <nav className="nav-desktop">
           <NavLink to="/" label="मुखपृष्ठ" icon={<Home />} />
           <NavLink to="/login" label="विभागीय लॉगिन" icon={<LogIn />} />
-          <NavLink to="/download" label="ऐप डाउनलोड करे" icon={<Download />} />
+          {/* <NavLink to="/download" label="ऐप डाउनलोड करे" icon={<Download />} /> */}
         </nav>
       </div>
     </header>
@@ -207,6 +248,7 @@ const SideNavbar = () => {
 
   const handleLogout = () => {
     logout();
+    navigate('/'); // ✅ FIXED: Redirect to home after logout
   };
 
   const items = [
@@ -214,11 +256,7 @@ const SideNavbar = () => {
     { to: "/work", label: "कार्य", icon: <ClipboardList /> },
     { to: "/gis/map", label: "GIS मैपिंग", icon: <Map /> },
     { to: "/Technical-Approval", label: "तकनीकी स्वीकृति", icon: <FileText /> },
-    {
-      to: "/Administrative-Approval",
-      label: "प्रशासकीय स्वीकृति",
-      icon: <FileText />,
-    },
+    { to: "/Administrative-Approval", label: "प्रशासकीय स्वीकृति", icon: <FileText /> },
     { to: "/Tender", label: "निविदा", icon: <FileText /> },
     { to: "/Work-Order", label: "कार्य आदेश", icon: <ClipboardList /> },
     { to: "/Work-In-Progress", label: "कार्य प्रगति", icon: <BarChart /> },
@@ -226,21 +264,21 @@ const SideNavbar = () => {
       label: "रिपोर्ट",
       icon: <FileText />,
       children: [
-        { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
-        { to: "/Report/Report2", label: "रिपोर्ट 2" },
-        { to: "/Report/Report3", label: "रिपोर्ट 3" },
-        { to: "/Report/Report4", label: "रिपोर्ट 4" },
-        { to: "/Report/Report5", label: "रिपोर्ट 5" },
-        { to: "/Report/Report6", label: "रिपोर्ट 6" },
-        { to: "/Report/Report7", label: "रिपोर्ट 7" },
-        { to: "/Report/Report8", label: "रिपोर्ट 8" },
-        { to: "/Report/Report9", label: "रिपोर्ट 9" },
-        { to: "/Report/Report10", label: "रिपोर्ट 10" },
-        { to: "/Report/Report11", label: "रिपोर्ट 11" },
-        { to: "/Report/Report12", label: "रिपोर्ट 12" },
+        // { to: "/Report/Report1", label: "वार्षिक रिपोर्ट" },
+        { to: "/Report/Report2", label: "डैशबोर्ड रिपोर्ट" },
+        { to: "/Report/Report3", label: "विभागवार सूची" },
+        { to: "/Report/Report4", label: "स्थितिवार सूची" },
+        { to: "/Report/Report5", label: "वित्तीय वार्षिक रिपोर्ट" },
+        { to: "/Report/Report6", label: "कार्य प्रगति रिपोर्ट" },
+        { to: "/Report/Report7", label: "एजेंसीवार विस्तृत रिपोर्ट" },
+        { to: "/Report/Report8", label: "ब्लॉकवार रिपोर्ट" },
+        { to: "/Report/Report9", label: "योजनावार रिपोर्ट" },
+        { to: "/Report/Report10", label: "लंबित कार्य रिपोर्ट" },
+        { to: "/Report/Report11", label: "अंतिम स्थिति रिपोर्ट" },
+        { to: "/Report/Report12", label: "अभियंतावार रिपोर्ट" },
       ],
     },
-    // Admin-only items - Only show if user is admin
+    // ✅ FIXED: Admin-only items with proper conditional rendering
     ...(isAdmin() ? [
       { to: "/Admin/AdminDepartmentForms", label: "विभाग प्रबंधन", icon: <Building2 /> },
       { to: "/Admin/AdminUserForms", label: "उपयोगकर्ता प्रबंधन", icon: <Users /> },
@@ -318,4 +356,5 @@ const SideNavbar = () => {
     </aside>
   );
 };
+
 export default App;

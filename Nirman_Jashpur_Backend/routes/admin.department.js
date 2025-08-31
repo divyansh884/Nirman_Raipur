@@ -67,7 +67,7 @@ router.get(
   }
 );
 
-// --- UPDATE ---
+// --- UPDATE ---x
 // PATCH /api/admin/departments/:id
 router.patch(
   '/departments/:id',

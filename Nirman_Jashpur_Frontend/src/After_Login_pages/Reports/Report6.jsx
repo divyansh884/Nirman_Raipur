@@ -1,300 +1,401 @@
-// src/components/AgencyReportTable.jsx
-import React, { useState, useEffect, useMemo } from "react";
-import "./ReportsPage.css"; // reuse same CSS
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Download, FileText, Search, Eye, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import useAuthStore from '../../Store/useAuthStore.js';
+import TopBar from '../../Components/TopBar.jsx';
+import './Report.css';
+import { BASE_SERVER_URL } from '../../constants.jsx';
 
-const STORAGE_KEY = "agency_report_data_v1";
-const defaultRows = [
-  {
-    id: 1,
-    name: "जनपद पंचायत बगीचा",
-    total: 27,
-    start: 0,
-    tender: 0,
-    pending: 27,
-    issued: 0,
-    progress: 0,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-  {
-    id: 2,
-    name: "जनपद पंचायत फरसाबहार",
-    total: 1,
-    start: 0,
-    tender: 0,
-    pending: 0,
-    issued: 0,
-    progress: 1,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-  {
-    id: 3,
-    name: "जनपद पंचायत पटेलगाँव",
-    total: 5,
-    start: 0,
-    tender: 0,
-    pending: 5,
-    issued: 0,
-    progress: 0,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-];
+const Report6 = ({ onLogout }) => {
+  const navigate = useNavigate();
+  const { token, isAuthenticated, logout, canAccessPage } = useAuthStore();
+  
+  const [progressData, setProgressData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...defaultRows];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [...defaultRows];
-  } catch {
-    return [...defaultRows];
-  }
-}
-function saveData(rows) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-}
-
-const Report6 = () => {
-  const [data, setData] = useState(loadData());
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
-  const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState("asc");
-
+  // Check authentication and permissions
   useEffect(() => {
-    saveData(data);
-  }, [data]);
-
-  // Sort
-  const sorted = useMemo(() => {
-    if (!sortKey) return data;
-    const arr = [...data];
-    arr.sort((a, b) => {
-      const A = a[sortKey] ?? "";
-      const B = b[sortKey] ?? "";
-      if (!isNaN(+A) && !isNaN(+B))
-        return sortDir === "asc" ? +A - +B : +B - +A;
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-    return arr;
-  }, [data, sortKey, sortDir]);
-
-  // Pagination
-  const pages = Math.max(1, Math.ceil(sorted.length / size));
-  const start = (page - 1) * size;
-  const pageRows = sorted.slice(start, start + size);
-  useEffect(() => {
-    if (page > pages) setPage(pages);
-  }, [pages, page]);
-
-  // Delete
-  function deleteRow(id) {
-    if (!window.confirm("क्या आप हटाना चाहते हैं?")) return;
-    setData(data.filter((r) => r.id !== id));
-  }
-
-  // CSV Export
-  function exportCSV() {
-    const rows = data.map((r) => [
-      r.name,
-      r.total,
-      r.start,
-      r.tender,
-      r.pending,
-      r.issued,
-      r.progress,
-      r.completed,
-      r.cancelled,
-      r.closed,
-    ]);
-    let csv =
-      "एजेंसी,कुल कार्य,आरंभ,निविदा स्तर,लंबित,जारी,प्रगति,पूर्ण,निरस्त,बंद\n";
-    rows.forEach((r) => {
-      csv +=
-        r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(",") +
-        "\n";
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "agency_report.csv";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  const keyMap = [
-    "id",
-    "name",
-    "total",
-    "start",
-    "tender",
-    "pending",
-    "issued",
-    "progress",
-    "completed",
-    "cancelled",
-    "closed",
-    null,
-  ];
-  function toggleSort(idx) {
-    const k = keyMap[idx];
-    if (!k) return;
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir("asc");
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate('/login');
+      return;
     }
+
+    if (!canAccessPage('reports')) {
+      alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+      navigate('/dashboard');
+      return;
+    }
+
+    fetchProgressData();
+  }, [isAuthenticated, token, navigate, canAccessPage]);
+
+  // Filter data when search term or status filter changes
+  useEffect(() => {
+    let filtered = progressData;
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(item =>
+        item.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nameOfWork.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.workDepartment.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'All') {
+      filtered = filtered.filter(item => item.currentStatus === statusFilter);
+    }
+
+    setFilteredData(filtered);
+  }, [progressData, searchTerm, statusFilter]);
+
+  // API call to fetch progress data
+  const fetchProgressData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_SERVER_URL}/reports/progress`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Map API data to table structure
+        const mappedData = Array.isArray(result.data) ? result.data.map((item, index) => ({
+          id: item.serialNumber || `work-${index}`,
+          serialNumber: item.serialNumber || '-',
+          nameOfWork: item.nameOfWork || '-',
+          workDepartment: item.workDepartment || '-',
+          currentStatus: item.currentStatus || 'Unknown',
+          statusType: getStatusType(item.currentStatus)
+        })) : [];
+        
+        setProgressData(mappedData);
+        setFilteredData(mappedData);
+      } else {
+        throw new Error(result.message || 'Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching progress data:', error);
+      setError(error.message);
+      
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get status type for styling and icons
+  const getStatusType = (status) => {
+    const statusLower = status?.toLowerCase() || '';
+    if (statusLower.includes('completed') || statusLower.includes('पूर्ण')) return 'completed';
+    if (statusLower.includes('progress') || statusLower.includes('प्रगति')) return 'in-progress';
+    if (statusLower.includes('pending') || statusLower.includes('प्रतीक्षित')) return 'pending';
+    if (statusLower.includes('approved') || statusLower.includes('स्वीकृत')) return 'approved';
+    if (statusLower.includes('cancelled') || statusLower.includes('निरस्त')) return 'cancelled';
+    return 'default';
+  };
+
+  // Get status icon
+  const getStatusIcon = (statusType) => {
+    switch (statusType) {
+      case 'completed': return <CheckCircle size={16} style={{ color: '#10b981' }} />;
+      case 'in-progress': return <Clock size={16} style={{ color: '#f59e0b' }} />;
+      case 'pending': return <AlertCircle size={16} style={{ color: '#ef4444' }} />;
+      case 'approved': return <CheckCircle size={16} style={{ color: '#3b82f6' }} />;
+      case 'cancelled': return <AlertCircle size={16} style={{ color: '#6b7280' }} />;
+      default: return <Eye size={16} style={{ color: '#6b7280' }} />;
+    }
+  };
+
+  // Get unique statuses for filter dropdown
+  const uniqueStatuses = [...new Set(progressData.map(item => item.currentStatus))];
+
+  // CSV export function
+  const handleCSVExport = () => {
+    if (filteredData.length === 0) {
+      alert('कोई डेटा उपलब्ध नहीं है।');
+      return;
+    }
+
+    const headers = [
+      'क्र.',
+      'कार्य संख्या',
+      'कार्य का नाम',
+      'विभाग',
+      'वर्तमान स्थिति'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...filteredData.map((row, index) => [
+        index + 1,
+        `"${row.serialNumber}"`,
+        `"${row.nameOfWork}"`,
+        `"${row.workDepartment}"`,
+        `"${row.currentStatus}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `कार्य_प्रगति_रिपोर्ट_${new Date().toLocaleDateString('hi-IN')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Print function
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Calculate status counts for summary
+  const statusCounts = progressData.reduce((acc, item) => {
+    acc[item.currentStatus] = (acc[item.currentStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="report-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+        </div>
+        <div className="auth-error">
+          <i className="fa-solid fa-lock"></i>
+          <div>प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।</div>
+          <button onClick={() => navigate('/login')} className="login-btn">
+            लॉगिन पेज पर जाएं
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="work-ref">
+    <div className="report-page">
+      {/* Header */}
       <div className="header">
-        <div className="table-top">
-          <div className="title">
-            <h1>एजेंसीवार रिपोर्ट</h1>
-          </div>
-        </div>
-        <div className="subbar">
-          <span className="dot" />
-          <h2>एजेंसी सूची</h2>
-        </div>
+        <TopBar onLogout={onLogout} />
       </div>
 
-      <div className="wrap">
-        <section className="panel table-card">
-          <div className="table-head">
-            <div>एजेंसी सूची</div>
-            <small>
-              Show{" "}
+      {/* Page Content */}
+      <div className="page-container">
+        {/* Page Header */}
+        <div className="page-header">
+          <h1>कार्य प्रगति रिपोर्ट</h1>
+          <div className="action-buttons">
+            <button 
+              onClick={handleCSVExport}
+              className="export-btn csv-btn"
+              disabled={loading || filteredData.length === 0}
+            >
+              <FileText size={16} />
+              CSV Export
+            </button>
+            <button 
+              onClick={handlePrint}
+              className="export-btn print-btn"
+              disabled={loading}
+            >
+              <Download size={16} />
+              Print
+            </button>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>डेटा लोड हो रहा है...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="error-state">
+            <i className="fa-solid fa-exclamation-triangle"></i>
+            <p>डेटा लोड करने में त्रुटि: {error}</p>
+            <button onClick={fetchProgressData} className="retry-btn">
+              पुनः प्रयास करें
+            </button>
+          </div>
+        )}
+
+        {/* Status Summary Cards */}
+        {!loading && !error && progressData.length > 0 && (
+          <div className="stats-section">
+            <h2 className="section-title">स्थिति सारांश</h2>
+            <div className="stats-grid">
+              <div className="stat-card total">
+                <div className="stat-icon">
+                  <Eye size={32} />
+                </div>
+                <div className="stat-content">
+                  <h3>कुल कार्य</h3>
+                  <p className="stat-number">{progressData.length}</p>
+                </div>
+              </div>
+
+              {Object.entries(statusCounts).slice(0, 4).map(([status, count], index) => (
+                <div key={status} className={`stat-card ${getStatusType(status)}`}>
+                  <div className="stat-icon">
+                    {getStatusIcon(getStatusType(status))}
+                  </div>
+                  <div className="stat-content">
+                    <h3>{status}</h3>
+                    <p className="stat-number">{count}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Search and Filter Controls */}
+        {!loading && !error && progressData.length > 0 && (
+          <div className="filter-section" style={{ 
+            background: 'white', 
+            padding: '1.5rem', 
+            borderRadius: '12px', 
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
+            marginBottom: '2rem',
+            display: 'flex',
+            gap: '1rem',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1', minWidth: '200px' }}>
+              <Search size={20} style={{ color: '#6b7280' }} />
+              <input
+                type="text"
+                placeholder="कार्य संख्या, नाम या विभाग खोजें..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  flex: '1',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontWeight: '600', color: '#374151' }}>स्थिति:</label>
               <select
-                value={size}
-                onChange={(e) => {
-                  setSize(parseInt(e.target.value) || 10);
-                  setPage(1);
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  minWidth: '150px'
                 }}
               >
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-              </select>{" "}
-              entries
-            </small>
-          </div>
-          <div className="p-body">
-            <div className="toolbar">
-              {/* 🔹 Removed Search input */}
-              <button className="btn dark" type="button" onClick={exportCSV}>
-                CSV एक्सपोर्ट
-              </button>
+                <option value="All">सभी</option>
+                {uniqueStatuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="tbl-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    {[
-                      "क्र.",
-                      "एजेंसी का नाम",
-                      "कुल कार्य",
-                      "आरंभ",
-                      "निविदा स्तर",
-                      "लंबित",
-                      "जारी",
-                      "प्रगति",
-                      "पूर्ण",
-                      "निरस्त",
-                      "बंद",
-                      "कार्रवाई",
-                    ].map((h, i) => (
-                      <th
-                        key={i}
-                        className={keyMap[i] ? "sortable" : ""}
-                        onClick={() => keyMap[i] && toggleSort(i)}
-                      >
-                        {h}
-                        {keyMap[i] && <i className="fa-solid fa-sort sort" />}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.map((r, i) => (
-                    <tr key={r.id}>
-                      <td>{start + i + 1}</td>
-                      <td>{r.name}</td>
-                      <td>{r.total}</td>
-                      <td>{r.start}</td>
-                      <td>{r.tender}</td>
-                      <td>{r.pending}</td>
-                      <td>{r.issued}</td>
-                      <td>{r.progress}</td>
-                      <td>{r.completed}</td>
-                      <td>{r.cancelled}</td>
-                      <td>{r.closed}</td>
+            <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+              {filteredData.length} में से {progressData.length} कार्य दिखाए गए
+            </div>
+          </div>
+        )}
+
+        {/* Data Table */}
+        {!loading && !error && (
+          <div className="table-container">
+            <table className="summary-table">
+              <thead>
+                <tr>
+                  <th>क्र.</th>
+                  <th>कार्य संख्या</th>
+                  <th>कार्य का नाम</th>
+                  <th>विभाग</th>
+                  <th>वर्तमान स्थिति</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.length > 0 ? (
+                  filteredData.map((row, index) => (
+                    <tr key={row.id}>
+                      <td>{index + 1}</td>
+                      <td style={{ fontWeight: '600', color: '#3b82f6' }}>
+                        {row.serialNumber}
+                      </td>
+                      <td style={{ textAlign: 'left', fontWeight: '500' }}>
+                        {row.nameOfWork}
+                      </td>
+                      <td style={{ fontWeight: '500' }}>
+                        {row.workDepartment}
+                      </td>
                       <td>
-                        <div className="row-actions">
-                          <button
-                            className="icon-btn del"
-                            type="button"
-                            title="हटाएँ"
-                            aria-label="हटाएँ"
-                            onClick={() => deleteRow(r.id)}
-                          >
-                            <i className="fa-solid fa-trash" />
-                          </button>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '0.5rem' 
+                        }}>
+                          {getStatusIcon(row.statusType)}
+                          <span style={{ fontWeight: '600' }}>{row.currentStatus}</span>
                         </div>
                       </td>
                     </tr>
-                  ))}
-                  {pageRows.length === 0 && (
-                    <tr>
-                      <td colSpan={12} style={{ textAlign: "center", padding: 30 }}>
-                        कोई रिकॉर्ड नहीं
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="pager">
-              <button
-                aria-label="Previous page"
-                className={"page nav" + (page === 1 ? " disabled" : "")}
-                onClick={() => page > 1 && setPage((p) => Math.max(1, p - 1))}
-              >
-                <i className="fa-solid fa-chevron-left" />
-              </button>
-              {Array.from({ length: pages }, (_, i) => i + 1)
-                .filter(
-                  (p) => p >= Math.max(1, page - 2) && p <= Math.min(pages, page + 2)
-                )
-                .map((p) => (
-                  <button
-                    key={p}
-                    className={"page" + (p === page ? " active" : "")}
-                    onClick={() => setPage(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              <button
-                aria-label="Next page"
-                className={"page nav" + (page === pages ? " disabled" : "")}
-                onClick={() => page < pages && setPage((p) => Math.min(pages, p + 1))}
-              >
-                <i className="fa-solid fa-chevron-right" />
-              </button>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" style={{ 
+                      textAlign: 'center', 
+                      color: '#6b7280', 
+                      fontStyle: 'italic', 
+                      padding: '2rem' 
+                    }}>
+                      {searchTerm || statusFilter !== 'All' 
+                        ? 'खोज मानदंड के लिए कोई डेटा नहीं मिला।' 
+                        : 'कोई डेटा उपलब्ध नहीं है।'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </section>
+        )}
       </div>
     </div>
   );

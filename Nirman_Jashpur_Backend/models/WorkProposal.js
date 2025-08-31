@@ -172,11 +172,7 @@ const workOrderSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  workOrderAmount: {
-    type: Number,
-    min: 0,
-    default: null
-  },
+  
   contractorOrGramPanchayat: {
     type: String,
     default: null
@@ -404,6 +400,14 @@ const workProposalSchema = new mongoose.Schema({
     ref: 'Ward',
     required: true
   },
+
+  workOrderAmount: {
+    type: Number,
+    min: 0,
+    default: null
+  },
+
+
   
   //Karya Shreni
   map: {

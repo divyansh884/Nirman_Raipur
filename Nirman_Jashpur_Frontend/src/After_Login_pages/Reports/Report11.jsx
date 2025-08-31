@@ -1,300 +1,460 @@
-// src/components/AgencyReportTable.jsx
-import React, { useState, useEffect, useMemo } from "react";
-import "./ReportsPage.css"; // reuse same CSS
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Download, FileText, Search, BarChart3, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import useAuthStore from '../../Store/useAuthStore.js';
+import TopBar from '../../Components/TopBar.jsx';
+import './Report.css';
+import { BASE_SERVER_URL } from '../../constants.jsx';
 
-const STORAGE_KEY = "agency_report_data_v1";
-const defaultRows = [
-  {
-    id: 1,
-    name: "जनपद पंचायत बगीचा",
-    total: 27,
-    start: 0,
-    tender: 0,
-    pending: 27,
-    issued: 0,
-    progress: 0,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-  {
-    id: 2,
-    name: "जनपद पंचायत फरसाबहार",
-    total: 1,
-    start: 0,
-    tender: 0,
-    pending: 0,
-    issued: 0,
-    progress: 1,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-  {
-    id: 3,
-    name: "जनपद पंचायत पटेलगाँव",
-    total: 5,
-    start: 0,
-    tender: 0,
-    pending: 5,
-    issued: 0,
-    progress: 0,
-    completed: 0,
-    cancelled: 0,
-    closed: 0,
-  },
-];
+const Report11 = ({ onLogout }) => {
+  const navigate = useNavigate();
+  const { token, isAuthenticated, logout, canAccessPage } = useAuthStore();
+  
+  const [finalStatusData, setFinalStatusData] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedStatus, setExpandedStatus] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...defaultRows];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [...defaultRows];
-  } catch {
-    return [...defaultRows];
-  }
-}
-function saveData(rows) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-}
-
-const Report11 = () => {
-  const [data, setData] = useState(loadData());
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
-  const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState("asc");
-
+  // Check authentication and permissions
   useEffect(() => {
-    saveData(data);
-  }, [data]);
-
-  // Sort
-  const sorted = useMemo(() => {
-    if (!sortKey) return data;
-    const arr = [...data];
-    arr.sort((a, b) => {
-      const A = a[sortKey] ?? "";
-      const B = b[sortKey] ?? "";
-      if (!isNaN(+A) && !isNaN(+B))
-        return sortDir === "asc" ? +A - +B : +B - +A;
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-    return arr;
-  }, [data, sortKey, sortDir]);
-
-  // Pagination
-  const pages = Math.max(1, Math.ceil(sorted.length / size));
-  const start = (page - 1) * size;
-  const pageRows = sorted.slice(start, start + size);
-  useEffect(() => {
-    if (page > pages) setPage(pages);
-  }, [pages, page]);
-
-  // Delete
-  function deleteRow(id) {
-    if (!window.confirm("क्या आप हटाना चाहते हैं?")) return;
-    setData(data.filter((r) => r.id !== id));
-  }
-
-  // CSV Export
-  function exportCSV() {
-    const rows = data.map((r) => [
-      r.name,
-      r.total,
-      r.start,
-      r.tender,
-      r.pending,
-      r.issued,
-      r.progress,
-      r.completed,
-      r.cancelled,
-      r.closed,
-    ]);
-    let csv =
-      "एजेंसी,कुल कार्य,आरंभ,निविदा स्तर,लंबित,जारी,प्रगति,पूर्ण,निरस्त,बंद\n";
-    rows.forEach((r) => {
-      csv +=
-        r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(",") +
-        "\n";
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "agency_report.csv";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  const keyMap = [
-    "id",
-    "name",
-    "total",
-    "start",
-    "tender",
-    "pending",
-    "issued",
-    "progress",
-    "completed",
-    "cancelled",
-    "closed",
-    null,
-  ];
-  function toggleSort(idx) {
-    const k = keyMap[idx];
-    if (!k) return;
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir("asc");
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate('/login');
+      return;
     }
+
+    if (!canAccessPage('reports')) {
+      alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+      navigate('/dashboard');
+      return;
+    }
+
+    fetchFinalStatusData();
+  }, [isAuthenticated, token, navigate, canAccessPage]);
+
+  // API call to fetch final status data
+  const fetchFinalStatusData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_SERVER_URL}/reports/final-status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setFinalStatusData(result.data);
+        if (result.summary) {
+          setSummary(result.summary);
+        }
+      } else {
+        throw new Error(result.message || 'Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching final status data:', error);
+      setError(error.message);
+      
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format currency in Indian format
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('hi-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
+
+  // Format large numbers with Indian numbering system
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('hi-IN').format(num || 0);
+  };
+
+  // Format percentage
+  const formatPercentage = (percent) => {
+    return `${percent.toFixed(1)}%`;
+  };
+
+  // Get status type for styling
+  const getStatusType = (category) => {
+    const categoryLower = category?.toLowerCase() || '';
+    if (categoryLower.includes('completed') || categoryLower === 'completed') return 'completed';
+    if (categoryLower.includes('progress') || categoryLower === 'in progress') return 'in-progress';
+    if (categoryLower.includes('pending') || categoryLower === 'pending') return 'pending-technical';
+    return 'total';
+  };
+
+  // Get status icon
+  const getStatusIcon = (category, size = 32) => {
+    const statusType = getStatusType(category);
+    switch (statusType) {
+      case 'completed': return <CheckCircle size={size} />;
+      case 'in-progress': return <Clock size={size} />;
+      case 'pending-technical': return <AlertCircle size={size} />;
+      default: return <BarChart3 size={size} />;
+    }
+  };
+
+  // Toggle expand/collapse for status details
+  const toggleStatusExpansion = (status) => {
+    setExpandedStatus(expandedStatus === status ? null : status);
+  };
+
+  // Filter works based on search term
+  const getFilteredWorks = (works) => {
+    if (!searchTerm) return works;
+    return works.filter(work =>
+      work.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      work.nameOfWork?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  // CSV export function
+  const handleCSVExport = () => {
+    if (finalStatusData.length === 0) {
+      alert('कोई डेटा उपलब्ध नहीं है।');
+      return;
+    }
+
+    const headers = [
+      'स्थिति',
+      'संख्या',
+      'कुल राशि',
+      'प्रतिशत',
+      'श्रेणी'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...finalStatusData.map(row => [
+        `"${row.status || ''}"`,
+        row.count || 0,
+        row.totalAmount || 0,
+        row.percentage || 0,
+        `"${row.category || ''}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `अंतिम_स्थिति_रिपोर्ट_${new Date().toLocaleDateString('hi-IN')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Print function
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Show authentication error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="report-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+        </div>
+        <div className="auth-error">
+          <i className="fa-solid fa-lock"></i>
+          <div>प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।</div>
+          <button onClick={() => navigate('/login')} className="login-btn">
+            लॉगिन पेज पर जाएं
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="work-ref">
+    <div className="report-page">
+      {/* Header */}
       <div className="header">
-        <div className="table-top">
-          <div className="title">
-            <h1>एजेंसीवार रिपोर्ट</h1>
-          </div>
-        </div>
-        <div className="subbar">
-          <span className="dot" />
-          <h2>एजेंसी सूची</h2>
-        </div>
+        <TopBar onLogout={onLogout} />
       </div>
 
-      <div className="wrap">
-        <section className="panel table-card">
-          <div className="table-head">
-            <div>एजेंसी सूची</div>
-            <small>
-              Show{" "}
-              <select
-                value={size}
-                onChange={(e) => {
-                  setSize(parseInt(e.target.value) || 10);
-                  setPage(1);
-                }}
-              >
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-              </select>{" "}
-              entries
-            </small>
+      {/* Page Content */}
+      <div className="page-container">
+        {/* Page Header */}
+        <div className="page-header">
+          <h1>अंतिम स्थिति रिपोर्ट</h1>
+          <div className="action-buttons">
+            <button 
+              onClick={handleCSVExport}
+              className="export-btn csv-btn"
+              disabled={loading || finalStatusData.length === 0}
+            >
+              <FileText size={16} />
+              CSV Export
+            </button>
+            <button 
+              onClick={handlePrint}
+              className="export-btn print-btn"
+              disabled={loading}
+            >
+              <Download size={16} />
+              Print
+            </button>
           </div>
-          <div className="p-body">
-            <div className="toolbar">
-              {/* 🔹 Removed Search input */}
-              <button className="btn dark" type="button" onClick={exportCSV}>
-                CSV एक्सपोर्ट
-              </button>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>डेटा लोड हो रहा है...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="error-state">
+            <i className="fa-solid fa-exclamation-triangle"></i>
+            <p>डेटा लोड करने में त्रुटि: {error}</p>
+            <button onClick={fetchFinalStatusData} className="retry-btn">
+              पुनः प्रयास करें
+            </button>
+          </div>
+        )}
+
+        {/* Summary Information */}
+        {!loading && !error && summary && (
+          <div className="stats-section">
+            <h2 className="section-title">
+              समग्र सारांश ({summary.reportYear})
+              <span style={{ fontSize: '0.8rem', fontWeight: 'normal', marginLeft: '1rem' }}>
+                जनरेटेड: {new Date(summary.generatedAt).toLocaleDateString('hi-IN')}
+              </span>
+            </h2>
+            
+            <div className="stats-grid">
+              <div className="stat-card total">
+                <div className="stat-icon">
+                  <BarChart3 size={32} />
+                </div>
+                <div className="stat-content">
+                  <h3>कुल कार्य</h3>
+                  <p className="stat-number">{formatNumber(summary.totalWorks)}</p>
+                </div>
+              </div>
+
+              {summary.categoryBreakdown && Object.entries(summary.categoryBreakdown).map(([category, data]) => (
+                <div key={category} className={`stat-card ${getStatusType(category)}`}>
+                  <div className="stat-icon">
+                    {getStatusIcon(category)}
+                  </div>
+                  <div className="stat-content">
+                    <h3>{category}</h3>
+                    <p className="stat-number">{formatNumber(data.count)}</p>
+                    <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                      {formatPercentage(data.percentage)}
+                    </small>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div className="tbl-wrap">
-              <table>
+            <div className="financial-grid">
+              <div className="financial-card sanction">
+                <div className="financial-content">
+                  <h3>कुल राशि</h3>
+                  <p className="financial-amount">{formatCurrency(summary.totalAmount)}</p>
+                </div>
+              </div>
+              {summary.categoryBreakdown && Object.entries(summary.categoryBreakdown).slice(0, 2).map(([category, data]) => (
+                <div key={category} className="financial-card approved">
+                  <div className="financial-content">
+                    <h3>{category} राशि</h3>
+                    <p className="financial-amount">{formatCurrency(data.totalAmount)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Status Breakdown */}
+        {!loading && !error && finalStatusData.length > 0 && (
+          <div className="stats-section">
+            <h2 className="section-title">स्थितिवार विवरण</h2>
+            
+            {/* Search for works */}
+            {expandedStatus && (
+              <div className="filter-section" style={{ 
+                background: '#f8fafc', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <Search size={16} style={{ color: '#6b7280' }} />
+                <input
+                  type="text"
+                  placeholder="कार्य संख्या या नाम खोजें..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    flex: '1',
+                    padding: '0.5rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="table-container">
+              <table className="summary-table">
                 <thead>
                   <tr>
-                    {[
-                      "क्र.",
-                      "एजेंसी का नाम",
-                      "कुल कार्य",
-                      "आरंभ",
-                      "निविदा स्तर",
-                      "लंबित",
-                      "जारी",
-                      "प्रगति",
-                      "पूर्ण",
-                      "निरस्त",
-                      "बंद",
-                      "कार्रवाई",
-                    ].map((h, i) => (
-                      <th
-                        key={i}
-                        className={keyMap[i] ? "sortable" : ""}
-                        onClick={() => keyMap[i] && toggleSort(i)}
-                      >
-                        {h}
-                        {keyMap[i] && <i className="fa-solid fa-sort sort" />}
-                      </th>
-                    ))}
+                    <th>स्थिति</th>
+                    <th>संख्या</th>
+                    <th>कुल राशि</th>
+                    <th>प्रतिशत</th>
+                    <th>श्रेणी</th>
+                    <th>विवरण</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((r, i) => (
-                    <tr key={r.id}>
-                      <td>{start + i + 1}</td>
-                      <td>{r.name}</td>
-                      <td>{r.total}</td>
-                      <td>{r.start}</td>
-                      <td>{r.tender}</td>
-                      <td>{r.pending}</td>
-                      <td>{r.issued}</td>
-                      <td>{r.progress}</td>
-                      <td>{r.completed}</td>
-                      <td>{r.cancelled}</td>
-                      <td>{r.closed}</td>
-                      <td>
-                        <div className="row-actions">
+                  {finalStatusData.map((statusItem, index) => (
+                    <React.Fragment key={statusItem.status || index}>
+                      <tr style={{ backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white' }}>
+                        <td style={{ 
+                          textAlign: 'left', 
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          {getStatusIcon(statusItem.category, 16)}
+                          {statusItem.status}
+                        </td>
+                        <td className="number-cell">{formatNumber(statusItem.count)}</td>
+                        <td className="amount-cell">{formatCurrency(statusItem.totalAmount)}</td>
+                        <td className="number-cell">
+                          <span style={{ 
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '12px',
+                            backgroundColor: statusItem.percentage >= 50 ? '#dcfce7' : '#fef3c7',
+                            color: statusItem.percentage >= 50 ? '#166534' : '#92400e',
+                            fontWeight: '600',
+                            fontSize: '0.85rem'
+                          }}>
+                            {formatPercentage(statusItem.percentage)}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: '500' }}>{statusItem.category}</td>
+                        <td style={{ textAlign: 'center' }}>
                           <button
-                            className="icon-btn del"
-                            type="button"
-                            title="हटाएँ"
-                            aria-label="हटाएँ"
-                            onClick={() => deleteRow(r.id)}
+                            onClick={() => toggleStatusExpansion(statusItem.status)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#3b82f6',
+                              cursor: 'pointer',
+                              padding: '0.25rem',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem'
+                            }}
                           >
-                            <i className="fa-solid fa-trash" />
+                            {expandedStatus === statusItem.status ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            {statusItem.works?.length || 0} कार्य
                           </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Works Details */}
+                      {expandedStatus === statusItem.status && statusItem.works && (
+                        <tr>
+                          <td colSpan="6" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
+                            <div style={{ padding: '1rem' }}>
+                              <h4 style={{ margin: '0 0 1rem 0', color: '#374151' }}>
+                                {statusItem.status} - कार्य सूची
+                              </h4>
+                              <div className="table-container">
+                                <table className="summary-table" style={{ margin: 0 }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: '#e2e8f0' }}>
+                                      <th>क्र.</th>
+                                      <th>कार्य संख्या</th>
+                                      <th>कार्य का नाम</th>
+                                      <th>स्वीकृत राशि</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {getFilteredWorks(statusItem.works).length > 0 ? (
+                                      getFilteredWorks(statusItem.works).map((work, workIndex) => (
+                                        <tr key={work.serialNumber || workIndex}>
+                                          <td>{workIndex + 1}</td>
+                                          <td style={{ fontWeight: '600', color: '#3b82f6' }}>
+                                            {work.serialNumber || '-'}
+                                          </td>
+                                          <td style={{ textAlign: 'left', maxWidth: '300px' }}>
+                                            {work.nameOfWork || '-'}
+                                          </td>
+                                          <td className="amount-cell">
+                                            {formatCurrency(work.sanctionAmount)}
+                                          </td>
+                                        </tr>
+                                      ))
+                                    ) : (
+                                      <tr>
+                                        <td colSpan="4" style={{ 
+                                          textAlign: 'center', 
+                                          color: '#6b7280', 
+                                          fontStyle: 'italic',
+                                          padding: '1rem'
+                                        }}>
+                                          {searchTerm ? 'खोज मानदंड के लिए कोई कार्य नहीं मिला।' : 'कोई कार्य उपलब्ध नहीं है।'}
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
-                  {pageRows.length === 0 && (
-                    <tr>
-                      <td colSpan={12} style={{ textAlign: "center", padding: 30 }}>
-                        कोई रिकॉर्ड नहीं
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
-
-            <div className="pager">
-              <button
-                aria-label="Previous page"
-                className={"page nav" + (page === 1 ? " disabled" : "")}
-                onClick={() => page > 1 && setPage((p) => Math.max(1, p - 1))}
-              >
-                <i className="fa-solid fa-chevron-left" />
-              </button>
-              {Array.from({ length: pages }, (_, i) => i + 1)
-                .filter(
-                  (p) => p >= Math.max(1, page - 2) && p <= Math.min(pages, page + 2)
-                )
-                .map((p) => (
-                  <button
-                    key={p}
-                    className={"page" + (p === page ? " active" : "")}
-                    onClick={() => setPage(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              <button
-                aria-label="Next page"
-                className={"page nav" + (page === pages ? " disabled" : "")}
-                onClick={() => page < pages && setPage((p) => Math.min(pages, p + 1))}
-              >
-                <i className="fa-solid fa-chevron-right" />
-              </button>
-            </div>
           </div>
-        </section>
+        )}
       </div>
     </div>
   );
