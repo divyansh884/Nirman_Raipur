@@ -9,8 +9,7 @@ const workAgencySchema = new mongoose.Schema({
   }
 });
 
-module.exports = {
-  WorkAgency: mongoose.model('WorkAgency', workAgencySchema)
-};
+
+module.exports = mongoose.model('WorkAgency', workAgencySchema);
 
 

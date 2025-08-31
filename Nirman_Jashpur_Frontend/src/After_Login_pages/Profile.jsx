@@ -1,114 +1,334 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../Store/useAuthStore.js';
+import TopBar from '../Components/TopBar.jsx';
+import './Profile.css';
+import { BASE_SERVER_URL } from '../constants.jsx';
+import defaultProfileAvatar from '../assets/defaultProfileAvatar';
 
-import React from "react";
-import "./Profile.css";
-import { Link } from "react-router-dom";
-import Table from "../Components/Table";
-import { FaPowerOff } from "react-icons/fa";
-import defaultProfileAvatar from "../assets/defaultProfileAvatar";
+const Profile = ({ onLogout }) => {
+  const navigate = useNavigate();
+  const { token, isAuthenticated, logout, canAccessPage } = useAuthStore();
+  
+  // State management
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [updating, setUpdating] = useState(false);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    contactNumber: '',
+    profilePhoto: null
+  });
 
-const Profile = () => {
+  // Check authentication and fetch profile
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate('/login');
+      return;
+    }
+
+    if (!canAccessPage('profile')) {
+      alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+      navigate('/dashboard');
+      return;
+    }
+
+    fetchUserProfile();
+  }, [isAuthenticated, token, navigate, canAccessPage]);
+
+  // Fetch user profile from API
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_SERVER_URL}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        throw new Error(`Failed to fetch profile: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Profile data:', result);
+
+      if (result.success && result.data && result.data.user) {
+        const user = result.data.user;
+        setUserProfile(user);
+        
+        // Initialize form data
+        setFormData({
+          fullName: user.fullName || '',
+          email: user.email || '',
+          contactNumber: user.contactNumber || '',
+          profilePhoto: null
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      setError(err.message);
+      
+      if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle form input changes
+  // const handleInputChange = (e) => {
+  //   const { name, value, files } = e.target;
+    
+  //   if (name === 'profilePhoto' && files) {
+  //     setFormData(prev => ({
+  //       ...prev,
+  //       profilePhoto: files[0]
+  //     }));
+  //   } else {
+  //     setFormData(prev => ({
+  //       ...prev,
+  //       [name]: value
+  //     }));
+  //   }
+  // };
+
+  // Handle profile update
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    
+    if (!userProfile) return;
+
+    try {
+      setUpdating(true);
+      
+      // Create FormData for file upload
+      const updateData = new FormData();
+      updateData.append('fullName', formData.fullName);
+      updateData.append('email', formData.email);
+      updateData.append('contactNumber', formData.contactNumber);
+      
+      if (formData.profilePhoto) {
+        updateData.append('profilePhoto', formData.profilePhoto);
+      }
+
+      const response = await fetch(`${BASE_SERVER_URL}/auth/me`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: updateData
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        throw new Error(`Failed to update profile: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('प्रोफाइल सफलतापूर्वक अपडेट हो गया!');
+        // Refresh profile data
+        fetchUserProfile();
+      } else {
+        throw new Error(result.message || 'Update failed');
+      }
+
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert(`प्रोफाइल अपडेट करने में त्रुटि: ${err.message}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="profile-page">
+        <div className="main-content">
+           <div className='header'>
+          <TopBar onLogout={onLogout} />
+        </div>
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>प्रोफाइल लोड हो रहा है...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="profile-page">
+        <div className="main-content">
+           <div className='header'>
+        <TopBar onLogout={onLogout} />
+      </div>
+          <div className="error-container">
+            <h3>त्रुटि</h3>
+            <p>{error}</p>
+            <button onClick={fetchUserProfile} className="retry-btn">
+              पुनः प्रयास करें
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No profile data
+  if (!userProfile) {
+    return (
+      <div className="profile-page">
+        <div className="main-content">
+           <div className='header'>
+        <TopBar onLogout={onLogout} />
+      </div>
+          <div className="no-data-container">
+            <p>प्रोफाइल डेटा उपलब्ध नहीं है।</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-page">
+      
       <div className="main-content">
-        <div className="header">
-          <div className="table-top">
-            <div>
-              <div className="crumbs" id="crumbs">Dashboard / Profile</div>
-              <div className="title"><h1 id="pageTitle">निर्माण</h1></div>
-            </div>
-            <div className="user">
-              <button
-                className="ic"
-                tabIndex={0}
-                aria-label="User profile"
-                type="button"
-                style={{ background: '#16a34a', color: '#fff' }}
-              >
-                <i className="fa-solid fa-user" />
-              </button>
-              <button
-                className="logout"
-                aria-label="Logout"
-                type="button"
-                onClick={() => {
-                  if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
-                    window.location.href = '/';
-                  }
-                }}
-              >
-                <i className="fa-solid fa-power-off" />
-              </button>
-            </div>
-          </div>
-          <div className="subbar"><span className="dot" /><h2>प्रोफाइल</h2></div>
-        </div>
+         <div className='header'>
+        <TopBar onLogout={onLogout} />
+      </div>
         <div className="profile-container">
           {/* Left Profile Details */}
           <div className="profile-details">
-            <div className="profile-avatar" style={{
-              width: 180,
-              height: 180,
-              borderRadius: '50%',
-              background: '#e6eaf3',
-              margin: '18px auto 8px auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'inset 0 -6px 0 rgba(0,0,0,0.04)'
-            }}>
-              <img src={defaultProfileAvatar} alt="Default avatar" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+            <div className="section-header">
+              <h3>Profile Details</h3>
             </div>
-            <h3 style={{color: "#1976d2", marginTop: "10px", textAlign: "center"}}>Tribal Department</h3>
-            <table>
+            
+            <div className="profile-avatar">
+              <img 
+                src={userProfile.profilePhoto || defaultProfileAvatar} 
+                alt="Profile avatar" 
+              />
+            </div>
+            
+            <h3 className="profile-name">{userProfile.fullName || 'N/A'}</h3>
+            
+            <table className="profile-table">
               <tbody>
                 <tr>
-                  <td style={{fontWeight: "bold"}}>Login ID</td>
-                  <td style={{fontWeight: "bold", color: "#222"}}>ACTRIBAL</td>
+                  <td>Login ID</td>
+                  <td className="profile-value">{userProfile.username || 'N/A'}</td>
                 </tr>
                 <tr>
                   <td>Office</td>
-                  <td>आदिवासी विकास विभाग, जशपुर</td>
+                  <td>{userProfile.department?.name || 'N/A'}</td>
                 </tr>
                 <tr>
                   <td>Mobile No</td>
-                  <td>N/A</td>
+                  <td>{userProfile.contactNumber || 'N/A'}</td>
                 </tr>
                 <tr>
                   <td>Email</td>
-                  <td>N/A</td>
+                  <td>{userProfile.email || 'N/A'}</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
           {/* Right Update Profile */}
           <div className="update-profile">
-            <form>
-              <label>नाम *</label>
-              <input type="text" defaultValue="Tribal Department" />
-
-              <label>ईमेल</label>
-              <input type="text" />
-
-              <label>मोबाइल नं. *</label>
-              <input type="text" />
-
-              <label>अपलोड प्रोफाइल फोटो</label>
-              <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
-                <input type="file" style={{flex: 1}} />
-                <span style={{fontSize: "13px", color: "#888"}}>No file chosen</span>
+            <div className="section-header">
+              <h3>Profile</h3>
+            </div>
+            
+            <form onSubmit={handleUpdateProfile}>
+              <div className="form-group">
+                <label>नाम *</label>
+                <input disabled
+                  type="text" 
+                  name="fullName"
+                  value={formData.fullName}
+                  placeholder="नाम दर्ज करें"
+                  required
+                />
               </div>
 
-              <label>कार्यालय विभाग</label>
-              <select>
-                <option>आदिवासी विकास विभाग, जशपुर</option>
-              </select>
+              <div className="form-group">
+                <label>ईमेल *</label>
+                <input disabled
+                  type="email" 
+                  name="email"
+                  value={formData.email}
+                  placeholder="ईमेल दर्ज करें"
+                />
+              </div>
 
-              <label>स्वीकृतकर्ता विभाग *</label>
-              <select>
-                <option>--स्वीकृतकर्ता विभाग चुने--</option>
-              </select>
+              <div className="form-group">
+                <label>मोबाइल नं. *</label>
+                <input disabled
+                  type="tel" 
+                  name="contactNumber"
+                  value={formData.contactNumber}
+                  placeholder="मोबाइल नंबर दर्ज करें"
+                  required
+                />
+              </div>
 
-              <button type="submit" className="update-btn" style={{marginTop: "10px"}}>Update</button>
+              <div className="form-group">
+                <label>अपलोड प्रोफाइल फोटो</label>
+                <div className="file-input-container">
+                  <input disabled
+                    type="file" 
+                    name="profilePhoto"
+                    accept="image/*"
+                    id="profilePhoto"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>कार्य विभाग *</label>
+                <select disabled>
+                  <option>{userProfile.department?.name || 'N/A'}</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>स्वीकृतकर्ता विभाग *</label>
+                <select disabled>
+                  <option>--स्वीकृतकर्ता विभाग चुने--</option>
+                </select>
+              </div>
+
             </form>
           </div>
         </div>

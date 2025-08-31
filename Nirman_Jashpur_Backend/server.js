@@ -14,7 +14,7 @@ const sdoRoutes = require("./routes/admin.sdo");
 const wardRoutes = require("./routes/admin.ward");
 const typeOfLocationRoutes = require("./routes/admin.typeOfLocation");
 const cityRoutes = require("./routes/admin.city");
-const workDepartmentRoutes = require("./routes/admin.department");
+const workDepartmentRoutes = require("./routes/admin.workDepartment");
 
 
 

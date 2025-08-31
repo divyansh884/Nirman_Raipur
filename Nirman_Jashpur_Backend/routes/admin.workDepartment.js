@@ -1,10 +1,11 @@
 const express = require('express');
-const { body } = require('express-validator');
-
-const workDept = require('../models/subSchema/workDepartment');
+const { body, param, validationResult } = require('express-validator');
+const WorkDept = require('../models/subSchema/workDepartment');
+const { auth, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper for validation
 const validate = (rules) => [
   ...rules,
   (req, res, next) => {
@@ -16,87 +17,171 @@ const validate = (rules) => [
   },
 ];
 
+// --- CREATE ---
 router.post(
-  '/workDepartments',
+  '/',
   auth,
   authorizeRole('Super Admin'),
-  validate([
-    body('name').trim().notEmpty().isLength({ max: 200 })
-  ]),
+  validate([body('name').trim().notEmpty().isLength({ max: 200 })]), // ✅ Fixed: Use 'name'
   async (req, res) => {
-    const { name } = req.body;
+    try {
+      const { name } = req.body; // ✅ Fixed: Use 'name'
 
-    const exists = await workDept.findOne({ name });
-    if (exists) {
-      return res.status(404).json({ success: false, message: 'Work Department already exists' });
+      const exists = await WorkDept.findOne({ name }); // ✅ Fixed: Use 'name'
+      if (exists) {
+        return res
+          .status(409)
+          .json({ success: false, message: 'Work Department already exists' });
+      }
+
+      const department = await WorkDept.create({ name }); // ✅ Fixed: Use 'name'
+      res
+        .status(201)
+        .json({ success: true, message: 'Work Department created', data: department });
+    } catch (error) {
+      console.error('Error creating WorkDepartment:', error);
+      
+      if (error.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'Work Department already exists',
+          error: 'Duplicate work department name'
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error.message 
+      });
     }
-
-    const department = await workDept.create({ name });
-    res.status(201).json({ success: true, message: 'Work Department created', data: department });
   }
 );
 
 // --- READ ALL ---
-// GET /api/admin/departments
 router.get(
-  '/getworkdepartments',
+  '/',
   auth,
   authorizeRole('Super Admin'),
   async (req, res) => {
-    const departments = await workDept.find().sort({ createdAt: -1 });
-    res.json({ success: true, data: departments });
+    try {
+      const departments = await WorkDept.find().sort({ createdAt: -1 });
+      res.json({ success: true, data: departments });
+    } catch (error) {
+      console.error('Error fetching WorkDepartments:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error.message 
+      });
+    }
   }
 );
 
 // --- READ ONE ---
-// GET /api/admin/departments/:id
 router.get(
-  '/workdepartments/:id',
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
-    const department = await workDept.findById(req.params.id);
-    if (!department) return res.status(404).json({ success: false, message: 'Work Department not found' });
-    res.json({ success: true, data: department });
+    try {
+      const department = await WorkDept.findById(req.params.id);
+      if (!department) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'Work Department not found' });
+      }
+      res.json({ success: true, data: department });
+    } catch (error) {
+      console.error('Error fetching WorkDepartment:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error.message 
+      });
+    }
   }
 );
 
 // --- UPDATE ---
-// PATCH /api/admin/departments/:id
 router.patch(
-  '/departments/:id',
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([
     param('id').isMongoId(),
-    body('name').optional().isLength({ max: 200 }),
+    body('name').optional().isLength({ max: 200 }), // ✅ Fixed: Use 'name'
   ]),
   async (req, res) => {
-    if (req.body.name) {
-      const exists = await workDept.findOne({ name: req.body.name, _id: { $ne: req.params.id } });
-      if (exists) {
-        return res.status(409).json({ success: false, message: 'Work Department name already in use' });
+    try {
+      if (req.body.name) { // ✅ Fixed: Use 'name'
+        const exists = await WorkDept.findOne({
+          name: req.body.name, // ✅ Fixed: Use 'name'
+          _id: { $ne: req.params.id },
+        });
+        if (exists) {
+          return res
+            .status(409)
+            .json({ success: false, message: 'Work Department name already in use' });
+        }
       }
-    }
 
-    const department = await workDept.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!department) return res.status(404).json({ success: false, message: 'Work Department not found' });
-    res.json({ success: true, message: 'Department updated', data: department });
+      const department = await WorkDept.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true
+      });
+      
+      if (!department) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'Work Department not found' });
+      }
+      
+      res.json({ success: true, message: 'Work Department updated', data: department });
+    } catch (error) {
+      console.error('Error updating WorkDepartment:', error);
+      
+      if (error.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'Work Department name already exists',
+          error: 'Duplicate work department name'
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error.message 
+      });
+    }
   }
 );
 
 // --- DELETE ---
-// DELETE /api/admin/departments/:id
 router.delete(
-  '/departments/:id',
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
-    const department = await workDept.findByIdAndDelete(req.params.id);
-    if (!department) return res.status(404).json({ success: false, message: 'Department not found' });
-    res.json({ success: true, message: 'Department deleted' });
+    try {
+      const department = await WorkDept.findByIdAndDelete(req.params.id);
+      if (!department) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'Work Department not found' });
+      }
+      res.json({ success: true, message: 'Work Department deleted' });
+    } catch (error) {
+      console.error('Error deleting WorkDepartment:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error.message 
+      });
+    }
   }
 );
 

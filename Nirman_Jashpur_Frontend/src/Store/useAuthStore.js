@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-
+import { BASE_SERVER_URL } from '../constants.jsx';
 // Define page access permissions for each role
 const ROLE_PERMISSIONS = {
   'Super Admin': [
@@ -13,30 +13,37 @@ const ROLE_PERMISSIONS = {
     'work',
     'users',
     'reports',
+    'profile'
   ],
   'Administrative Approver': [
     'dashboard',
-    'administrative-approval'
+    'administrative-approval',
+     'profile'
   ],
   'Technical Approver': [
     'dashboard',
-    'technical-approval'
+    'technical-approval',
+     'profile'
   ],
   'User': [
     'dashboard',
-    'work'
+    'work',
+     'profile'
   ],
   'Engineer': [
     'dashboard',
-    'work-progress'
+    'work-progress',
+     'profile'
   ],
   'Tender Manager': [
     'dashboard',
-    'tender'
+    'tender',
+     'profile'
   ],
   'Work Order Manager': [
     'dashboard',
-    'work-order'
+    'work-order',
+     'profile'
   ]
 };
 
@@ -58,7 +65,7 @@ const useAuthStore = create(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await fetch("http://localhost:3000/api/auth/login", {
+          const response = await fetch(`${BASE_SERVER_URL}/auth/login`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -210,7 +217,7 @@ const useAuthStore = create(
         }
 
         try {
-          const response = await fetch("http://localhost:3000/api/auth/me", {
+          const response = await fetch(`${BASE_SERVER_URL}/auth/me`, {
             method: "GET",
             headers: {
               "Authorization": `Bearer ${token}`,
