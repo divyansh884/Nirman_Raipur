@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const imageSchema = new mongoose.Schema(
   {
@@ -6,13 +6,19 @@ const imageSchema = new mongoose.Schema(
       {
         url: { type: String, required: true },
         key: { type: String, required: true },
-        bucket: { type: String, required: true },
-        contentType: { type: String, required: true },
         size: { type: Number, required: true },
+        eTag: {
+          type: String,
+          required: true,
+        },
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = {imageModel: mongoose.model('Image', imageSchema), imageSchema};
+module.exports = {
+  imageModel: mongoose.model("Image", imageSchema),
+  imageSchema,
+};
+

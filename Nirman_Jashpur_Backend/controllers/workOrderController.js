@@ -1,18 +1,29 @@
-const WorkProposal = require('../models/WorkProposal');
-const User = require('../models/User');
-const { validationResult } = require('express-validator');
+const WorkProposal = require("../models/WorkProposal");
+const User = require("../models/User");
+const { validationResult } = require("express-validator");
 
 // @desc    Create work order
 // @route   POST /api/work-proposals/:id/work-order
 // @access  Private (Work Order Manager)
 const createWorkOrder = async (req, res) => {
   try {
-    const { workOrderNumber, dateOfWorkOrder, workOrderAmount, contractorOrGramPanchayat, remark } = req.body;
+    const {
+      workOrderNumber,
+      dateOfWorkOrder,
+      workOrderAmount,
+      contractorOrGramPanchayat,
+      remark,
+    } = req.body;
 
-    if (!workOrderNumber || !dateOfWorkOrder || !workOrderAmount || !contractorOrGramPanchayat) {
+    if (
+      !workOrderNumber ||
+      !dateOfWorkOrder ||
+      !workOrderAmount ||
+      !contractorOrGramPanchayat
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'All work order fields are required'
+        message: "All work order fields are required",
       });
     }
 
@@ -21,26 +32,26 @@ const createWorkOrder = async (req, res) => {
     if (!workProposal) {
       return res.status(404).json({
         success: false,
-        message: 'Work proposal not found'
+        message: "Work proposal not found",
       });
     }
 
-    if (workProposal.currentStatus !== 'Pending Work Order') {
+    if (workProposal.currentStatus !== "Pending Work Order") {
       return res.status(400).json({
         success: false,
-        message: 'Proposal is not pending work order creation'
+        message: "Proposal is not pending work order creation",
       });
     }
 
     // Check if work order number already exists
     const existingWorkOrder = await WorkProposal.findOne({
-      'workOrder.workOrderNumber': workOrderNumber
+      "workOrder.workOrderNumber": workOrderNumber,
     });
 
     if (existingWorkOrder) {
       return res.status(400).json({
         success: false,
-        message: 'Work order number already exists'
+        message: "Work order number already exists",
       });
     }
 
@@ -50,34 +61,35 @@ const createWorkOrder = async (req, res) => {
       workOrderAmount,
       contractorOrGramPanchayat,
       remark,
-      issuedBy: req.user.id
+      issuedBy: req.user.id,
+      attachedFile: req.s3Uploads.document,
     };
 
-    workProposal.currentStatus = 'Work In Progress';
-    workProposal.workProgressStage = 'Work In Progress';
+    workProposal.currentStatus = "Work In Progress";
+    workProposal.workProgressStage = "Work In Progress";
 
     // Initialize work progress tracking
-    workProposal.workProgress = {
+    workProposal.workProgress.push({
       sanctionedAmount: workOrderAmount,
       totalAmountReleasedSoFar: 0,
       remainingBalance: workOrderAmount,
       installments: [],
-      progressPercentage: 0
-    };
+      progressPercentage: 0,
+    });
 
     await workProposal.save();
 
     res.json({
       success: true,
-      message: 'Work order created successfully',
-      data: workProposal
+      message: "Work order created successfully",
+      data: workProposal,
     });
   } catch (error) {
-    console.error('Error creating work order:', error);
+    console.error("Error creating work order:", error);
     res.status(500).json({
       success: false,
-      message: 'Error creating work order',
-      error: error.message
+      message: "Error creating work order",
+      error: error.message,
     });
   }
 };
@@ -94,22 +106,25 @@ const updateWorkOrder = async (req, res) => {
     if (!workProposal) {
       return res.status(404).json({
         success: false,
-        message: 'Work proposal not found'
+        message: "Work proposal not found",
       });
     }
 
     if (!workProposal.workOrder || !workProposal.workOrder.workOrderNumber) {
       return res.status(400).json({
         success: false,
-        message: 'Work order does not exist'
+        message: "Work order does not exist",
       });
     }
 
     // Check if work has started (prevent major changes after work starts)
-    if (workProposal.currentStatus === 'Work In Progress' || workProposal.currentStatus === 'Work Completed') {
+    if (
+      workProposal.currentStatus === "Work In Progress" ||
+      workProposal.currentStatus === "Work Completed"
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot update work order after work has started'
+        message: "Cannot update work order after work has started",
       });
     }
 
@@ -119,12 +134,15 @@ const updateWorkOrder = async (req, res) => {
       // Update sanctioned amount in work progress
       if (workProposal.workProgress) {
         workProposal.workProgress.sanctionedAmount = workOrderAmount;
-        workProposal.workProgress.remainingBalance = workOrderAmount - (workProposal.workProgress.totalAmountReleasedSoFar || 0);
+        workProposal.workProgress.remainingBalance =
+          workOrderAmount -
+          (workProposal.workProgress.totalAmountReleasedSoFar || 0);
       }
     }
 
     if (contractorOrGramPanchayat) {
-      workProposal.workOrder.contractorOrGramPanchayat = contractorOrGramPanchayat;
+      workProposal.workOrder.contractorOrGramPanchayat =
+        contractorOrGramPanchayat;
     }
 
     if (remark) {
@@ -135,15 +153,15 @@ const updateWorkOrder = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Work order updated successfully',
-      data: workProposal
+      message: "Work order updated successfully",
+      data: workProposal,
     });
   } catch (error) {
-    console.error('Error updating work order:', error);
+    console.error("Error updating work order:", error);
     res.status(500).json({
       success: false,
-      message: 'Error updating work order',
-      error: error.message
+      message: "Error updating work order",
+      error: error.message,
     });
   }
 };
@@ -158,33 +176,33 @@ const startWork = async (req, res) => {
     if (!workProposal) {
       return res.status(404).json({
         success: false,
-        message: 'Work proposal not found'
+        message: "Work proposal not found",
       });
     }
 
-    if (workProposal.currentStatus !== 'Work Order Created') {
+    if (workProposal.currentStatus !== "Work Order Created") {
       return res.status(400).json({
         success: false,
-        message: 'Work order must be created before starting work'
+        message: "Work order must be created before starting work",
       });
     }
 
-    workProposal.currentStatus = 'Work In Progress';
-    workProposal.workProgressStage = 'Work In Progress';
+    workProposal.currentStatus = "Work In Progress";
+    workProposal.workProgressStage = "Work In Progress";
 
     await workProposal.save();
 
     res.json({
       success: true,
-      message: 'Work started successfully',
-      data: workProposal
+      message: "Work started successfully",
+      data: workProposal,
     });
   } catch (error) {
-    console.error('Error starting work:', error);
+    console.error("Error starting work:", error);
     res.status(500).json({
       success: false,
-      message: 'Error starting work',
-      error: error.message
+      message: "Error starting work",
+      error: error.message,
     });
   }
 };
@@ -199,7 +217,7 @@ const getAllWorkOrders = async (req, res) => {
     const skip = (page - 1) * limit;
 
     let filter = {
-      'workOrder.workOrderNumber': { $exists: true }
+      "workOrder.workOrderNumber": { $exists: true },
     };
 
     // Filter by status
@@ -209,26 +227,29 @@ const getAllWorkOrders = async (req, res) => {
 
     // Filter by contractor/gram panchayat
     if (req.query.contractor) {
-      filter['workOrder.contractorOrGramPanchayat'] = new RegExp(req.query.contractor, 'i');
+      filter["workOrder.contractorOrGramPanchayat"] = new RegExp(
+        req.query.contractor,
+        "i",
+      );
     }
 
     // Filter by work order date range
     if (req.query.fromDate && req.query.toDate) {
-      filter['workOrder.dateOfWorkOrder'] = {
+      filter["workOrder.dateOfWorkOrder"] = {
         $gte: new Date(req.query.fromDate),
-        $lte: new Date(req.query.toDate)
+        $lte: new Date(req.query.toDate),
       };
     }
 
     // Filter by department
     if (req.query.department) {
-      filter.workDepartment = new RegExp(req.query.department, 'i');
+      filter.workDepartment = new RegExp(req.query.department, "i");
     }
 
     const workOrders = await WorkProposal.find(filter)
-      .populate('submittedBy', 'fullName email department')
-      .populate('workOrder.issuedBy', 'fullName email department')
-      .sort({ 'workOrder.dateOfWorkOrder': -1 })
+      .populate("submittedBy", "fullName email department")
+      .populate("workOrder.issuedBy", "fullName email department")
+      .sort({ "workOrder.dateOfWorkOrder": -1 })
       .skip(skip)
       .limit(limit);
 
@@ -241,15 +262,15 @@ const getAllWorkOrders = async (req, res) => {
         current: page,
         pages: Math.ceil(total / limit),
         total,
-        limit
-      }
+        limit,
+      },
     });
   } catch (error) {
-    console.error('Error fetching work orders:', error);
+    console.error("Error fetching work orders:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching work orders',
-      error: error.message
+      message: "Error fetching work orders",
+      error: error.message,
     });
   }
 };
@@ -260,20 +281,20 @@ const getAllWorkOrders = async (req, res) => {
 const getWorkOrder = async (req, res) => {
   try {
     const workProposal = await WorkProposal.findById(req.params.id)
-      .populate('submittedBy', 'fullName email department designation')
-      .populate('workOrder.issuedBy', 'fullName email department designation');
+      .populate("submittedBy", "fullName email department designation")
+      .populate("workOrder.issuedBy", "fullName email department designation");
 
     if (!workProposal) {
       return res.status(404).json({
         success: false,
-        message: 'Work proposal not found'
+        message: "Work proposal not found",
       });
     }
 
     if (!workProposal.workOrder || !workProposal.workOrder.workOrderNumber) {
       return res.status(404).json({
         success: false,
-        message: 'Work order not found'
+        message: "Work order not found",
       });
     }
 
@@ -287,18 +308,18 @@ const getWorkOrder = async (req, res) => {
           workDescription: workProposal.workDescription,
           workDepartment: workProposal.workDepartment,
           currentStatus: workProposal.currentStatus,
-          submittedBy: workProposal.submittedBy
+          submittedBy: workProposal.submittedBy,
         },
         workOrder: workProposal.workOrder,
-        workProgress: workProposal.workProgress
-      }
+        workProgress: workProposal.workProgress,
+      },
     });
   } catch (error) {
-    console.error('Error fetching work order:', error);
+    console.error("Error fetching work order:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching work order',
-      error: error.message
+      message: "Error fetching work order",
+      error: error.message,
     });
   }
 };
@@ -308,29 +329,29 @@ module.exports = {
   updateWorkOrder,
   startWork,
   getAllWorkOrders,
-  getWorkOrder
+  getWorkOrder,
 };
 
 // Helper function to build filter query
 const buildFilterQuery = (queryParams) => {
   const filter = {};
-  
+
   if (queryParams.area) {
-    filter.area = new RegExp(queryParams.area, 'i');
+    filter.area = new RegExp(queryParams.area, "i");
   }
-  
+
   if (queryParams.scheme) {
-    filter.scheme = new RegExp(queryParams.scheme, 'i');
+    filter.scheme = new RegExp(queryParams.scheme, "i");
   }
-  
+
   if (queryParams.status) {
     filter.orderStatus = queryParams.status;
   }
-  
+
   if (queryParams.workAgency) {
-    filter.workAgency = new RegExp(queryParams.workAgency, 'i');
+    filter.workAgency = new RegExp(queryParams.workAgency, "i");
   }
-  
+
   return filter;
 };
 
@@ -339,20 +360,20 @@ exports.getAllWorkOrders = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const sortBy = req.query.sortBy || 'entryDate';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-    
+    const sortBy = req.query.sortBy || "entryDate";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const filter = buildFilterQuery(req.query);
-    
+
     const [workOrders, total] = await Promise.all([
       WorkOrder.find(filter)
         .sort({ [sortBy]: sortOrder })
         .skip(skip)
         .limit(limit)
         .lean(),
-      WorkOrder.countDocuments(filter)
+      WorkOrder.countDocuments(filter),
     ]);
-    
+
     res.json({
       data: workOrders,
       pagination: {
@@ -360,28 +381,28 @@ exports.getAllWorkOrders = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         totalRecords: total,
         hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
-      }
+        hasPrev: page > 1,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 exports.getWorkOrderById = async (req, res) => {
   try {
     const workOrder = await WorkOrder.findById(req.params.id);
-    
+
     if (!workOrder) {
-      return res.status(404).json({ message: 'Work order not found' });
+      return res.status(404).json({ message: "Work order not found" });
     }
-    
+
     res.json({ data: workOrder });
   } catch (error) {
-    if (error.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid work order ID' });
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid work order ID" });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -389,19 +410,22 @@ exports.createWorkOrder = async (req, res) => {
   try {
     const workOrder = new WorkOrder(req.body);
     await workOrder.save();
-    
+
     res.status(201).json({
-      message: 'Work order created successfully',
-      data: workOrder
+      message: "Work order created successfully",
+      data: workOrder,
     });
   } catch (error) {
-    if (error.name === 'ValidationError') {
+    if (error.name === "ValidationError") {
       return res.status(400).json({
-        message: 'Validation failed',
-        errors: Object.values(error.errors).map(err => ({ field: err.path, message: err.message }))
+        message: "Validation failed",
+        errors: Object.values(error.errors).map((err) => ({
+          field: err.path,
+          message: err.message,
+        })),
       });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -410,44 +434,47 @@ exports.updateWorkOrder = async (req, res) => {
     const workOrder = await WorkOrder.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
-    
+
     if (!workOrder) {
-      return res.status(404).json({ message: 'Work order not found' });
+      return res.status(404).json({ message: "Work order not found" });
     }
-    
+
     res.json({
-      message: 'Work order updated successfully',
-      data: workOrder
+      message: "Work order updated successfully",
+      data: workOrder,
     });
   } catch (error) {
-    if (error.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid work order ID' });
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid work order ID" });
     }
-    if (error.name === 'ValidationError') {
+    if (error.name === "ValidationError") {
       return res.status(400).json({
-        message: 'Validation failed',
-        errors: Object.values(error.errors).map(err => ({ field: err.path, message: err.message }))
+        message: "Validation failed",
+        errors: Object.values(error.errors).map((err) => ({
+          field: err.path,
+          message: err.message,
+        })),
       });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 exports.deleteWorkOrder = async (req, res) => {
   try {
     const workOrder = await WorkOrder.findByIdAndDelete(req.params.id);
-    
+
     if (!workOrder) {
-      return res.status(404).json({ message: 'Work order not found' });
+      return res.status(404).json({ message: "Work order not found" });
     }
-    
-    res.json({ message: 'Work order deleted successfully' });
+
+    res.json({ message: "Work order deleted successfully" });
   } catch (error) {
-    if (error.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid work order ID' });
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid work order ID" });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

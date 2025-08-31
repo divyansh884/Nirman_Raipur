@@ -367,7 +367,7 @@ const technicalApproval = async (req, res) => {
         remarks,
         approvedBy: req.user.id,
         attachedFile: req.s3Uploads.document,
-        attachedImages: req.s3Uploads.images,
+        attachedImages: { images: req.s3Uploads.images },
       };
 
       workProposal.currentStatus = "Pending Administrative Approval";

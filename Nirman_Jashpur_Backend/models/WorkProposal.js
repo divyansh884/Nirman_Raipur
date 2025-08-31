@@ -211,12 +211,6 @@ const workProgressSchema = new mongoose.Schema(
       min: 0,
       default: null,
     },
-    progressPercentage: {
-      type: Number,
-      min: 0,
-      max: 100,
-      default: 0,
-    },
     progressDocuments: documentSchema,
     progressImages: imageSchema,
     lastUpdatedBy: {
@@ -460,7 +454,7 @@ const workProposalSchema = new mongoose.Schema(
     administrativeApproval: administrativeApprovalSchema,
     tenderProcess: tenderProcessSchema,
     workOrder: workOrderSchema,
-    workProgress: workProgressSchema,
+    workProgress: [workProgressSchema],
 
     // Completion Details
     completionDate: {

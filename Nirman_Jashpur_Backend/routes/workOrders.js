@@ -9,6 +9,7 @@ const {
   getAllWorkOrders,
   getWorkOrder
 } = require('../controllers/workOrderController');
+const { uploadFields, s3UploadDoc } = require('../middleware/upload');
 
 // Validation middleware
 const createWorkOrderValidation = [
@@ -26,7 +27,7 @@ const updateWorkOrderValidation = [
 // @route   POST /api/work-proposals/:id/work-order
 // @desc    Create work order
 // @access  Private (Work Order Manager)
-router.post('/:id/work-order', auth, createWorkOrderValidation, createWorkOrder);
+router.post('/:id/work-order', auth, uploadFields, s3UploadDoc, createWorkOrderValidation, createWorkOrder);
 
 // @route   PUT /api/work-proposals/:id/work-order
 // @desc    Update work order
