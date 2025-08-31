@@ -127,7 +127,7 @@ router.delete("/:id", auth, deleteWorkProposal);
 router.post(
   "/:id/technical-approval",
   auth,
-  authorizeRole("Technical Approver"),
+  // authorizeRole("Technical Approver"),
   uploadDocMiddleware,
   s3UploadMiddleware,
   technicalApprovalValidation,

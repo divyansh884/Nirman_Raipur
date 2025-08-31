@@ -320,10 +320,8 @@ const technicalApproval = async (req, res) => {
     const {
       action,
       approvalNumber,
-      amountOfTechnicalSanction,
       remarks,
       rejectionReason,
-      file,
     } = req.body;
 
     if (!["approve", "reject"].includes(action)) {
@@ -358,27 +356,27 @@ const technicalApproval = async (req, res) => {
     // }
 
     if (action === "approve") {
-      if (!approvalNumber || !amountOfTechnicalSanction) {
+      if (!approvalNumber) {
         return res.status(400).json({
           success: false,
           message:
             "Approval number and technical sanction amount are required for approval",
         });
       }
+ 
 
       workProposal.technicalApproval = {
         status: "Approved",
         approvalNumber,
         approvalDate: new Date(),
-        amountOfTechnicalSanction,
         forwardingDate: new Date(),
         remarks,
         approvedBy: req.user.id,
         attachedFile: {
-          key: req.key,
-          url: req.url,
-          size: req.size,
-          eTag: req.eTag,
+          key: req.s3File.key,
+          url: req.s3File.url,
+          size: req.s3File.size,
+          eTag: req.s3File.eTag,
         },
       };
 
