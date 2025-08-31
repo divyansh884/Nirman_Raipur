@@ -1,45 +1,77 @@
 const multer = require("multer");
 const s3 = require("../utils/s3");
 
-// memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
-// single file upload (field: "document")
-const uploadDocMiddleware = upload.single("document");
+// this lets you upload *both* in one request
+const uploadFields = upload.fields([
+  { name: "document", maxCount: 1 },
+  { name: "images", maxCount: 5 }, // change limit as you like
+]);
 
-const s3UploadMiddleware = async (req, res, next) => {
+// upload single doc
+const s3UploadDoc = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No document uploaded" });
-    }
+    if (!req.files || !req.files.document) return next();
 
+    const file = req.files.document[0];
     const params = {
       Bucket: process.env.AWS_S3_BUCKET,
-      Key: `documents/${Date.now()}_${req.file.originalname}`,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
+      Key: `documents/${Date.now()}_${file.originalname}`,
+      Body: file.buffer,
+      ContentType: file.mimetype,
       ACL: "public-read",
     };
 
     const data = await s3.upload(params).promise();
 
-    // attach info to request object (not saving to DB here)
-    req.s3File = {
+    req.s3Uploads = req.s3Uploads || {};
+    req.s3Uploads.document = {
       key: data.Key,
       url: data.Location,
-      size: req.file.size,
+      size: file.size,
       eTag: data.ETag,
     };
 
     next();
   } catch (err) {
-    console.error("S3 Upload Error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Error uploading document" });
+    console.error("S3 Doc Upload Error:", err);
+    return res.status(500).json({ success: false, message: "Error uploading document" });
   }
 };
 
-module.exports = { uploadDocMiddleware, s3UploadMiddleware };
+// upload multiple images
+const s3UploadImages = async (req, res, next) => {
+  try {
+    if (!req.files || !req.files.images) return next();
+
+    const uploads = await Promise.all(
+      req.files.images.map(async (file) => {
+        const params = {
+          Bucket: process.env.AWS_S3_BUCKET,
+          Key: `images/${Date.now()}_${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: "public-read",
+        };
+        const data = await s3.upload(params).promise();
+        return {
+          key: data.Key,
+          url: data.Location,
+          size: file.size,
+          eTag: data.ETag,
+        };
+      })
+    );
+
+    req.s3Uploads = req.s3Uploads || {};
+    req.s3Uploads.images = uploads;
+
+    next();
+  } catch (err) {
+    console.error("S3 Image Upload Error:", err);
+    return res.status(500).json({ success: false, message: "Error uploading images" });
+  }
+};
+
+module.exports = { uploadFields, s3UploadDoc, s3UploadImages };

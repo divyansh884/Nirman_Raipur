@@ -317,12 +317,7 @@ const deleteWorkProposal = async (req, res) => {
 // @access  Private (Technical Approver)
 const technicalApproval = async (req, res) => {
   try {
-    const {
-      action,
-      approvalNumber,
-      remarks,
-      rejectionReason,
-    } = req.body;
+    const { action, approvalNumber, remarks, rejectionReason } = req.body;
 
     if (!["approve", "reject"].includes(action)) {
       return res.status(400).json({
@@ -363,7 +358,6 @@ const technicalApproval = async (req, res) => {
             "Approval number and technical sanction amount are required for approval",
         });
       }
- 
 
       workProposal.technicalApproval = {
         status: "Approved",
@@ -372,12 +366,8 @@ const technicalApproval = async (req, res) => {
         forwardingDate: new Date(),
         remarks,
         approvedBy: req.user.id,
-        attachedFile: {
-          key: req.s3File.key,
-          url: req.s3File.url,
-          size: req.s3File.size,
-          eTag: req.s3File.eTag,
-        },
+        attachedFile: req.s3Uploads.document,
+        attachedImages: req.s3Uploads.images,
       };
 
       workProposal.currentStatus = "Pending Administrative Approval";
@@ -465,6 +455,7 @@ const administrativeApproval = async (req, res) => {
         approvedAmount,
         remarks,
         approvedBy: req.user.id,
+        attachedFile: req.s3Uploads.document,
       };
 
       // Determine next stage based on tender requirement

@@ -12,8 +12,9 @@ const {
   administrativeApproval,
 } = require("../controllers/workProposalController");
 const {
-  uploadDocMiddleware,
-  s3UploadMiddleware,
+  uploadFields,
+  s3UploadDoc,
+  s3UploadImages,
 } = require("../middleware/upload");
 
 // Validation middleware
@@ -128,8 +129,9 @@ router.post(
   "/:id/technical-approval",
   auth,
   // authorizeRole("Technical Approver"),
-  uploadDocMiddleware,
-  s3UploadMiddleware,
+  uploadFields,
+  s3UploadDoc,
+  s3UploadImages,
   technicalApprovalValidation,
   technicalApproval,
 );
@@ -140,6 +142,8 @@ router.post(
 router.post(
   "/:id/administrative-approval",
   auth,
+  uploadFields,
+  s3UploadDoc,
   administrativeApprovalValidation,
   administrativeApproval,
 );
