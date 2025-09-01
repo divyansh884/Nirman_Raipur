@@ -128,14 +128,19 @@ const getWorkProposals = async (req, res) => {
 const getWorkProposal = async (req, res) => {
   try {
     const workProposal = await WorkProposal.findById(req.params.id)
-      .populate("submittedBy", "fullName email department designation")
-      .populate("technicalApproval.approvedBy", "fullName email department")
-      .populate(
-        "administrativeApproval.approvedBy",
-        "fullName email department",
-      )
-      .populate("workOrder.issuedBy", "fullName email department")
-      .populate("workProgress.lastUpdatedBy", "fullName email department");
+      .populate("submittedBy", "fullName email department")
+      .populate("technicalApproval.approvedBy", "fullName email")
+      .populate("administrativeApproval.approvedBy", "fullName email")
+      .populate("typeOfWork", "name")
+      .populate("workAgency", "name")
+      .populate("scheme", "name")
+      .populate("workDepartment", "name")
+      .populate("approvingDepartment", "name")
+      .populate("typeOfLocation", "name")
+      .populate("city", "name")
+      .populate("ward", "name")
+      .populate("appointedEngineer", "name")
+      .populate("appointedSDO", "name")
 
     if (!workProposal) {
       return res.status(404).json({
@@ -145,15 +150,15 @@ const getWorkProposal = async (req, res) => {
     }
 
     // Check access permissions
-    if (
-      req.user.role === "Department User" &&
-      workProposal.submittedBy._id.toString() !== req.user.id
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
+    // if (
+    //   req.user.role === "Department User" &&
+    //   workProposal.submittedBy._id.toString() !== req.user.id
+    // ) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied",
+    //   });
+    // }
 
     res.json({
       success: true,
@@ -184,7 +189,7 @@ const updateWorkProposal = async (req, res) => {
     }
 
     // Check if user can update
-    if (workProposal.submittedBy.toString() !== req.user.id) {
+    if (workProposal.submittedBy.toString() !== req.user.id && req.user.role !== "Super Admin" && req.user.role !== "Technical Approver") {
       return res.status(403).json({
         success: false,
         message: "Only the submitter can update the proposal",
@@ -287,8 +292,7 @@ const deleteWorkProposal = async (req, res) => {
     if (
       workProposal.currentStatus !== "Pending Technical Approval" &&
       workProposal.currentStatus !== "Work Completed" &&
-      workProposal.currentStatus !== "Pending Administrative Approval" &&
-      req.user.role !== "Super Admin"
+      workProposal.currentStatus !== "Pending Administrative Approval"
     ) {
       return res.status(400).json({
         success: false,
@@ -410,7 +414,6 @@ const administrativeApproval = async (req, res) => {
       action,
       byGovtDistrictAS,
       approvalNumber,
-      approvedAmount,
       remarks,
       rejectionReason,
     } = req.body;
@@ -439,11 +442,11 @@ const administrativeApproval = async (req, res) => {
     }
 
     if (action === "approve") {
-      if (!approvalNumber || !approvedAmount) {
+      if (!approvalNumber ) {
         return res.status(400).json({
           success: false,
           message:
-            "Approval number and approved amount are required for approval",
+            "Approval number is required for approval",
         });
       }
 
@@ -452,7 +455,6 @@ const administrativeApproval = async (req, res) => {
         byGovtDistrictAS,
         approvalNumber,
         approvalDate: new Date(),
-        approvedAmount,
         remarks,
         approvedBy: req.user.id,
         attachedFile: req.s3Uploads.document,

@@ -15,12 +15,12 @@ const { uploadFields, s3UploadDoc } = require('../middleware/upload');
 const createWorkOrderValidation = [
   body('workOrderNumber').notEmpty().withMessage('Work order number is required'),
   body('dateOfWorkOrder').isISO8601().withMessage('Valid work order date is required'),
-  body('workOrderAmount').isNumeric().withMessage('Work order amount must be a number'),
+  // body('workOrderAmount').isNumeric().withMessage('Work order amount must be a number'),
   body('contractorOrGramPanchayat').notEmpty().withMessage('Contractor or Gram Panchayat is required')
 ];
 
 const updateWorkOrderValidation = [
-  body('workOrderAmount').optional().isNumeric().withMessage('Work order amount must be a number'),
+  // body('workOrderAmount').optional().isNumeric().withMessage('Work order amount must be a number'),
   body('contractorOrGramPanchayat').optional().notEmpty().withMessage('Contractor or Gram Panchayat cannot be empty')
 ];
 

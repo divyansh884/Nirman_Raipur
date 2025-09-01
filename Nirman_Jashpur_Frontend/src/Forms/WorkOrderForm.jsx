@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
-import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';
+
 export default function WorkOrderForm({ onLogout }) {
   const navigate = useNavigate();
   const { workId } = useParams();
@@ -12,14 +13,13 @@ export default function WorkOrderForm({ onLogout }) {
   // Get authentication from Zustand store
   const { token, isAuthenticated, logout } = useAuthStore();
 
-  // Form state
+  // Form state - UPDATED to match required body structure
   const [form, setForm] = useState({
-    workOrderAmount: "",
     workOrderNumber: "",
-    workOrderDate: "",
-    contractor: "",
+    contractorOrGramPanchayat: "",
+    dateOfWorkOrder: "",
+    remark: "",
     document: null,
-    remarks: "",
   });
 
   // Loading and error states
@@ -60,24 +60,28 @@ export default function WorkOrderForm({ onLogout }) {
     }
   };
 
-  // Form validation
+  // Form validation - UPDATED for required fields only
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!form.workOrderAmount || parseFloat(form.workOrderAmount) <= 0) {
-      newErrors.workOrderAmount = 'वैध वर्क ऑर्डर राशि दर्ज करें';
-    }
     
     if (!form.workOrderNumber.trim()) {
       newErrors.workOrderNumber = 'वर्क ऑर्डर संख्या आवश्यक है';
     }
     
-    if (!form.workOrderDate) {
-      newErrors.workOrderDate = 'वर्क ऑर्डर दिनांक आवश्यक है';
+    if (!form.contractorOrGramPanchayat.trim()) {
+      newErrors.contractorOrGramPanchayat = 'ठेकेदार/ग्राम पंचायत का नाम आवश्यक है';
     }
     
-    if (!form.contractor.trim()) {
-      newErrors.contractor = 'ठेकेदार/ग्राम पंचायत का नाम आवश्यक है';
+    if (!form.dateOfWorkOrder) {
+      newErrors.dateOfWorkOrder = 'वर्क ऑर्डर दिनांक आवश्यक है';
+    }
+    
+    if (!form.remark.trim()) {
+      newErrors.remark = 'टिप्पणी आवश्यक है';
+    }
+    
+    if (!form.document) {
+      newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
     }
 
     setErrors(newErrors);
@@ -86,7 +90,7 @@ export default function WorkOrderForm({ onLogout }) {
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-      logout(); // Use Zustand logout function
+      logout();
       navigate("/");
     }
   };
@@ -126,54 +130,52 @@ export default function WorkOrderForm({ onLogout }) {
         return date.toISOString();
       };
 
-      // ✅ Step 5: Prepare payload according to API schema
-      const payload = {
-        workOrderNumber: form.workOrderNumber,
-        dateOfWorkOrder: convertToISODate(form.workOrderDate),
-        workOrderAmount: parseFloat(form.workOrderAmount),
-        contractorOrGramPanchayat: form.contractor,
-        remark: form.remarks || ""
-      };
+      // ✅ Step 5: Create FormData for file upload - UPDATED
+      const formData = new FormData();
+      
+      // Add all required fields exactly as per body structure
+      formData.append("workOrderNumber", form.workOrderNumber);
+      formData.append("contractorOrGramPanchayat", form.contractorOrGramPanchayat);
+      formData.append("dateOfWorkOrder", convertToISODate(form.dateOfWorkOrder));
+      formData.append("remark", form.remark);
+      
+      // Add document file (required)
+      if (form.document) {
+        formData.append("document", form.document);
+      }
 
       // 🔍 Debug logs
       console.log("📤 Submitting work order:");
       console.log("🆔 Work ID:", workId);
-      console.log("📋 Payload:", payload);
+      console.log("📋 Work Order Number:", form.workOrderNumber);
+      console.log("🏗️ Contractor/Gram Panchayat:", form.contractorOrGramPanchayat);
+      console.log("📅 Date of Work Order:", convertToISODate(form.dateOfWorkOrder));
+      console.log("💭 Remark:", form.remark);
+      console.log("📁 Document:", form.document?.name);
 
-      // ✅ Step 6: API call with token from Zustand store
+      // ✅ Step 6: API call with FormData
       const response = await axios.post(
         `${BASE_SERVER_URL}/work-proposals/${workId}/work-order`,
-        payload,
+        formData,
         {
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` // Use token from Zustand store
+            "Content-Type": "multipart/form-data", // For file upload
+            "Authorization": `Bearer ${token}`
           },
         }
       );
 
-      // ✅ Step 7: Handle document upload separately (if needed)
-      if (form.document) {
-        try {
-          console.log("📁 Document will be handled separately:", form.document.name);
-          // You can implement document upload to a separate endpoint if needed
-        } catch (fileError) {
-          console.warn("⚠️ Document upload failed:", fileError);
-        }
-      }
-
-      // ✅ Step 8: Success handling
+      // ✅ Step 7: Success handling
       console.log("✅ Work order created successfully:", response.data);
       alert("वर्क ऑर्डर सफलतापूर्वक सहेजा गया!");
       
       // Reset form
       setForm({
-        workOrderAmount: "",
         workOrderNumber: "",
-        workOrderDate: "",
-        contractor: "",
+        contractorOrGramPanchayat: "",
+        dateOfWorkOrder: "",
+        remark: "",
         document: null,
-        remarks: "",
       });
       
       // Clear file input
@@ -206,7 +208,7 @@ export default function WorkOrderForm({ onLogout }) {
             
           case 401:
             alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
-            logout(); // Use Zustand logout function
+            logout();
             navigate("/login");
             break;
             
@@ -267,7 +269,6 @@ export default function WorkOrderForm({ onLogout }) {
       {/* Header */}
       <div className="header">
         <TopBar onLogout={onLogout} />
-
         <div className="subbar">
           <span className="dot" />
           <h2>वर्क ऑर्डर जोड़ें - Work ID: {workId}</h2>
@@ -283,27 +284,6 @@ export default function WorkOrderForm({ onLogout }) {
 
           <form className="p-body" onSubmit={handleSubmit}>
             <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  वर्क ऑर्डर राशि (₹) <span className="req">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  name="workOrderAmount"
-                  className={`form-input ${errors.workOrderAmount ? 'error' : ''}`}
-                  placeholder="2500000"
-                  value={form.workOrderAmount}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
-                />
-                {errors.workOrderAmount && (
-                  <span className="error-text">{errors.workOrderAmount}</span>
-                )}
-              </div>
-
               <div className="form-group">
                 <label className="form-label">
                   वर्क ऑर्डर संख्या <span className="req">*</span>
@@ -325,57 +305,60 @@ export default function WorkOrderForm({ onLogout }) {
 
               <div className="form-group">
                 <label className="form-label">
+                  ठेकेदार / ग्राम पंचायत <span className="req">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="contractorOrGramPanchayat"
+                  className={`form-input ${errors.contractorOrGramPanchayat ? 'error' : ''}`}
+                  placeholder="Shri Balaji Constructions"
+                  value={form.contractorOrGramPanchayat}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.contractorOrGramPanchayat && (
+                  <span className="error-text">{errors.contractorOrGramPanchayat}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
                   वर्क ऑर्डर दिनांक <span className="req">*</span>
                 </label>
                 <div className="input-with-icon">
                   <input
                     type="date"
-                    name="workOrderDate"
-                    className={`form-input ${errors.workOrderDate ? 'error' : ''}`}
-                    value={form.workOrderDate}
+                    name="dateOfWorkOrder"
+                    className={`form-input ${errors.dateOfWorkOrder ? 'error' : ''}`}
+                    value={form.dateOfWorkOrder}
                     onChange={handleChange}
                     disabled={isSubmitting}
                     required
                   />
                   <span className="cal-ic">📅</span>
                 </div>
-                {errors.workOrderDate && (
-                  <span className="error-text">{errors.workOrderDate}</span>
+                {errors.dateOfWorkOrder && (
+                  <span className="error-text">{errors.dateOfWorkOrder}</span>
                 )}
               </div>
             </div>
 
             <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  ठेकेदार / ग्राम पंचायत <span className="req">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="contractor"
-                  className={`form-input ${errors.contractor ? 'error' : ''}`}
-                  placeholder="Shri Balaji Constructions"
-                  value={form.contractor}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
-                />
-                {errors.contractor && (
-                  <span className="error-text">{errors.contractor}</span>
-                )}
-              </div>
-
-              {/* File Upload */}
+              {/* Document Upload - Now Required */}
               <div className="form-group file-input-wrapper">
-                <label>संलग्न फ़ाइल (वैकल्पिक)</label>
+                <label className="form-label">
+                  संलग्न दस्तावेज़ <span className="req">*</span>
+                </label>
                 <input
                   type="file"
                   name="document"
                   id="documentUpload"
-                  className="file-input"
+                  className={`file-input ${errors.document ? 'error' : ''}`}
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
                   disabled={isSubmitting}
+                  required
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -383,23 +366,29 @@ export default function WorkOrderForm({ onLogout }) {
                 <span className="file-name">
                   {form.document ? form.document.name : "कोई फ़ाइल चयनित नहीं"}
                 </span>
-                <small className="help-text">
-                  नोट: दस्तावेज़ अपलोड अलग से संभाला जाएगा
-                </small>
+                {errors.document && (
+                  <span className="error-text">{errors.document}</span>
+                )}
               </div>
             </div>
 
             <div className="form-group full">
-              <label className="form-label">टिप्पणी</label>
+              <label className="form-label">
+                टिप्पणी <span className="req">*</span>
+              </label>
               <textarea
-                name="remarks"
-                className="form-input textarea"
+                name="remark"
+                className={`form-input textarea ${errors.remark ? 'error' : ''}`}
                 placeholder="Work order issued for road construction with proper drainage system"
                 rows={5}
-                value={form.remarks}
+                value={form.remark}
                 onChange={handleChange}
                 disabled={isSubmitting}
+                required
               />
+              {errors.remark && (
+                <span className="error-text">{errors.remark}</span>
+              )}
             </div>
 
             <div className="form-actions">

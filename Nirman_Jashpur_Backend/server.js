@@ -29,7 +29,7 @@ app.use(cors(config.cors));
 
 // Rate limiting
 const limiter = rateLimit(config.rateLimit);
-app.use(limiter);
+// app.use(limiter);
 
 // Middleware
 app.use(morgan("combined"));

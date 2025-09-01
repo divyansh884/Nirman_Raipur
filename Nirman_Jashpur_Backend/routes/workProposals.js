@@ -87,10 +87,10 @@ const administrativeApprovalValidation = [
     .if(body("action").equals("approve"))
     .notEmpty()
     .withMessage("Approval number is required for approval"),
-  body("approvedAmount")
-    .if(body("action").equals("approve"))
-    .isNumeric()
-    .withMessage("Approved amount is required for approval"),
+  // body("approvedAmount")
+  //   .if(body("action").equals("approve"))
+  //   .isNumeric()
+  //   .withMessage("Approved amount is required for approval"),
   body("rejectionReason")
     .if(body("action").equals("reject"))
     .notEmpty()

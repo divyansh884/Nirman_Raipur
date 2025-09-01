@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -13,14 +13,110 @@ import {
   Lock,
   Clock,
   ImageOff,
+  BarChart3, TrendingUp
 } from "lucide-react"; // icons
 import "./DashboardPage.css";
 import TopBar from "../Components/TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js';
+import { BASE_SERVER_URL } from '../constants.jsx';
 export default function DashboardPage({ onLogout }) {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
   const location = useLocation();
+  const { token, isAuthenticated, logout, canAccessPage } = useAuthStore();
+  
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Check authentication and permissions
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+      navigate('/login');
+      return;
+    }
+
+    // if (!canAccessPage('reports')) {
+    //   alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+    //   navigate('/dashboard');
+    //   return;
+    // }
+
+    fetchDashboardData();
+  }, [isAuthenticated, token, navigate, canAccessPage]);
+
+  // API call to fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_SERVER_URL}/reports/dashboard`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setDashboardData(result.data);
+      } else {
+        throw new Error(result.message || 'Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setError(error.message);
+      
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format currency in Indian format
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('hi-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  // Format large numbers with Indian numbering system
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('hi-IN').format(num);
+  };
+   if (!isAuthenticated) {
+    return (
+      <div className="dashboard-report-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+        </div>
+        <div className="auth-error">
+          <i className="fa-solid fa-lock"></i>
+          <div>प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।</div>
+          <button onClick={() => navigate('/login')} className="login-btn">
+            लॉगिन पेज पर जाएं
+          </button>
+        </div>
+      </div>
+    );
+  }
   // Breadcrumbs
   const crumbs = React.useMemo(() => {
     const parts = location.pathname
@@ -59,26 +155,7 @@ export default function DashboardPage({ onLogout }) {
     { label: "फोटो रहित कार्य", route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
   ];
 
-  // Dummy data for tables
-  const financialYearData = [
-    { year: "2024-25", total: 49, pending: 48, progress: 1 },
-    { year: "2022-23", total: 2, pending: 2, progress: 0 },
-  ];
 
-  const agencyData = [
-    { agency: "जनपद पंचायत बगीचा", total: 27, pending: 27, progress: 0 },
-    { agency: "जनपद पंचायत फरसबहार", total: 1, pending: 0, progress: 1 },
-    { agency: "जनपद पंचायत कुनकुरी", total: 6, pending: 6, progress: 0 },
-  ];
-
-  const blockData = [
-    { block: "Pharsabahar", total: 1, pending: 0, progress: 1 },
-    { block: "Patthalgaon", total: 5, pending: 5, progress: 0 },
-    { block: "Kunkuri", total: 6, pending: 6, progress: 0 },
-    { block: "Jashpur", total: 10, pending: 10, progress: 0 },
-    { block: "Duldula", total: 2, pending: 2, progress: 0 },
-    { block: "Bagicha", total: 27, pending: 27, progress: 0 },
-  ];
 
   return (
     <div className="dashboard-page">
@@ -107,79 +184,165 @@ export default function DashboardPage({ onLogout }) {
         ))}
       </div>
 
-      {/* Financial Year Stats */}
-      <div className="dashboard-section">
-        <h3>वित्तीय वर्ष के आँकड़े</h3>
-        <table className="dashboard-table">
-          <thead>
-            <tr>
-              <th>वित्तीय वर्ष</th>
-              <th>कुल कार्य</th>
-              <th>कार्य आदेश लंबित</th>
-              <th>कार्य प्रगति पर</th>
-            </tr>
-          </thead>
-          <tbody>
-            {financialYearData.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.year}</td>
-                <td>{row.total}</td>
-                <td>{row.pending}</td>
-                <td>{row.progress}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="page-container">
+        {/* Page Header */}
+        
 
-      {/* Agency-wise Info */}
-      <div className="dashboard-section">
-        <h3>कार्य एजेंसीवार जानकारी</h3>
-        <table className="dashboard-table">
-          <thead>
-            <tr>
-              <th>एजेंसी</th>
-              <th>कुल कार्य</th>
-              <th>कार्य आदेश लंबित</th>
-              <th>कार्य प्रगति पर</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agencyData.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.agency}</td>
-                <td>{row.total}</td>
-                <td>{row.pending}</td>
-                <td>{row.progress}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>डेटा लोड हो रहा है...</p>
+          </div>
+        )}
 
-      {/* Block-wise Info */}
-      <div className="dashboard-section">
-        <h3>ब्लॉकवार जानकारी</h3>
-        <table className="dashboard-table">
-          <thead>
-            <tr>
-              <th>ब्लॉक</th>
-              <th>कुल कार्य</th>
-              <th>कार्य आदेश लंबित</th>
-              <th>कार्य प्रगति पर</th>
-            </tr>
-          </thead>
-          <tbody>
-            {blockData.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.block}</td>
-                <td>{row.total}</td>
-                <td>{row.pending}</td>
-                <td>{row.progress}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Error State */}
+        {error && (
+          <div className="error-state">
+            <i className="fa-solid fa-exclamation-triangle"></i>
+            <p>डेटा लोड करने में त्रुटि: {error}</p>
+            <button onClick={fetchDashboardData} className="retry-btn">
+              पुनः प्रयास करें
+            </button>
+          </div>
+        )}
+
+        {/* Dashboard Content */}
+        {!loading && !error && dashboardData && (
+          <div className="dashboard-content">
+            {/* Proposal Statistics */}
+            <div className="stats-section">
+              <h2 className="section-title">प्रस्ताव सांख्यिकी</h2>
+              <div className="stats-grid">
+                <div className="stat-card total">
+                  <div className="stat-icon">
+                    <BarChart3 size={32} />
+                  </div>
+                  <div className="stat-content">
+                    <h3>कुल प्रस्ताव</h3>
+                    <p className="stat-number">{formatNumber(dashboardData.proposals.total)}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card pending-technical">
+                  <div className="stat-icon">
+                    <Clock size={32} />
+                  </div>
+                  <div className="stat-content">
+                    <h3>तकनीकी स्वीकृति प्रतीक्षित</h3>
+                    <p className="stat-number">{formatNumber(dashboardData.proposals.pendingTechnical)}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card pending-admin">
+                  <div className="stat-icon">
+                    <Clock size={32} />
+                  </div>
+                  <div className="stat-content">
+                    <h3>प्रशासकीय स्वीकृति प्रतीक्षित</h3>
+                    <p className="stat-number">{formatNumber(dashboardData.proposals.pendingAdministrative)}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card in-progress">
+                  <div className="stat-icon">
+                    <TrendingUp size={32} />
+                  </div>
+                  <div className="stat-content">
+                    <h3>प्रगति में</h3>
+                    <p className="stat-number">{formatNumber(dashboardData.proposals.inProgress)}</p>
+                  </div>
+                </div>
+
+                <div className="stat-card completed">
+                  <div className="stat-icon">
+                    <CheckCircle size={32} />
+                  </div>
+                  <div className="stat-content">
+                    <h3>पूर्ण</h3>
+                    <p className="stat-number">{formatNumber(dashboardData.proposals.completed)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Statistics */}
+            <div className="stats-section">
+              <h2 className="section-title">वित्तीय सांख्यिकी</h2>
+              <div className="financial-grid">
+                <div className="financial-card sanction">
+                  <div className="financial-content">
+                    <h3>कुल स्वीकृत राशि</h3>
+                    <p className="financial-amount">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</p>
+                  </div>
+                </div>
+
+                <div className="financial-card approved">
+                  <div className="financial-content">
+                    <h3>कुल अनुमोदित राशि</h3>
+                    <p className="financial-amount">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</p>
+                  </div>
+                </div>
+
+                <div className="financial-card released">
+                  <div className="financial-content">
+                    <h3>कुल जारी राशि</h3>
+                    <p className="financial-amount">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Table */}
+            <div className="summary-section">
+              <h2 className="section-title">सारांश तालिका</h2>
+              <div className="table-container">
+                <table className="summary-table">
+                  <thead>
+                    <tr>
+                      <th>विवरण</th>
+                      <th>संख्या / राशि</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>कुल प्रस्ताव</td>
+                      <td className="number-cell">{formatNumber(dashboardData.proposals.total)}</td>
+                    </tr>
+                    <tr>
+                      <td>तकनीकी स्वीकृति प्रतीक्षित</td>
+                      <td className="number-cell">{formatNumber(dashboardData.proposals.pendingTechnical)}</td>
+                    </tr>
+                    <tr>
+                      <td>प्रशासकीय स्वीकृति प्रतीक्षित</td>
+                      <td className="number-cell">{formatNumber(dashboardData.proposals.pendingAdministrative)}</td>
+                    </tr>
+                    <tr>
+                      <td>प्रगति में</td>
+                      <td className="number-cell">{formatNumber(dashboardData.proposals.inProgress)}</td>
+                    </tr>
+                    <tr>
+                      <td>पूर्ण</td>
+                      <td className="number-cell">{formatNumber(dashboardData.proposals.completed)}</td>
+                    </tr>
+                    <tr className="financial-row">
+                      <td>कुल स्वीकृत राशि</td>
+                      <td className="amount-cell">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</td>
+                    </tr>
+                    <tr className="financial-row">
+                      <td>कुल अनुमोदित राशि</td>
+                      <td className="amount-cell">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</td>
+                    </tr>
+                    <tr className="financial-row">
+                      <td>कुल जारी राशि</td>
+                      <td className="amount-cell">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

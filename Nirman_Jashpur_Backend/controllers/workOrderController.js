@@ -10,7 +10,6 @@ const createWorkOrder = async (req, res) => {
     const {
       workOrderNumber,
       dateOfWorkOrder,
-      workOrderAmount,
       contractorOrGramPanchayat,
       remark,
     } = req.body;
@@ -18,7 +17,6 @@ const createWorkOrder = async (req, res) => {
     if (
       !workOrderNumber ||
       !dateOfWorkOrder ||
-      !workOrderAmount ||
       !contractorOrGramPanchayat
     ) {
       return res.status(400).json({
@@ -58,7 +56,6 @@ const createWorkOrder = async (req, res) => {
     workProposal.workOrder = {
       workOrderNumber,
       dateOfWorkOrder: new Date(dateOfWorkOrder),
-      workOrderAmount,
       contractorOrGramPanchayat,
       remark,
       issuedBy: req.user.id,
@@ -70,9 +67,9 @@ const createWorkOrder = async (req, res) => {
 
     // Initialize work progress tracking
     workProposal.workProgress.push({
-      sanctionedAmount: workOrderAmount,
+      sanctionedAmount: workProposal.estimatedCost,
       totalAmountReleasedSoFar: 0,
-      remainingBalance: workOrderAmount,
+      remainingBalance: workProposal.estimatedCost,
       installments: [],
       progressPercentage: 0,
     });

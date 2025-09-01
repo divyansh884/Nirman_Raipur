@@ -2,13 +2,31 @@ import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import TopBar from "../../Components/TopBar.jsx";
-// ✅ Single icon for all markers
 import { BASE_SERVER_URL } from '../../constants.jsx';
+import useAuthStore from '../../Store/useAuthStore.js'; // ✅ Import auth store
+
+// ✅ Fix Leaflet default icons issue
+import iconUrl from "leaflet/dist/images/marker-icon.png";
+import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
+import shadowUrl from "leaflet/dist/images/marker-shadow.png";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl,
+  iconRetinaUrl,
+  shadowUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 const workIcon = L.icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  shadowUrl: shadowUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -16,12 +34,21 @@ const workIcon = L.icon({
 });
 
 export default function WorksMap({ onLogout }) {
+  const navigate = useNavigate();
+
+  // ✅ Get authentication from Zustand store (same pattern as AdministrativeApprovalPage)
+  const { 
+    token, 
+    isAuthenticated, 
+    logout, 
+    user,
+    canAccessPage,
+    getUserPermissions 
+  } = useAuthStore();
+
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(false);
-
-
-  // ✅ Fixed: Added proper React import and useMemo
-
+  const [error, setError] = useState(null);
 
   // ✅ Dynamic filter options from data
   const [filterOptions, setFilterOptions] = useState({
@@ -38,37 +65,131 @@ export default function WorksMap({ onLogout }) {
     city: "",
   });
 
-  const authToken = localStorage.getItem("authToken");
+  // ✅ Set page title and check authentication on component mount (same pattern as AdministrativeApprovalPage)
+  useEffect(() => {
+    document.title = "निर्माण | GIS Mapping";
 
+    // Check authentication on component mount
+    const checkAuth = () => {
+      if (!isAuthenticated || !token) {
+        alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
+        navigate("/login");
+        return;
+      }
+
+      // ✅ Check if user has permission to access maps/reports
+      const permissions = getUserPermissions();
+      const canAccess = true;
+      
+      if (!canAccess) {
+        alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
+        navigate("/dashboard");
+        return;
+      }
+
+      // User is authenticated and authorized, fetch data
+      fetchWorks();
+    };
+
+    checkAuth();
+  }, [isAuthenticated, token, navigate, canAccessPage, getUserPermissions]);
+
+  // ✅ Enhanced fetch with proper authentication (similar to AdministrativeApprovalPage API pattern)
   const fetchWorks = async () => {
+    // Check authentication using Zustand store
+    if (!isAuthenticated || !token) {
+      alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+      navigate("/login");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+    
     try {
-      const res = await fetch(`${BASE_SERVER_URL}/work-proposals`, {
-        method: "GET",
+      console.log("📤 Fetching works data for user:", user?.email);
+
+      // ✅ Make API call using axios with proper authentication headers (same pattern as AdministrativeApprovalPage)
+      const response = await axios.get(`${BASE_SERVER_URL}/work-proposals`, {
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
       });
-      const json = await res.json();
-      const worksData = json.data || [];
+
+      console.log("✅ Works data fetched successfully:", response.data);
+
+      const worksData = response.data.data || [];
       setWorks(worksData);
-      
-      // ✅ Extract unique values for filter dropdowns
       extractFilterOptions(worksData);
       
     } catch (err) {
-      console.error("API fetch failed:", err);
+      console.error("❌ Works fetch error:", err);
+      
+      // ✅ Handle different error scenarios (same pattern as AdministrativeApprovalPage)
+      if (err.response) {
+        const status = err.response.status;
+        const errorMessage = err.response.data?.message || "डेटा लोड करने में त्रुटि हुई";
+        
+        if (status === 401) {
+          alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
+          logout();
+          navigate("/login");
+        } else if (status === 403) {
+          alert("आपको इस डेटा को देखने की अनुमति नहीं है।");
+          navigate("/dashboard");
+        } else if (status === 404) {
+          setError("कोई कार्य प्रस्ताव नहीं मिला।");
+        } else {
+          setError(`त्रुटि: ${errorMessage}`);
+        }
+      } else if (err.request) {
+        setError("नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।");
+      } else {
+        setError("डेटा लोड करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+      }
+      
+      setWorks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Extract unique values from data for dropdowns
+  // ✅ FIXED: Extract unique values handling nested object structures
   const extractFilterOptions = (data) => {
-    const workTypes = [...new Set(data.map(w => w.typeOfWork || w.workType).filter(Boolean))];
+    if (!Array.isArray(data)) {
+      console.warn("Invalid data format for extracting filter options:", data);
+      return;
+    }
+
+    const workTypes = [...new Set(
+      data.map(w => {
+        if (w.typeOfWork && typeof w.typeOfWork === 'object' && w.typeOfWork.name) {
+          return w.typeOfWork.name;
+        }
+        return w.typeOfWork;
+      }).filter(Boolean)
+    )];
+
     const financialYears = [...new Set(data.map(w => w.financialYear).filter(Boolean))];
-    const departments = [...new Set(data.map(w => w.workDepartment).filter(Boolean))];
-    const cities = [...new Set(data.map(w => w.city).filter(Boolean))];
+
+    const departments = [...new Set(
+      data.map(w => {
+        if (w.workDepartment && typeof w.workDepartment === 'object' && w.workDepartment.name) {
+          return w.workDepartment.name;
+        }
+        return w.workDepartment;
+      }).filter(Boolean)
+    )];
+
+    const cities = [...new Set(
+      data.map(w => {
+        if (w.city && typeof w.city === 'object' && w.city.name) {
+          return w.city.name;
+        }
+        return w.city;
+      }).filter(Boolean)
+    )];
 
     setFilterOptions({
       workTypes: workTypes.sort(),
@@ -76,38 +197,68 @@ export default function WorksMap({ onLogout }) {
       departments: departments.sort(),
       cities: cities.sort()
     });
+
+    console.log("Filter options extracted:", {
+      workTypes: workTypes.length,
+      financialYears: financialYears.length,
+      departments: departments.length,
+      cities: cities.length
+    });
   };
 
-  useEffect(() => {
-    fetchWorks();
-  }, []);
-
-  // ✅ Filter works based on selected filters
+  // ✅ FIXED: Filter works handling nested object structures
   const filteredWorks = works.filter(work => {
-    const matchesWorkType = !filters.workType || 
-      (work.typeOfWork === filters.workType || work.workType === filters.workType);
-    const matchesFinancialYear = !filters.financialYear || 
-      work.financialYear === filters.financialYear;
-    const matchesDepartment = !filters.department || 
-      work.workDepartment === filters.department;
-    const matchesCity = !filters.city || 
-      work.city === filters.city;
+    if (!work) return false;
+
+    const workTypeName = work.typeOfWork && typeof work.typeOfWork === 'object' && work.typeOfWork.name
+      ? work.typeOfWork.name 
+      : work.typeOfWork;
+    const matchesWorkType = !filters.workType || workTypeName === filters.workType;
+
+    const matchesFinancialYear = !filters.financialYear || work.financialYear === filters.financialYear;
+
+    const departmentName = work.workDepartment && typeof work.workDepartment === 'object' && work.workDepartment.name
+      ? work.workDepartment.name
+      : work.workDepartment;
+    const matchesDepartment = !filters.department || departmentName === filters.department;
+
+    const cityName = work.city && typeof work.city === 'object' && work.city.name
+      ? work.city.name
+      : work.city;
+    const matchesCity = !filters.city || cityName === filters.city;
 
     return matchesWorkType && matchesFinancialYear && matchesDepartment && matchesCity;
   });
 
-  // ✅ Filter works with valid coordinates
-  const validWorks = filteredWorks.filter(work => 
-    work && 
-    work.latitude != null && 
-    work.longitude != null && 
-    !isNaN(work.latitude) && 
-    !isNaN(work.longitude) &&
-    work.latitude !== 0 && 
-    work.longitude !== 0
-  );
+  // ✅ Enhanced coordinate validation
+  const validWorks = filteredWorks.filter(work => {
+    if (!work || !work.latitude || !work.longitude) {
+      return false;
+    }
 
-  // ✅ Reset filters
+    const lat = parseFloat(work.latitude);
+    const lng = parseFloat(work.longitude);
+    
+    const isValid = !isNaN(lat) && 
+                   !isNaN(lng) && 
+                   lat !== 0 && 
+                   lng !== 0 &&
+                   lat >= -90 && 
+                   lat <= 90 &&
+                   lng >= -180 && 
+                   lng <= 180;
+
+    if (!isValid) {
+      console.warn(`Invalid coordinates for work ${work._id}:`, {
+        latitude: work.latitude,
+        longitude: work.longitude,
+        parsed: { lat, lng }
+      });
+    }
+
+    return isValid;
+  });
+
   const resetFilters = () => {
     setFilters({
       workType: "",
@@ -117,23 +268,89 @@ export default function WorksMap({ onLogout }) {
     });
   };
 
-  // ✅ Safe render function to avoid object rendering errors
+  // ✅ Handle logout (same pattern as AdministrativeApprovalPage)
+  const handleLogout = () => {
+    if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
+      logout();
+      navigate("/");
+    }
+  };
+
+  // ✅ Handle work details navigation
+  const handleWorkClick = (work) => {
+    const permissions = getUserPermissions();
+    if (permissions?.canAccessWork || permissions?.isFullAdmin) {
+      navigate(`/work-details/${work._id}`);
+    } else {
+      alert('आपके पास कार्य विवरण देखने की अनुमति नहीं है।');
+    }
+  };
+
+  // ✅ IMPROVED: Safe render function handling nested object structures
   const safeRender = (value, fallback = 'N/A') => {
-    if (value === null || value === undefined) return fallback;
-    if (typeof value === 'object') return JSON.stringify(value);
+    if (value === null || value === undefined || value === '') return fallback;
+    
+    if (typeof value === 'object' && value.name) {
+      return value.name;
+    }
+    
+    if (typeof value === 'object' && value.displayName) {
+      return value.displayName;
+    }
+    
+    if (typeof value === 'object' && value.fullName) {
+      return value.fullName;
+    }
+    
+    if (typeof value === 'object' && value._id && !value.name) {
+      return `[ID: ${value._id.slice(-6)}]`;
+    }
+    
+    if (typeof value === 'object') {
+      return '[Object]';
+    }
+    
     return String(value);
   };
 
-  return (
-    <div className="p-4" style={{ padding: 0, margin: 0 }}>
-      {/* 🔹 Header */}
-      <div className="header" style={{ marginBottom: 20 }}>
-        <TopBar />
-        <div className="subbar">
-          <span className="dot" />
-          <h2>GIS Mapping</h2>
+  // ✅ Show authentication error if not authenticated (same pattern as AdministrativeApprovalPage)
+  if (!isAuthenticated) {
+    return (
+      <div className="workorder-page">
+        <div className="header">
+          <TopBar onLogout={onLogout} />
+          <div className="subbar">
+            <span className="dot" />
+            <h2>GIS Mapping</h2>
+          </div>
+        </div>
+        <div className="wrap">
+          <section className="panel">
+            <div className="p-body" style={{ textAlign: 'center', padding: '50px' }}>
+              <i className="fa-solid fa-lock" style={{ fontSize: '24px', marginBottom: '10px', color: 'orange' }}></i>
+              <div style={{ color: 'orange', marginBottom: '20px' }}>
+                प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('/login')}>
+                <i className="fa-solid fa-sign-in-alt" /> लॉगिन पेज पर जाएं
+              </button>
+            </div>
+          </section>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 0, margin: 0 }}>
+      {/* ✅ Header with user info */}
+      <div className="header" style={{marginBottom: '10px'}}>
+          <TopBar onLogout={onLogout} />
+          <div className="subbar">
+            <span className="dot" />
+            <h2>GIS Mapping</h2>
+          </div>
+        </div>
 
       {/* 🔹 Filter Bar */}
       <div className="bg-white p-4 rounded-2xl shadow-md mb-6 border border-gray-200">
@@ -146,6 +363,7 @@ export default function WorksMap({ onLogout }) {
             value={filters.workType}
             onChange={(e) => setFilters({ ...filters, workType: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
+            disabled={loading}
           >
             <option value="">All Work Types</option>
             {filterOptions.workTypes.map((type) => (
@@ -160,6 +378,7 @@ export default function WorksMap({ onLogout }) {
             value={filters.financialYear}
             onChange={(e) => setFilters({ ...filters, financialYear: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
+            disabled={loading}
           >
             <option value="">All Financial Years</option>
             {filterOptions.financialYears.map((year) => (
@@ -174,6 +393,7 @@ export default function WorksMap({ onLogout }) {
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
+            disabled={loading}
           >
             <option value="">All Departments</option>
             {filterOptions.departments.map((dept) => (
@@ -188,6 +408,7 @@ export default function WorksMap({ onLogout }) {
             value={filters.city}
             onChange={(e) => setFilters({ ...filters, city: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
+            disabled={loading}
           >
             <option value="">All Cities</option>
             {filterOptions.cities.map((city) => (
@@ -202,20 +423,22 @@ export default function WorksMap({ onLogout }) {
           <button
             onClick={fetchWorks}
             className="px-4 py-2 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition shadow"
+            disabled={loading}
           >
-            Refresh Data
+            {loading ? "डेटा लोड हो रहा है..." : "🔄 Refresh Data"}
           </button>
           <button
             onClick={resetFilters}
             className="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition shadow"
+            disabled={loading}
           >
-            Reset Filters
+            ❌ Reset Filters
           </button>
         </div>
 
         {/* ✅ Show statistics */}
         <div className="mt-4 text-sm text-gray-600">
-          Total Works: {works.length} | Filtered: {filteredWorks.length} | On Map: {validWorks.length}
+          Total Works: <strong>{works.length}</strong> | Filtered: <strong>{filteredWorks.length}</strong> | On Map: <strong>{validWorks.length}</strong>
           {filteredWorks.length > validWorks.length && (
             <span className="text-amber-600 ml-2">
               ({filteredWorks.length - validWorks.length} works missing coordinates)
@@ -261,9 +484,20 @@ export default function WorksMap({ onLogout }) {
                 Loading map data...
               </div>
             </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-[600px] text-red-600">
+              <i className="fa-solid fa-exclamation-triangle" style={{ fontSize: '48px', marginBottom: '20px', color: '#ef4444' }}></i>
+              <p className="text-center mb-4">❌ {error}</p>
+              <button 
+                onClick={fetchWorks}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              >
+                🔄 पुनः प्रयास करें
+              </button>
+            </div>
           ) : (
             <MapContainer
-              center={[21.25, 81.62]}
+              center={[23.3345, 75.0364]} // ✅ FIXED: Use coordinates from your data
               zoom={12}
               style={{ height: "600px", width: "100%" }}
             >
@@ -272,7 +506,7 @@ export default function WorksMap({ onLogout }) {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* ✅ Render markers with single icon and safe rendering */}
+              {/* ✅ Render markers with click handlers */}
               {validWorks.map((work) => {
                 const lat = parseFloat(work.latitude);
                 const lng = parseFloat(work.longitude);
@@ -287,6 +521,9 @@ export default function WorksMap({ onLogout }) {
                     key={work._id || `marker-${lat}-${lng}`}
                     position={[lat, lng]}
                     icon={workIcon}
+                    eventHandlers={{
+                      click: () => handleWorkClick(work)
+                    }}
                   >
                     <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
                       <div className="max-w-[280px] max-h-[200px] overflow-y-auto break-words text-sm p-2">
@@ -294,7 +531,7 @@ export default function WorksMap({ onLogout }) {
                           {safeRender(work.nameOfWork, 'Unnamed Work')}
                         </p>
                         <p className="italic text-gray-600 mb-1">
-                          {safeRender(work.typeOfWork || work.workType, 'Unknown Type')}
+                          <strong>Type:</strong> {safeRender(work.typeOfWork, 'Unknown Type')}
                         </p>
                         <p className="text-xs text-gray-700 mb-1">
                           <span className="font-medium">Status:</span> {safeRender(work.currentStatus, 'Unknown')}
@@ -316,6 +553,10 @@ export default function WorksMap({ onLogout }) {
                         </p>
                         <p className="text-xs text-gray-400">
                           📍 {lat.toFixed(4)}, {lng.toFixed(4)}
+                        </p>
+                        {/* ✅ Click hint */}
+                        <p className="text-xs text-blue-600 italic mt-2">
+                          👆 Click marker for details
                         </p>
                       </div>
                     </Tooltip>
@@ -349,15 +590,25 @@ export default function WorksMap({ onLogout }) {
                 <p className="text-xl font-semibold text-green-600">{filteredWorks.length}</p>
               </div>
             )}
+          </div>
 
-            <div className="pt-3 border-t border-gray-200">
-              <p className="font-medium text-gray-700 mb-2">Filter Options Available:</p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p>• Work Types: {filterOptions.workTypes.length}</p>
-                <p>• Financial Years: {filterOptions.financialYears.length}</p>
-                <p>• Departments: {filterOptions.departments.length}</p>
-                <p>• Cities: {filterOptions.cities.length}</p>
-              </div>
+          {/* ✅ User permissions info */}
+          <div className="pt-4 border-t border-gray-200 mb-4">
+            <h5 className="font-medium text-gray-700 mb-2">👤 Your Access Level:</h5>
+            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <strong>{user?.role}</strong>
+              <br />
+              {getUserPermissions()?.canAccessWork ? '✅ Can view work details' : '❌ Limited work access'}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-200">
+            <p className="font-medium text-gray-700 mb-2">Filter Options Available:</p>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p>• Work Types: {filterOptions.workTypes.length}</p>
+              <p>• Financial Years: {filterOptions.financialYears.length}</p>
+              <p>• Departments: {filterOptions.departments.length}</p>
+              <p>• Cities: {filterOptions.cities.length}</p>
             </div>
           </div>
 
@@ -366,7 +617,7 @@ export default function WorksMap({ onLogout }) {
             <h5 className="font-medium text-gray-700 mb-2">📍 Legend</h5>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-              <span>Work Location</span>
+              <span>Work Location (clickable)</span>
             </div>
           </div>
         </div>

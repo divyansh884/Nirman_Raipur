@@ -124,6 +124,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
       // Fetch regular dropdown data
       const promises = endpoints.map(endpoint =>
         fetch(`${BASE_SERVER_URL}${endpoint.url}`, {
+           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -142,6 +143,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
 
       // Fetch engineers (users with role 'Engineer')
       const engineersPromise = fetch(`${BASE_SERVER_URL}/admin/user`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -185,7 +187,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
         workDepartment: prefilledData.workDepartment || '',
         userDepartment: prefilledData.userDepartment || '',
         approvingDepartment: prefilledData.approvingDepartment || '',
-        workAgency: prefilledData.workAgency || '', // ✅ Added workAgency
+        workAgency: prefilledData.workAgency || '', 
         scheme: prefilledData.scheme || '',
         longitude: prefilledData.longitude || '',
         latitude: prefilledData.latitude || '',
@@ -223,7 +225,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
   function validate() {
     const requiredFields = [
       'financialYear', 'workDepartment', 'userDepartment', 'approvingDepartment', 
-      'workAgency', // ✅ Added workAgency as required
+      'workAgency', 'appointedEngineer',
       'scheme', 'typeOfWork', 'nameOfWork', 'workDescription', 'estimatedCompletionDateOfWork'
     ];
     const err = {};
@@ -649,7 +651,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
           <div className="atw-grid">
             {/* ✅ Dynamic Engineer Dropdown */}
             <div className="fld">
-              <label>इंजीनियर अधिकारी</label>
+              <label>इंजीनियर अधिकारी<span className="req">*</span></label>
               <select name="appointedEngineer" value={form.appointedEngineer} onChange={update} disabled={isSubmitting}>
                 <option value="">-- इंजीनियर चुने --</option>
                 {dropdownData.engineers.map((engineer) => (

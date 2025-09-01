@@ -24,9 +24,10 @@ const Table = ({
     city: "",
     workDepartment: "",
     assembly: "",
-    engineer: "", // Fixed: Added engineer to filters
+    engineer: "",
     ward: "",
-    typeOfLocation: ""
+    typeOfLocation: "",
+    workAgency: ""
   });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
@@ -49,7 +50,7 @@ const Table = ({
     wards: [],
     typeOfLocations: [],
     workAgencies: [],
-    engineers: [] // This will store filtered engineers
+    engineers: []
   });
 
   const navigate = useNavigate();
@@ -82,7 +83,7 @@ const Table = ({
     checkAuth();
   }, [isAuthenticated, token, verifyToken]);
 
-  // ✅ Enhanced fetch function to include engineers
+  // Enhanced fetch function to include engineers
   const fetchDropdownData = async () => {
     if (!isAuthenticated || !token) return;
 
@@ -109,11 +110,16 @@ const Table = ({
           return res.json();
         }).then(data => ({ 
           key: endpoint.key, 
-          data: data.success ? data.data : (data.data || data) 
-        }))
+          data: Array.isArray(data.success ? data.data : (data.data || data)) 
+            ? (data.success ? data.data : (data.data || data))
+            : []
+        })).catch(err => {
+          console.error(`Error fetching ${endpoint.key}:`, err);
+          return { key: endpoint.key, data: [] };
+        })
       );
 
-      // ✅ Add engineers fetch promise
+      // Add engineers fetch promise
       const engineersPromise = fetch(`${BASE_SERVER_URL}/admin/user`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -129,7 +135,6 @@ const Table = ({
           ? allUsers.filter(user => user.role === 'Engineer' && user.isActive === true)
           : [];
         
-        console.log('All users:', allUsers);
         console.log('Filtered engineers:', engineers);
         
         return { key: 'engineers', data: engineers };
@@ -157,7 +162,7 @@ const Table = ({
 
   // Check if delete button should be shown based on page and user role
   function canShowDeleteButton() {
-    if (!isAdmin) return false; // Only admins can delete
+    if (!isAdmin) return false;
     
     const allowedPages = [
       "प्रशासकीय स्वीकृति",
@@ -167,25 +172,43 @@ const Table = ({
     return allowedPages.includes(addButtonLabel);
   }
 
-  // Enhanced transform function to handle nested objects properly
+  // CORRECTED: Enhanced transform function to handle nested objects properly
   function transformApiData(apiData) {
-    return apiData.map((item) => ({
-      id: item._id || item.id,
-      serialNumber: item.serialNumber,
-      type: item.typeOfWork?.name || item.typeOfWork || '',
-      year: item.financialYear || '',
-      vname: item.nameOfGPWard || item.ward?.name || '',
-      city: item.city?.name || item.city || '',
-      name: item.nameOfWork || '',
-      agency: item.workAgency?.name || item.workAgency || 'N/A',
-      plan: item.scheme?.name || item.scheme || '',
-      amount: item.sanctionAmount ? item.sanctionAmount.toFixed(2) : '0.00',
-      status: item.currentStatus || item.workProgressStage || '',
-      modified: item.lastRevision 
-        ? new Date(item.lastRevision).toLocaleDateString('en-GB') 
-        : new Date(item.updatedAt).toLocaleDateString('en-GB'),
-      originalData: item
-    }));
+    if (!Array.isArray(apiData)) {
+      console.error('transformApiData: apiData is not an array:', apiData);
+      return [];
+    }
+    
+    return apiData.map((item) => {
+      const transformed = {
+        id: item._id || item.id || '',
+        serialNumber: String(item.serialNumber || ''),
+        type: typeof item.typeOfWork === 'object' 
+          ? String(item.typeOfWork?.name || '') 
+          : String(item.typeOfWork || ''),
+        year: String(item.financialYear || ''),
+        vname: item.nameOfGPWard.name || 
+               (typeof item.ward === 'object' ? String(item.ward?.name || '') : String(item.ward || '')),
+        city: typeof item.city === 'object' 
+          ? String(item.city?.name || '') 
+          : String(item.city || ''),
+        name: String(item.nameOfWork || ''),
+        agency: typeof item.workAgency === 'object' 
+          ? String(item.workAgency?.name || 'N/A') 
+          : String(item.workAgency || 'N/A'),
+        plan: typeof item.scheme === 'object' 
+          ? String(item.scheme?.name || '') 
+          : String(item.scheme || ''),
+        amount: item.sanctionAmount ? String(item.sanctionAmount.toFixed(2)) : '0.00',
+        status: String(item.currentStatus || item.workProgressStage || ''),
+        modified: item.lastRevision 
+          ? new Date(item.lastRevision).toLocaleDateString('en-GB') 
+          : (item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('en-GB') : ''),
+        originalData: item
+      };
+      
+      return transformed;
+    });
   }
 
   // Fetch data from API
@@ -349,9 +372,10 @@ const Table = ({
       city: "",
       workDepartment: "",
       assembly: "",
-      engineer: "", // ✅ Include engineer in reset
+      engineer: "",
       ward: "",
-      typeOfLocation: ""
+      typeOfLocation: "",
+      workAgency: ""
     });
     setPage(1);
   }
@@ -601,8 +625,9 @@ const Table = ({
       <div className="wrap">
         <section className="panel">
           <div className="p-body">
-            {/* Enhanced Filters with Dynamic Data */}
+            {/* CORRECTED: Enhanced Filters with Dynamic Data */}
             <div className="filters">
+              {/* Type of Work Dropdown */}
               <div className="field">
                 <label>कार्य के प्रकार</label>
                 <select
@@ -615,13 +640,14 @@ const Table = ({
                 >
                   <option value="">--कार्य के प्रकार चुने--</option>
                   {dropdownData.typeOfWorks.map((item) => (
-                    <option key={item._id || item.id} value={item.name}>
-                      {item.name}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Work Department Dropdown */}
               <div className="field">
                 <label>कार्य विभाग</label>
                 <select 
@@ -634,161 +660,132 @@ const Table = ({
                 >
                   <option value="">--कार्य विभाग चुने--</option>
                   {dropdownData.workDepartments.map((item) => (
-                    <option key={item._id || item.id} value={item.name || item.workDeptName}>
-                      {item.name || item.workDeptName}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || item.workDeptName || '')}>
+                      {String(item.name || item.workDeptName || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Engineer Dropdown */}
+              <div className="field">
+                <label>इंजीनियर</label>
+                <select 
+                  className="select"
+                  value={filters.engineer}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, engineer: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--इंजीनियर चुने--</option>
+                  {dropdownData.engineers.map((engineer) => (
+                    <option key={engineer.id || engineer._id || Math.random()} value={String(engineer.id || engineer._id || '')}>
+                      {`${String(engineer.fullName || 'Unknown')} (${String(engineer.role || 'Engineer')})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              {/* ✅ FIXED: Dynamic Engineer Dropdown */}
-              {/* ✅ Type of Work Dropdown - FIXED */}
-<div className="field">
-  <label>कार्य के प्रकार</label>
-  <select
-    className="select"
-    value={filters.type}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, type: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--कार्य के प्रकार चुने--</option>
-    {dropdownData.typeOfWorks.map((item) => (
-      <option key={item._id || item.id} value={item.name}>
-        {item.name}  {/* ✅ Render string property, not object */}
-      </option>
-    ))}
-  </select>
-</div>
+              {/* Scheme/Plan Dropdown */}
+              <div className="field">
+                <label>योजना</label>
+                <select
+                  className="select"
+                  value={filters.plan}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, plan: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--योजना चुने--</option>
+                  {dropdownData.schemes.map((item) => (
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-{/* ✅ Work Department Dropdown - FIXED */}
-<div className="field">
-  <label>कार्य विभाग</label>
-  <select 
-    className="select"
-    value={filters.workDepartment}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, workDepartment: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--कार्य विभाग चुने--</option>
-    {dropdownData.workDepartments.map((item) => (
-      <option key={item._id || item.id} value={item.name || item.workDeptName}>
-        {item.name || item.workDeptName}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
+              {/* Work Agency Dropdown */}
+              <div className="field">
+                <label>कार्य एजेंसी</label>
+                <select 
+                  className="select"
+                  value={filters.workAgency || ''}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, workAgency: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--कार्य एजेंसी चुने--</option>
+                  {dropdownData.workAgencies.map((item) => (
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-{/* ✅ Engineer Dropdown - FIXED */}
-<div className="field">
-  <label>इंजीनियर</label>
-  <select 
-    className="select"
-    value={filters.engineer}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, engineer: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--इंजीनियर चुने--</option>
-    {dropdownData.engineers.map((engineer) => (
-      <option key={engineer.id || engineer._id} value={engineer.id || engineer._id}>
-        {engineer.fullName} ({engineer.role})  {/* ✅ Render string properties */}
-      </option>
-    ))}
-  </select>
-</div>
+              {/* Type of Location Dropdown */}
+              <div className="field">
+                <label>क्षेत्र</label>
+                <select 
+                  className="select"
+                  value={filters.typeOfLocation}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, typeOfLocation: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--क्षेत्र चुने--</option>
+                  {dropdownData.typeOfLocations.map((item) => (
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-{/* ✅ Scheme Dropdown - FIXED */}
-<div className="field">
-  <label>योजना</label>
-  <select
-    className="select"
-    value={filters.plan}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, plan: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--योजना चुने--</option>
-    {dropdownData.schemes.map((item) => (
-      <option key={item._id || item.id} value={item.name}>
-        {item.name}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
+              {/* City Dropdown */}
+              <div className="field">
+                <label>शहर</label>
+                <select
+                  className="select"
+                  value={filters.city}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, city: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--शहर चुने--</option>
+                  {dropdownData.cities.map((item) => (
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || item.cityName || '')}>
+                      {String(item.name || item.cityName || 'N/A')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-{/* ✅ Work Agency Dropdown - FIXED */}
-<div className="field">
-  <label>कार्य एजेंसी</label>
-  <select className="select">
-    <option value="">--कार्य एजेंसी चुने--</option>
-    {dropdownData.workAgencies.map((item) => (
-      <option key={item._id || item.id} value={item.name}>
-        {item.name}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
-
-{/* ✅ Type of Location Dropdown - FIXED */}
-<div className="field">
-  <label>क्षेत्र</label>
-  <select className="select">
-    <option value="">--क्षेत्र चुने--</option>
-    {dropdownData.typeOfLocations.map((item) => (
-      <option key={item._id || item.id} value={item.name}>
-        {item.name}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
-
-{/* ✅ City Dropdown - FIXED */}
-<div className="field">
-  <label>शहर</label>
-  <select
-    className="select"
-    value={filters.city}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, city: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--शहर चुने--</option>
-    {dropdownData.cities.map((item) => (
-      <option key={item._id || item.id} value={item.name || item.cityName}>
-        {item.name || item.cityName}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
-
-{/* ✅ Ward Dropdown - FIXED */}
-<div className="field">
-  <label>वार्ड</label>
-  <select
-    className="select"
-    value={filters.ward}
-    onChange={(e) => {
-      setFilters((f) => ({ ...f, ward: e.target.value }));
-      setPage(1);
-    }}
-  >
-    <option value="">--वार्ड चुने--</option>
-    {dropdownData.wards.map((item) => (
-      <option key={item._id || item.id} value={item.name}>
-        {item.name}  {/* ✅ Render string property */}
-      </option>
-    ))}
-  </select>
-</div>
-
+              {/* Ward Dropdown */}
+              <div className="field">
+                <label>वार्ड</label>
+                <select
+                  className="select"
+                  value={filters.ward}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, ward: e.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">--वार्ड चुने--</option>
+                  {dropdownData.wards.map((item) => (
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div className="field full">
                 <label>दिनांक के अनुसार खोज</label>
@@ -928,27 +925,27 @@ const Table = ({
                             justifyContent: "center",
                           }}
                         >
-                          {r.serialNumber ? r.serialNumber.slice(-3) : 'IMG'}
+                          {r.serialNumber ? String(r.serialNumber).slice(-3) : 'IMG'}
                         </div>
                       </td>
-                      <td>{r.type}</td>
-                      <td>{r.year}</td>
-                      <td>{r.city}</td>
-                      <td>{r.vname}</td>
-                      <td>{r.name}</td>
-                      <td>{r.agency}</td>
+                      <td>{String(r.type || '')}</td>
+                      <td>{String(r.year || '')}</td>
+                      <td>{String(r.city || '')}</td>
+                      <td>{String(r.vname || '')}</td>
+                      <td>{String(r.name || '')}</td>
+                      <td>{String(r.agency || '')}</td>
                       <td>
                         <div className="plan-multiline">
                           <div className="plan-name">
-                            {(r.plan || '').split(" ").map((word, idx) => (
+                            {String(r.plan || '').split(" ").map((word, idx) => (
                               <div key={idx}>{word}</div>
                             ))}
                           </div>
-                          <div className="plan-amount">₹{r.amount}</div>
+                          <div className="plan-amount">₹{String(r.amount || '0.00')}</div>
                         </div>
                       </td>
-                      <td>{r.status}</td>
-                      <td>{r.modified}</td>
+                      <td>{String(r.status || '')}</td>
+                      <td>{String(r.modified || '')}</td>
                       <td>
                         <div className="row-actions">
                           <button
@@ -960,7 +957,6 @@ const Table = ({
                           >
                             <i className="fa-solid fa-eye" />
                           </button>
-                          {/* ADMIN-ONLY DELETE BUTTON */}
                           {canShowDeleteButton() && (
                             <button
                               className="icon-btn del"

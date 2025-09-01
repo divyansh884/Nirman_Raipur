@@ -26,7 +26,8 @@ const Table1 = ({
     assembly: "",
     engineer: "",
     ward: "",
-    typeOfLocation: ""
+    typeOfLocation: "",
+    workDetail: "" // Added missing filter
   });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
@@ -82,7 +83,7 @@ const Table1 = ({
     checkAuth();
   }, [isAuthenticated, token, verifyToken]);
 
-  // Fetch dropdown data from admin APIs
+  // CORRECTED: Enhanced fetch function with proper error handling
   const fetchDropdownData = async () => {
     if (!isAuthenticated || !token) return;
 
@@ -97,7 +98,7 @@ const Table1 = ({
         { key: 'workAgencies', url: '/admin/work-agency' }
       ];
 
-      // Fetch regular dropdown data
+      // Fetch regular dropdown data with enhanced error handling
       const promises = endpoints.map(endpoint =>
         fetch(`${BASE_SERVER_URL}${endpoint.url}`, {
           headers: {
@@ -109,8 +110,13 @@ const Table1 = ({
           return res.json();
         }).then(data => ({ 
           key: endpoint.key, 
-          data: data.success ? data.data : (data.data || data) 
-        }))
+          data: Array.isArray(data.success ? data.data : (data.data || data)) 
+            ? (data.success ? data.data : (data.data || data))
+            : []
+        })).catch(err => {
+          console.error(`Error fetching ${endpoint.key}:`, err);
+          return { key: endpoint.key, data: [] };
+        })
       );
 
       // Add engineers fetch promise
@@ -151,7 +157,7 @@ const Table1 = ({
 
   // Check if delete button should be shown based on page and user role
   function canShowDeleteButton() {
-    if (!isAdmin) return false; // Only admins can delete
+    if (!isAdmin) return false;
     
     const allowedPages = [
       "प्रशासकीय स्वीकृति",
@@ -161,24 +167,39 @@ const Table1 = ({
     return allowedPages.includes(addButtonLabel);
   }
 
-  // Enhanced transform function for approval-focused data
+  // CORRECTED: Enhanced transform function for approval-focused data with proper string conversion
   function transformApiData(apiData) {
-    return apiData.map((item) => ({
-      id: item._id || item.id,
-      name: item.nameOfWork || '',
-      area: item.city?.name || item.city || item.nameOfGPWard || item.ward?.name || '',
-      agency: item.workAgency?.name || item.workAgency || 'N/A',
-      plan: item.scheme?.name || item.scheme || '',
-      techApproval: item.technicalApproval?.approvalNumber || item.technicalApproval?.status || "लंबित",
-      adminApproval: item.administrativeApproval?.approvalNumber || item.administrativeApproval?.status || "लंबित", 
-      tenderApproval: item.tenderProcess?.status || (item.isTenderOrNot ? "निविदा स्वीकृत" : "निविदा लागू नहीं है"),
-      progress: item.workProgress?.progressPercentage ? `${item.workProgress.progressPercentage}%` : "-",
-      details: item.currentStatus || item.workProgressStage || '',
-      modified: item.lastRevision 
-        ? new Date(item.lastRevision).toLocaleDateString('en-GB') 
-        : new Date(item.updatedAt).toLocaleDateString('en-GB'),
-      originalData: item
-    }));
+    if (!Array.isArray(apiData)) {
+      console.error('transformApiData: apiData is not an array:', apiData);
+      return [];
+    }
+
+    return apiData.map((item) => {
+      const transformed = {
+        id: item._id || item.id || '',
+        name: String(item.nameOfWork || ''),
+        area: typeof item.city === 'object' 
+          ? String(item.city?.name || '') 
+          : String(item.city || item.nameOfGPWard || ''),
+        agency: typeof item.workAgency === 'object' 
+          ? String(item.workAgency?.name || 'N/A') 
+          : String(item.workAgency || 'N/A'),
+        plan: typeof item.scheme === 'object' 
+          ? String(item.scheme?.name || '') 
+          : String(item.scheme || ''),
+        techApproval: String(item.technicalApproval?.approvalNumber || item.technicalApproval?.status || "लंबित"),
+        adminApproval: String(item.administrativeApproval?.approvalNumber || item.administrativeApproval?.status || "लंबित"), 
+        tenderApproval: String(item.tenderProcess?.status || (item.isTenderOrNot ? "निविदा स्वीकृत" : "निविदा लागू नहीं है")),
+        progress: item.workProgress?.progressPercentage ? String(`${item.workProgress.progressPercentage}%`) : "-",
+        details: String(item.currentStatus || item.workProgressStage || ''),
+        modified: item.lastRevision 
+          ? new Date(item.lastRevision).toLocaleDateString('en-GB') 
+          : (item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('en-GB') : ''),
+        originalData: item
+      };
+
+      return transformed;
+    });
   }
 
   // Fetch data from API
@@ -339,7 +360,8 @@ const Table1 = ({
       assembly: "",
       engineer: "",
       ward: "",
-      typeOfLocation: ""
+      typeOfLocation: "",
+      workDetail: ""
     });
     setPage(1);
   }
@@ -589,8 +611,9 @@ const Table1 = ({
       <div className="wrap">
         <section className="panel">
           <div className="p-body">
-            {/* Enhanced Filters with Dynamic Data */}
+            {/* CORRECTED: Enhanced Filters with Dynamic Data */}
             <div className="filters">
+              {/* Type of Work Dropdown */}
               <div className="field">
                 <label>कार्य के प्रकार</label>
                 <select
@@ -603,13 +626,14 @@ const Table1 = ({
                 >
                   <option value="">--कार्य के प्रकार चुने--</option>
                   {dropdownData.typeOfWorks.map((item) => (
-                    <option key={item._id || item.id} value={item.name}>
-                      {item.name}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Work Department Dropdown */}
               <div className="field">
                 <label>कार्य विभाग</label>
                 <select 
@@ -622,13 +646,14 @@ const Table1 = ({
                 >
                   <option value="">--कार्य विभाग चुने--</option>
                   {dropdownData.workDepartments.map((item) => (
-                    <option key={item._id || item.id} value={item.name || item.workDeptName}>
-                      {item.name || item.workDeptName}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || item.workDeptName || '')}>
+                      {String(item.name || item.workDeptName || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Engineer Dropdown */}
               <div className="field">
                 <label>इंजीनियर</label>
                 <select 
@@ -641,13 +666,14 @@ const Table1 = ({
                 >
                   <option value="">--इंजीनियर चुने--</option>
                   {dropdownData.engineers.map((engineer) => (
-                    <option key={engineer.id || engineer._id} value={engineer.id || engineer._id}>
-                      {engineer.fullName} ({engineer.role})
+                    <option key={engineer.id || engineer._id || Math.random()} value={String(engineer.id || engineer._id || '')}>
+                      {`${String(engineer.fullName || 'Unknown')} (${String(engineer.role || 'Engineer')})`}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Scheme Dropdown */}
               <div className="field">
                 <label>योजना</label>
                 <select
@@ -660,35 +686,52 @@ const Table1 = ({
                 >
                   <option value="">--योजना चुने--</option>
                   {dropdownData.schemes.map((item) => (
-                    <option key={item._id || item.id} value={item.name}>
-                      {item.name}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Work Detail Dropdown */}
               <div className="field">
                 <label>कार्य विवरण</label>
-                <select className="select">
+                <select 
+                  className="select"
+                  value={filters.workDetail}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, workDetail: e.target.value }));
+                    setPage(1);
+                  }}
+                >
                   <option value="">--कार्य विवरण चुने--</option>
-                  <option>नाली निर्माण</option>
-                  <option>सड़क मरम्मत</option>
-                  <option>भवन निर्माण</option>
+                  <option value="नाली निर्माण">नाली निर्माण</option>
+                  <option value="सड़क मरम्मत">सड़क मरम्मत</option>
+                  <option value="भवन निर्माण">भवन निर्माण</option>
                 </select>
               </div>
 
+              {/* Type of Location Dropdown */}
               <div className="field">
                 <label>क्षेत्र</label>
-                <select className="select">
+                <select 
+                  className="select"
+                  value={filters.typeOfLocation}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, typeOfLocation: e.target.value }));
+                    setPage(1);
+                  }}
+                >
                   <option value="">--क्षेत्र चुने--</option>
                   {dropdownData.typeOfLocations.map((item) => (
-                    <option key={item._id || item.id} value={item.name}>
-                      {item.name}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* City Dropdown */}
               <div className="field">
                 <label>शहर</label>
                 <select
@@ -701,13 +744,14 @@ const Table1 = ({
                 >
                   <option value="">--शहर चुने--</option>
                   {dropdownData.cities.map((item) => (
-                    <option key={item._id || item.id} value={item.name || item.cityName}>
-                      {item.name || item.cityName}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || item.cityName || '')}>
+                      {String(item.name || item.cityName || 'N/A')}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Ward Dropdown */}
               <div className="field">
                 <label>वार्ड</label>
                 <select
@@ -720,8 +764,8 @@ const Table1 = ({
                 >
                   <option value="">--वार्ड चुने--</option>
                   {dropdownData.wards.map((item) => (
-                    <option key={item._id || item.id} value={item.name}>
-                      {item.name}
+                    <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
+                      {String(item.name || 'N/A')}
                     </option>
                   ))}
                 </select>
@@ -853,16 +897,16 @@ const Table1 = ({
                   {pageRows.map((r, i) => (
                     <tr key={r.id}>
                       <td>{start + i + 1}</td>
-                      <td>{r.name}</td>
-                      <td>{r.area}</td>
-                      <td>{r.agency}</td>
-                      <td>{r.plan}</td>
-                      <td>{r.techApproval}</td>
-                      <td>{r.adminApproval}</td>
-                      <td>{r.tenderApproval}</td>
-                      <td>{r.progress}</td>
-                      <td>{r.details}</td>
-                      <td>{r.modified}</td>
+                      <td>{String(r.name || '')}</td>
+                      <td>{String(r.area || '')}</td>
+                      <td>{String(r.agency || '')}</td>
+                      <td>{String(r.plan || '')}</td>
+                      <td>{String(r.techApproval || '')}</td>
+                      <td>{String(r.adminApproval || '')}</td>
+                      <td>{String(r.tenderApproval || '')}</td>
+                      <td>{String(r.progress || '')}</td>
+                      <td>{String(r.details || '')}</td>
+                      <td>{String(r.modified || '')}</td>
                       <td>
                         <div className="row-actions">
                           <button

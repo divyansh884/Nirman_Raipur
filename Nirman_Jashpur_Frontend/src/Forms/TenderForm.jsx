@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./Form.css";
 import TopBar from "../Components/TopBar.jsx";
-import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';
+
 export default function TenderForm({ onLogout }) {
   const navigate = useNavigate();
   const { workId } = useParams();
@@ -12,14 +13,14 @@ export default function TenderForm({ onLogout }) {
   // Get authentication from Zustand store
   const { token, isAuthenticated, logout } = useAuthStore();
 
-  // Form state
+  // Form state - UPDATED to match required body structure
   const [form, setForm] = useState({
     tenderTitle: "",
+    tenderID: "",
     department: "",
-    issuedDate: "",
-    tenderId: "",
+    issuedDates: "",
+    remark: "",
     document: null,
-    remarks: "",
   });
 
   // Loading and error states
@@ -60,7 +61,7 @@ export default function TenderForm({ onLogout }) {
     }
   };
 
-  // Form validation
+  // Form validation - UPDATED for required fields
   const validateForm = () => {
     const newErrors = {};
     
@@ -68,16 +69,24 @@ export default function TenderForm({ onLogout }) {
       newErrors.tenderTitle = 'निविदा शीर्षक आवश्यक है';
     }
     
+    if (!form.tenderID.trim()) {
+      newErrors.tenderID = 'निविदा आईडी आवश्यक है';
+    }
+    
     if (!form.department.trim()) {
       newErrors.department = 'विभाग का नाम आवश्यक है';
     }
     
-    if (!form.issuedDate) {
-      newErrors.issuedDate = 'जारी तिथि आवश्यक है';
+    if (!form.issuedDates) {
+      newErrors.issuedDates = 'जारी तिथि आवश्यक है';
     }
     
-    if (!form.tenderId.trim()) {
-      newErrors.tenderId = 'निविदा आईडी आवश्यक है';
+    if (!form.remark.trim()) {
+      newErrors.remark = 'टिप्पणी आवश्यक है';
+    }
+    
+    if (!form.document) {
+      newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
     }
 
     setErrors(newErrors);
@@ -86,7 +95,7 @@ export default function TenderForm({ onLogout }) {
 
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
-      logout(); // Use Zustand logout function
+      logout();
       navigate("/");
     }
   };
@@ -126,54 +135,55 @@ export default function TenderForm({ onLogout }) {
         return date.toISOString();
       };
 
-      // ✅ Step 5: Prepare payload according to API schema
-      const payload = {
-        tenderTitle: form.tenderTitle,
-        tenderID: form.tenderId,  // Note: API expects 'tenderID', not 'tenderId'
-        department: form.department,
-        issuedDates: convertToISODate(form.issuedDate), // Note: API expects 'issuedDates'
-        remark: form.remarks || ""  // Note: API expects 'remark', not 'remarks'
-      };
+      // ✅ Step 5: Create FormData for file upload - UPDATED
+      const formData = new FormData();
+      
+      // Add all required fields exactly as per body structure
+      formData.append("tenderTitle", form.tenderTitle);
+      formData.append("tenderID", form.tenderID); // Keep as string, backend can handle conversion
+      formData.append("department", form.department);
+      formData.append("issuedDates", convertToISODate(form.issuedDates));
+      formData.append("remark", form.remark);
+      
+      // Add document file (required)
+      if (form.document) {
+        formData.append("document", form.document);
+      }
 
       // 🔍 Debug logs
       console.log("📤 Submitting tender:");
       console.log("🆔 Work ID:", workId);
-      console.log("📋 Payload:", payload);
+      console.log("📋 Tender Title:", form.tenderTitle);
+      console.log("🆔 Tender ID:", form.tenderID);
+      console.log("🏢 Department:", form.department);
+      console.log("📅 Issued Dates:", convertToISODate(form.issuedDates));
+      console.log("💭 Remark:", form.remark);
+      console.log("📁 Document:", form.document?.name);
 
-      // ✅ Step 6: API call with token from Zustand store
+      // ✅ Step 6: API call with FormData
       const response = await axios.post(
         `${BASE_SERVER_URL}/work-proposals/${workId}/tender/start`,
-        payload,
+        formData,
         {
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` // Use token from Zustand store
+            "Content-Type": "multipart/form-data", // For file upload
+            "Authorization": `Bearer ${token}`
           },
         }
       );
 
-      // ✅ Step 7: Handle document upload separately (if needed)
-      if (form.document) {
-        try {
-          console.log("📁 Document will be handled separately:", form.document.name);
-          // You can implement document upload to a separate endpoint if needed
-        } catch (fileError) {
-          console.warn("⚠️ Document upload failed:", fileError);
-        }
-      }
-
-      // ✅ Step 8: Success handling
+      // ✅ Step 7: Success handling
       console.log("✅ Tender started successfully:", response.data);
       alert("निविदा सफलतापूर्वक शुरू की गई!");
       
       // Reset form
       setForm({
         tenderTitle: "",
+        tenderID: "",
         department: "",
-        issuedDate: "",
-        tenderId: "",
+        issuedDates: "",
+        remark: "",
         document: null,
-        remarks: "",
       });
       
       // Clear file input
@@ -206,7 +216,7 @@ export default function TenderForm({ onLogout }) {
             
           case 401:
             alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
-            logout(); // Use Zustand logout function
+            logout();
             navigate("/login");
             break;
             
@@ -267,7 +277,6 @@ export default function TenderForm({ onLogout }) {
       {/* Header */}
       <div className="header">
         <TopBar onLogout={onLogout} />
-
         <div className="subbar">
           <span className="dot" />
           <h2>निविदा जोड़ें - Work ID: {workId}</h2>
@@ -304,6 +313,25 @@ export default function TenderForm({ onLogout }) {
 
               <div className="form-group">
                 <label className="form-label">
+                  निविदा आईडी <span className="req">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="tenderID"
+                  className={`form-input ${errors.tenderID ? 'error' : ''}`}
+                  placeholder="TDR/2025/0789"
+                  value={form.tenderID}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.tenderID && (
+                  <span className="error-text">{errors.tenderID}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
                   विभाग <span className="req">*</span>
                 </label>
                 <input
@@ -320,7 +348,9 @@ export default function TenderForm({ onLogout }) {
                   <span className="error-text">{errors.department}</span>
                 )}
               </div>
+            </div>
 
+            <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">
                   जारी तिथि <span className="req">*</span>
@@ -328,52 +358,34 @@ export default function TenderForm({ onLogout }) {
                 <div className="input-with-icon">
                   <input
                     type="date"
-                    name="issuedDate"
-                    className={`form-input ${errors.issuedDate ? 'error' : ''}`}
-                    value={form.issuedDate}
+                    name="issuedDates"
+                    className={`form-input ${errors.issuedDates ? 'error' : ''}`}
+                    value={form.issuedDates}
                     onChange={handleChange}
                     disabled={isSubmitting}
                     required
                   />
                   <span className="cal-ic">📅</span>
                 </div>
-                {errors.issuedDate && (
-                  <span className="error-text">{errors.issuedDate}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">
-                  निविदा आईडी <span className="req">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="tenderId"
-                  className={`form-input ${errors.tenderId ? 'error' : ''}`}
-                  placeholder="TDR/2025/0789"
-                  value={form.tenderId}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
-                />
-                {errors.tenderId && (
-                  <span className="error-text">{errors.tenderId}</span>
+                {errors.issuedDates && (
+                  <span className="error-text">{errors.issuedDates}</span>
                 )}
               </div>
 
-              {/* File Upload - Optional */}
+              {/* Document Upload - Now Required */}
               <div className="form-group file-input-wrapper">
-                <label>संलग्न दस्तावेज़ (वैकल्पिक)</label>
+                <label className="form-label">
+                  संलग्न दस्तावेज़ <span className="req">*</span>
+                </label>
                 <input
                   type="file"
                   name="document"
                   id="documentUpload"
-                  className="file-input"
+                  className={`file-input ${errors.document ? 'error' : ''}`}
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
                   disabled={isSubmitting}
+                  required
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -381,23 +393,29 @@ export default function TenderForm({ onLogout }) {
                 <span className="file-name">
                   {form.document ? form.document.name : "कोई फ़ाइल चयनित नहीं"}
                 </span>
-                <small className="help-text">
-                  नोट: दस्तावेज़ अपलोड अलग से संभाला जाएगा
-                </small>
+                {errors.document && (
+                  <span className="error-text">{errors.document}</span>
+                )}
               </div>
             </div>
 
             <div className="form-group full">
-              <label className="form-label">टिप्पणी</label>
+              <label className="form-label">
+                टिप्पणी <span className="req">*</span>
+              </label>
               <textarea
-                name="remarks"
-                className="form-input textarea"
+                name="remark"
+                className={`form-input textarea ${errors.remark ? 'error' : ''}`}
                 placeholder="Tender issued for road construction with proper drainage system"
                 rows={5}
-                value={form.remarks}
+                value={form.remark}
                 onChange={handleChange}
                 disabled={isSubmitting}
+                required
               />
+              {errors.remark && (
+                <span className="error-text">{errors.remark}</span>
+              )}
             </div>
 
             <div className="form-actions">

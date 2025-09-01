@@ -34,7 +34,7 @@ function AdminDepartmentForms({ onLogout }) {
   const fetchDepartments = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BASE_SERVER_URL}/admin/department/departments`, {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/department`, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const data = await res.json();
@@ -84,7 +84,7 @@ function AdminDepartmentForms({ onLogout }) {
     }
     setIsLoading(true);
     try {
-      const res = await fetch(`${BASE_SERVER_URL}/admin/department/departments`, {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/department`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(currentDept),

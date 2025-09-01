@@ -129,7 +129,7 @@ const Report2 = ({ onLogout }) => {
   };
 
   // Show authentication error if not authenticated
-  if (!isAuthenticated) {
+ if (!isAuthenticated) {
     return (
       <div className="dashboard-report-page">
         <div className="header">

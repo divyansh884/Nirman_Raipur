@@ -13,7 +13,6 @@ const updateWorkProgress = async (req, res) => {
       expenditureAmount,
       installmentAmount,
       installmentDate,
-      description 
     } = req.body;
 
     if (progressPercentage < 0 || progressPercentage > 100) {

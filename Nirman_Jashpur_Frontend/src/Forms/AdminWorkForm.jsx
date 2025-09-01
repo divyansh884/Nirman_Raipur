@@ -28,65 +28,61 @@ const AdminWorkForm = ({ onLogout }) => {
   const [dialogData, setDialogData] = useState('');
   const [searchTerms, setSearchTerms] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(null); // Track which item is being deleted
 
-  // ✅ Fixed: Added /api prefix to all endpoints
+  // ✅ Schema configurations
   const schemaConfigs = [
     {
       key: 'cities',
       title: 'शहर',
-      endpoint: '/admin/city', // ✅ Added /api prefix
+      endpoint: '/admin/city',
       field: 'name',
       placeholder: 'शहर का नाम दर्ज करें'
     },
     {
       key: 'schemes',
       title: 'योजना',
-      endpoint: '/admin/scheme', // ✅ Added /api prefix
+      endpoint: '/admin/scheme',
       field: 'name',
-      placeholder: 'योजना का नाम दर्ज करें'
+      placeholder: 'योजना का नाम दर्ज करें',
+      canDelete: true // ✅ Enable delete for schemes
     },
     {
       key: 'sdos',
       title: 'SDO',
-      endpoint: '/admin/sdo', // ✅ Added /api prefix
+      endpoint: '/admin/sdo',
       field: 'name',
-      placeholder: 'SDO का नाम दर्ज करें'
+      placeholder: 'SDO का नाम दर्ज करें',
+      canDelete: true // ✅ Enable delete for SDOs
     },
     {
       key: 'typeOfLocations',
       title: 'स्थान का प्रकार',
-      endpoint: '/admin/type-of-location', // ✅ Added /api prefix
+      endpoint: '/admin/type-of-location',
       field: 'name',
       placeholder: 'स्थान प्रकार दर्ज करें'
     },
     {
       key: 'typeOfWorks',
       title: 'कार्य का प्रकार',
-      endpoint: '/admin/type-of-work', // ✅ Added /api prefix
+      endpoint: '/admin/type-of-work',
       field: 'name',
       placeholder: 'कार्य प्रकार दर्ज करें'
     },
     {
       key: 'wards',
       title: 'वार्ड',
-      endpoint: '/admin/ward', // ✅ Added /api prefix
+      endpoint: '/admin/ward',
       field: 'name',
       placeholder: 'वार्ड का नाम दर्ज करें'
     },
     {
       key: 'workAgencies',
       title: 'कार्य एजेंसी',
-      endpoint: '/admin/work-agency', // ✅ Added /api prefix
+      endpoint: '/admin/work-agency',
       field: 'name',
       placeholder: 'एजेंसी का नाम दर्ज करें'
-    },
-    // {
-    //   key: 'workDepartments',
-    //   title: 'कार्य विभाग',
-    //   endpoint: '/admin/work-department', // ✅ Added /api prefix
-    //   field: 'name',
-    //   placeholder: 'विभाग का नाम दर्ज करें'
-    // }
+    }
   ];
 
   // Check authentication
@@ -118,11 +114,11 @@ const AdminWorkForm = ({ onLogout }) => {
           console.log(`📡 Fetching ${config.title} from ${BASE_SERVER_URL}${config.endpoint}`);
           
           const response = await fetch(`${BASE_SERVER_URL}${config.endpoint}`, {
-            method: 'GET', // ✅ Explicitly set method
+            method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
-              'Accept': 'application/json' // ✅ Added Accept header
+              'Accept': 'application/json'
             }
           });
 
@@ -135,7 +131,7 @@ const AdminWorkForm = ({ onLogout }) => {
           const data = await response.json();
           console.log(`✅ ${config.title} data received:`, data);
 
-          // ✅ Handle different response formats
+          // Handle different response formats
           const actualData = data.success ? data.data : (data.data || data);
           
           return { 
@@ -214,9 +210,10 @@ const AdminWorkForm = ({ onLogout }) => {
       console.log('✅ Add result:', result);
       
       // Update local state
+      const newItem = result.data || result;
       setSchemaData(prev => ({
         ...prev,
-        [schemaKey]: [...prev[schemaKey], result.data || result]
+        [schemaKey]: [...prev[schemaKey], newItem]
       }));
 
       // Close dialog and reset
@@ -236,7 +233,66 @@ const AdminWorkForm = ({ onLogout }) => {
     }
   };
 
-  // ✅ Enhanced filter with null safety
+  // ✅ NEW: Handle delete data (ONLY for SDOs and Schemes)
+  const handleDeleteData = async (schemaKey, itemId, itemName) => {
+    const config = schemaConfigs.find(c => c.key === schemaKey);
+    
+    // ✅ Only allow deletion for SDOs and Schemes
+    if (!config || !config.canDelete) {
+      alert('इस आइटम को डिलीट करने की अनुमति नहीं है।');
+      return;
+    }
+
+    // Confirmation dialog
+    if (!window.confirm(`क्या आप वाकई "${itemName}" को हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।`)) {
+      return;
+    }
+
+    try {
+      setDeleting(itemId);
+      console.log(`🗑️ Deleting ${config.title} with ID: ${itemId}`);
+
+      const response = await fetch(`${BASE_SERVER_URL}${config.endpoint}/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      console.log(`📊 Delete ${config.title} response:`, response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to delete ${config.title}. Status: ${response.status}`);
+      }
+
+      // Update local state by removing the deleted item
+      setSchemaData(prev => ({
+        ...prev,
+        [schemaKey]: prev[schemaKey].filter(item => 
+          (item._id !== itemId) && (item.id !== itemId)
+        )
+      }));
+
+      console.log(`✅ ${config.title} "${itemName}" deleted successfully`);
+      alert(`"${itemName}" सफलतापूर्वक हटा दिया गया।`);
+
+    } catch (err) {
+      console.error(`❌ Delete ${config.title} error:`, err);
+      alert(`हटाने में त्रुटि: ${err.message}`);
+      
+      if (err.message.includes('401') || err.message.includes('403')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  // Enhanced filter with null safety
   const getFilteredData = (data, schemaKey) => {
     const searchTerm = searchTerms[schemaKey] || '';
     if (!searchTerm) return data;
@@ -298,7 +354,10 @@ const AdminWorkForm = ({ onLogout }) => {
             return (
               <div key={config.key} className="schema-card">
                 <div className="schema-header">
-                  <h3>{config.title}</h3>
+                  <h3>
+                    {config.title}
+                    {config.canDelete }
+                  </h3>
                   <div className="schema-actions">
                     <span className="count-badge">{data.length}</span>
                     <button
@@ -325,24 +384,42 @@ const AdminWorkForm = ({ onLogout }) => {
 
                 <div className="data-list">
                   {filteredData.length > 0 ? (
-                    filteredData.map((item, index) => (
-                      <div key={item._id || index} className="data-item">
-                        <div className="data-content">
-                          <span className="data-text">{item[config.field] || 'N/A'}</span>
+                    filteredData.map((item, index) => {
+                      const itemId = item._id || item.id;
+                      const itemName = item[config.field] || 'N/A';
+                      
+                      return (
+                        <div key={itemId || index} className="data-item">
+                          <div className="data-content">
+                            <span className="data-text">{itemName}</span>
+                          </div>
+                          <div className="data-actions">
+                            {/* <button className="action-btn view-btn" title="देखें">
+                              <Eye size={14} />
+                            </button>
+                            <button className="action-btn edit-btn" title="संपादित करें">
+                              <Edit size={14} />
+                            </button> */}
+                            
+                            {/* ✅ CONDITIONAL DELETE BUTTON - Only for SDOs and Schemes */}
+                            {config.canDelete && (
+                              <button 
+                                className="action-btn delete-btn" 
+                                title="मिटाएं"
+                                onClick={() => handleDeleteData(config.key, itemId, itemName)}
+                                disabled={deleting === itemId}
+                              >
+                                {deleting === itemId ? (
+                                  <div className="delete-spinner"></div>
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="data-actions">
-                          <button className="action-btn view-btn" title="देखें">
-                            <Eye size={14} />
-                          </button>
-                          <button className="action-btn edit-btn" title="संपादित करें">
-                            <Edit size={14} />
-                          </button>
-                          <button className="action-btn delete-btn" title="मिटाएं">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="no-data">
                       <p>{searchTerms[config.key] ? 'कोई मैच नहीं मिला' : 'कोई डेटा उपलब्ध नहीं है'}</p>
@@ -385,6 +462,11 @@ const AdminWorkForm = ({ onLogout }) => {
                   onChange={(e) => setDialogData(e.target.value)}
                   placeholder={schemaConfigs.find(c => c.key === activeDialog)?.placeholder}
                   autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && dialogData.trim()) {
+                      handleAddData(activeDialog);
+                    }
+                  }}
                 />
               </div>
             </div>
