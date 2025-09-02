@@ -294,7 +294,7 @@ const SideNavbar = () => {
         </div>
         <div className="hide-sm">
           <div className="s-name">Raipur — निर्माण</div>
-          <div className="s-sub">आदिवासी विकास विभाग</div>
+          <div className="s-sub">जिला प्रशासन रायपुर</div>
         </div>
       </div>
       <nav

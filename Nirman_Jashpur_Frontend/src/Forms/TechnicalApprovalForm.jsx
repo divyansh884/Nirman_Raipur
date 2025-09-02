@@ -399,7 +399,7 @@ export default function TechnicalApprovalPage({ onLogout }) {
 
               <div className="form-group">
                 <label className="form-label">
-                  स्वीकृति राशि (₹) <span className="req"></span>
+                  स्वीकृति राशि (लाख रुपये) <span className="req"></span>
                 </label>
                 <input
                   type="number"
