@@ -291,7 +291,7 @@ const deleteWorkProposal = async (req, res) => {
     // Check if can be deleted
     if (
       workProposal.currentStatus !== "Pending Technical Approval" &&
-      workProposal.currentStatus !== "Work Completed" &&
+      workProposal.currentStatus !== "Work In Progress" &&
       workProposal.currentStatus !== "Pending Administrative Approval"
     ) {
       return res.status(400).json({
