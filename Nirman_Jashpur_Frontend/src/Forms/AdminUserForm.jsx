@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "./AdminUserForm.css";
 import TopBar from "../Components/TopBar";
 import "../App.css";
-import useAuthStore from '../Store/useAuthStore.js'; // Import Zustand store
+import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';
+
 function AdminUserForm({ onLogout }) {
   const navigate = useNavigate();
   
@@ -12,6 +13,7 @@ function AdminUserForm({ onLogout }) {
   const { token, isAuthenticated, logout, isAdmin, canAccessPage } = useAuthStore();
   
   const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]); // ✅ ADDED: State for department options
   const [showAddUser, setShowAddUser] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -19,16 +21,16 @@ function AdminUserForm({ onLogout }) {
     email: "",
     password: "",
     fullName: "",
-    role: "",           // must match backend allowed roles
-    department: "",     // must be a valid department ObjectId string
+    role: "",
+    department: "",     // This will store department ObjectId
     designation: "",
     contactNumber: "",
   });
   const [errors, setErrors] = useState({});
 
-  // Check authentication and permissions on mount
+  // ✅ UPDATED: Check authentication and fetch both users and departments
   useEffect(() => {
-    const checkAuthAndFetchUsers = async () => {
+    const checkAuthAndFetchData = async () => {
       // Check if user is authenticated
       if (!isAuthenticated || !token) {
         alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
@@ -43,13 +45,57 @@ function AdminUserForm({ onLogout }) {
         return;
       }
 
-      await fetchUsers();
+      await Promise.all([fetchUsers(), fetchDepartments()]); // ✅ Fetch both users and departments
     };
 
-    checkAuthAndFetchUsers();
+    checkAuthAndFetchData();
   }, [isAuthenticated, token, navigate, canAccessPage]);
 
-  // Fetch users with Zustand authentication
+  // ✅ ADDED: Fetch departments for dropdown
+  const fetchDepartments = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      console.log("📤 Fetching departments for dropdown...");
+      
+      const res = await fetch(`${BASE_SERVER_URL}/admin/department`, {
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+      });
+
+      const data = await res.json();
+      console.log("📥 Departments API response:", data);
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          navigate("/login");
+          return;
+        }
+        throw new Error(data.message || 'Failed to fetch departments');
+      }
+
+      // Handle different response structures
+      const departmentList = data.success ? data.data : (data.data || data || []);
+      const normalizedDepartments = Array.isArray(departmentList) 
+        ? departmentList.map((dept) => ({ 
+            id: dept._id || dept.id, 
+            name: dept.name || dept.workDeptName || dept.departmentName,
+            ...dept 
+          }))
+        : [];
+
+      setDepartments(normalizedDepartments);
+      console.log("✅ Departments loaded:", normalizedDepartments);
+    } catch (error) {
+      console.error("❌ Failed to fetch departments:", error);
+      // Don't alert for department fetch failure, just log it
+    }
+  };
+
+  // Existing fetchUsers function remains the same
   const fetchUsers = async () => {
     if (!isAuthenticated || !token) {
       navigate("/login");
@@ -91,6 +137,23 @@ function AdminUserForm({ onLogout }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ✅ ADDED: Helper function to get department name by ID
+  const getDepartmentName = (departmentId) => {
+    if (!departmentId) return '-';
+    
+    // If departmentId is already an object with name property
+    if (typeof departmentId === 'object' && departmentId.name) {
+      return departmentId.name;
+    }
+    
+    // Find department by ID
+    const department = departments.find(dept => 
+      (dept.id === departmentId) || (dept._id === departmentId)
+    );
+    
+    return department ? department.name : departmentId;
   };
 
   const handleInputChange = (e) => {
@@ -135,6 +198,8 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
+      console.log("📤 Submitting user data:", newUser);
+      
       const res = await fetch(`${BASE_SERVER_URL}/admin/user`, {
         method: "POST",
         headers: {
@@ -201,7 +266,7 @@ function AdminUserForm({ onLogout }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`$/admin/user/${id}`, {
+      const res = await fetch(`${BASE_SERVER_URL}/admin/user/${id}`, {
         method: "DELETE",
         headers: { 
           "Authorization": `Bearer ${token}`,
@@ -383,14 +448,20 @@ function AdminUserForm({ onLogout }) {
                       <span className="error-msg">{errors.role}</span>
                     )}
 
-                    <input
-                      type="text"
+                    {/* ✅ UPDATED: Department dropdown instead of text input */}
+                    <select
                       name="department"
-                      placeholder="विभाग"
                       value={newUser.department}
                       onChange={handleInputChange}
                       disabled={isLoading}
-                    />
+                    >
+                      <option value="">-- विभाग चुनें --</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id || dept._id} value={dept.id || dept._id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
                     {errors.department && (
                       <span className="error-msg">{errors.department}</span>
                     )}
@@ -468,7 +539,7 @@ function AdminUserForm({ onLogout }) {
                           <td>{email}</td>
                           <td>{fullName}</td>
                           <td>{role}</td>
-                          <td>{department?.name || department}</td>
+                          <td>{getDepartmentName(department)}</td> {/* ✅ UPDATED: Show department name */}
                           <td>{designation}</td>
                           <td>{contactNumber}</td>
                           <td>
