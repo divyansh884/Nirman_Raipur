@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { BASE_SERVER_URL } from '../constants.jsx';
+
 // Define page access permissions for each role
 const ROLE_PERMISSIONS = {
   'Super Admin': [
@@ -41,22 +42,22 @@ const ROLE_PERMISSIONS = {
     'dashboard',
     'work-progress',
     'reports',
-     'profile',
-     'map'
+    'profile',
+    'map'
   ],
   'Tender Manager': [
     'dashboard',
     'tender',
     'reports',
-     'profile',
-     'map'
+    'profile',
+    'map'
   ],
   'Work Order Manager': [
     'dashboard',
     'work-order',
     'reports',
-     'profile',
-     'map'
+    'profile',
+    'map'
   ]
 };
 
@@ -73,11 +74,42 @@ const useAuthStore = create(
       error: null,
       tokenCheckInterval: null,
 
+      // Helper function to completely clear auth state and storage
+      clearAuthState: () => {
+        const { tokenCheckInterval } = get();
+        
+        if (tokenCheckInterval) {
+          clearInterval(tokenCheckInterval);
+        }
+        
+        // Clear sessionStorage first
+        try {
+          sessionStorage.removeItem('nirman-auth-storage');
+        } catch (error) {
+          console.warn('Error clearing sessionStorage:', error);
+        }
+        
+        // Reset state
+        set({
+          user: null,
+          token: null,
+          tokenExpiry: null,
+          isAuthenticated: false,
+          isAuthLoading: false,
+          error: null,
+          isLoading: false,
+          tokenCheckInterval: null
+        });
+      },
+
       // Actions
       login: async (credentials) => {
         set({ isLoading: true, error: null });
         
         try {
+          // ✅ IMPORTANT: Clear any existing auth data first
+          get().clearAuthState();
+          
           const response = await fetch(`${BASE_SERVER_URL}/auth/login`, {
             method: "POST",
             headers: {
@@ -122,66 +154,27 @@ const useAuthStore = create(
             throw new Error('❌ अमान्य लॉगिन प्रतिक्रिया');
           }
         } catch (error) {
+          // Clear state on login error
+          get().clearAuthState();
           set({
             error: error.message,
             isLoading: false,
             isAuthLoading: false,
-            isAuthenticated: false,
-            user: null,
-            token: null,
-            tokenExpiry: null
           });
           throw error;
         }
       },
 
-      // ✅ Enhanced logout with sessionStorage clearing
+      // ✅ Enhanced logout
       logout: () => {
-        const { tokenCheckInterval } = get();
-        
-        if (tokenCheckInterval) {
-          clearInterval(tokenCheckInterval);
-        }
-        
-        set({
-          user: null,
-          token: null,
-          tokenExpiry: null,
-          isAuthenticated: false,
-          isAuthLoading: false,
-          error: null,
-          isLoading: false,
-          tokenCheckInterval: null
-        });
-
-        // ✅ Clear sessionStorage instead of localStorage
-        sessionStorage.removeItem('nirman-auth-storage');
-        
+        get().clearAuthState();
         console.log('🚪 User logged out - session storage cleared');
       },
 
-      // ✅ Enhanced forceLogout with sessionStorage clearing
+      // ✅ Enhanced forceLogout
       forceLogout: (reason = 'Token expired') => {
-        const { tokenCheckInterval } = get();
+        get().clearAuthState();
         
-        if (tokenCheckInterval) {
-          clearInterval(tokenCheckInterval);
-        }
-        
-        set({
-          user: null,
-          token: null,
-          tokenExpiry: null,
-          isAuthenticated: false,
-          isAuthLoading: false,
-          error: null,
-          isLoading: false,
-          tokenCheckInterval: null
-        });
-
-        // ✅ Clear sessionStorage instead of localStorage
-        sessionStorage.removeItem('nirman-auth-storage');
-
         alert(`आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें। (${reason})`);
         console.log(`🚪 Force logout: ${reason} - session storage cleared`);
         
@@ -190,7 +183,7 @@ const useAuthStore = create(
         }
       },
 
-      // Rest of your methods (isTokenExpired, startTokenExpiryCheck, verifyToken, etc.)
+      // Token expiry check
       isTokenExpired: () => {
         const { tokenExpiry } = get();
         if (!tokenExpiry) return true;
@@ -212,20 +205,22 @@ const useAuthStore = create(
               forceLogout('Token expired');
             }
           }
-        }, 60000);
+        }, 60000); // Check every minute
         
         set({ tokenCheckInterval: intervalId });
       },
 
+      // ✅ Improved token verification
       verifyToken: async () => {
-        const { token, isTokenExpired, forceLogout } = get();
+        const { token, isTokenExpired, clearAuthState } = get();
         
         if (!token) {
+          clearAuthState();
           return false;
         }
 
         if (isTokenExpired()) {
-          forceLogout('Token expired locally');
+          clearAuthState();
           return false;
         }
 
@@ -245,42 +240,35 @@ const useAuthStore = create(
             }
           }
           
-          if (response.status === 401) {
-            forceLogout('Invalid token');
-          } else {
-            forceLogout('Token verification failed');
-          }
+          // Any non-200 response means token is invalid
+          console.warn(`Token verification failed with status: ${response.status}`);
+          clearAuthState();
           return false;
           
         } catch (error) {
-          console.error('Token verification failed:', error);
-          forceLogout('Network error during token verification');
+          console.error('Token verification network error:', error);
+          clearAuthState();
           return false;
         }
       },
 
+      // ✅ Improved initialization
       initializeAuth: async () => {
         set({ isAuthLoading: true });
         
-        const { token, isTokenExpired, startTokenExpiryCheck } = get();
+        const { token, user, isTokenExpired, startTokenExpiryCheck, clearAuthState } = get();
         
-        if (!token) {
-          set({ 
-            isAuthLoading: false, 
-            isAuthenticated: false 
-          });
+        // If no token or user data, clear everything
+        if (!token || !user) {
+          clearAuthState();
+          set({ isAuthLoading: false });
           return false;
         }
         
+        // If token is expired locally, clear everything
         if (isTokenExpired()) {
-          sessionStorage.removeItem('nirman-auth-storage');
-          set({ 
-            isAuthLoading: false, 
-            isAuthenticated: false,
-            user: null,
-            token: null,
-            tokenExpiry: null
-          });
+          clearAuthState();
+          set({ isAuthLoading: false });
           return false;
         }
         
@@ -294,30 +282,19 @@ const useAuthStore = create(
             startTokenExpiryCheck();
             return true;
           } else {
-            sessionStorage.removeItem('nirman-auth-storage');
-            set({ 
-              isAuthLoading: false, 
-              isAuthenticated: false,
-              user: null,
-              token: null,
-              tokenExpiry: null
-            });
+            clearAuthState();
+            set({ isAuthLoading: false });
             return false;
           }
         } catch (error) {
           console.error('Auth initialization failed:', error);
-          sessionStorage.removeItem('nirman-auth-storage');
-          set({ 
-            isAuthLoading: false, 
-            isAuthenticated: false,
-            user: null,
-            token: null,
-            tokenExpiry: null
-          });
+          clearAuthState();
+          set({ isAuthLoading: false });
           return false;
         }
       },
 
+      // ✅ Improved API call method
       apiCall: async (url, options = {}) => {
         const { token, isTokenExpired, forceLogout, isAuthenticated } = get();
         
@@ -342,7 +319,8 @@ const useAuthStore = create(
             headers
           });
           
-          if (response.status === 401) {
+          // Handle authentication errors
+          if (response.status === 401 || response.status === 403) {
             forceLogout('Unauthorized - token invalid');
             throw new Error('Unauthorized');
           }
@@ -350,14 +328,16 @@ const useAuthStore = create(
           return response;
           
         } catch (error) {
-          if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          if (error.message.includes('Unauthorized') || 
+              error.message.includes('401') || 
+              error.message.includes('403')) {
             forceLogout('API call unauthorized');
           }
           throw error;
         }
       },
 
-      // Role checking functions (unchanged)
+      // Role checking functions
       hasRole: (requiredRole) => {
         const { user } = get();
         return user?.role === requiredRole;
@@ -439,7 +419,6 @@ const useAuthStore = create(
     }),
     {
       name: 'nirman-auth-storage',
-      // ✅ KEY CHANGE: Use sessionStorage instead of localStorage
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,
@@ -447,6 +426,31 @@ const useAuthStore = create(
         tokenExpiry: state.tokenExpiry,
         isAuthenticated: state.isAuthenticated,
       }),
+      // ✅ Add onRehydrateStorage to handle initialization
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Validate the rehydrated state
+          const now = Date.now();
+          if (!state.token || !state.user || (state.tokenExpiry && now > state.tokenExpiry)) {
+            // Clear invalid state
+            try {
+              sessionStorage.removeItem('nirman-auth-storage');
+            } catch (error) {
+              console.warn('Error clearing sessionStorage on rehydrate:', error);
+            }
+            return {
+              user: null,
+              token: null,
+              tokenExpiry: null,
+              isAuthenticated: false,
+              isAuthLoading: false,
+              error: null,
+              isLoading: false,
+              tokenCheckInterval: null
+            };
+          }
+        }
+      },
     }
   )
 );

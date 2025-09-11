@@ -1,7 +1,10 @@
 const multer = require("multer");
 const s3 = require("../utils/s3");
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
 
 // this lets you upload *both* in one request
 const uploadFields = upload.fields([
@@ -36,7 +39,9 @@ const s3UploadDoc = async (req, res, next) => {
     next();
   } catch (err) {
     console.error("S3 Doc Upload Error:", err);
-    return res.status(500).json({ success: false, message: "Error uploading document" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Error uploading document" });
   }
 };
 
@@ -70,7 +75,9 @@ const s3UploadImages = async (req, res, next) => {
     next();
   } catch (err) {
     console.error("S3 Image Upload Error:", err);
-    return res.status(500).json({ success: false, message: "Error uploading images" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Error uploading images" });
   }
 };
 

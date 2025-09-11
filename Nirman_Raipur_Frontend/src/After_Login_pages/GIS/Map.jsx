@@ -497,7 +497,7 @@ export default function WorksMap({ onLogout }) {
             </div>
           ) : (
             <MapContainer
-              center={[21.24081703703704, 81.59685393023257]} // ✅ FIXED: Use coordinates from your data
+              center={[21.24081703, 81.59685393]} // ✅ FIXED: Use coordinates from your data
               zoom={12}
               style={{ height: "600px", width: "100%" }}
             >
