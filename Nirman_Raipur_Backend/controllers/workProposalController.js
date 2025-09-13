@@ -370,8 +370,8 @@ const technicalApproval = async (req, res) => {
         forwardingDate: new Date(),
         remarks,
         approvedBy: req.user.id,
-        attachedFile: req.s3Uploads.document,
-        attachedImages: { images: req.s3Uploads.images },
+        attachedFile: req.s3Uploads?.document,
+        attachedImages: { images: req.s3Uploads?.images },
       };
 
       workProposal.currentStatus = "Pending Administrative Approval";
@@ -457,7 +457,7 @@ const administrativeApproval = async (req, res) => {
         approvalDate: new Date(),
         remarks,
         approvedBy: req.user.id,
-        attachedFile: req.s3Uploads.document,
+        attachedFile: req.s3Uploads?.document,
       };
 
       // Determine next stage based on tender requirement

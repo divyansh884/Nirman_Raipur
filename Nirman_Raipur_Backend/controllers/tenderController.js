@@ -39,7 +39,7 @@ const startTenderProcess = async (req, res) => {
       issuedDates: new Date(issuedDates),
       remark,
       tenderStatus: 'Notice Published',
-      attachedFile: req.s3Uploads.document,
+      attachedFile: req.s3Uploads?.document,
     };
 
     workProposal.currentStatus = 'Pending Work Order';

@@ -59,7 +59,7 @@ const createWorkOrder = async (req, res) => {
       contractorOrGramPanchayat,
       remark,
       issuedBy: req.user.id,
-      attachedFile: req.s3Uploads.document,
+      attachedFile: req.s3Uploads?.document,
     };
 
     workProposal.currentStatus = "Work In Progress";

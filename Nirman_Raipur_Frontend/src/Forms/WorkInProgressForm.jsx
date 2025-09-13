@@ -126,13 +126,13 @@ export default function WorkInProgressForm({ onLogout }) {
       newErrors.expenditureAmount = 'वैध व्यय राशि दर्ज करें';
     }
 
-    if (!form.document) {
-      newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
-    }
+    // if (!form.document) {
+    //   newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
+    // }
 
-    if (!form.images || form.images.length === 0) {
-      newErrors.images = 'कम से कम एक छवि संलग्न करना आवश्यक है';
-    }
+    // if (!form.images || form.images.length === 0) {
+    //   newErrors.images = 'कम से कम एक छवि संलग्न करना आवश्यक है';
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -496,8 +496,6 @@ export default function WorkInProgressForm({ onLogout }) {
                   className={`file-input ${errors.document ? 'error' : ''}`}
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -523,8 +521,6 @@ export default function WorkInProgressForm({ onLogout }) {
                   accept=".jpg,.jpeg,.png,.webp"
                   multiple
                   onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
                 />
                 <label htmlFor="imagesUpload" className="custom-file-label">
                   छवियां चुनें

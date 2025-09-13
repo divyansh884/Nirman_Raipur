@@ -85,9 +85,9 @@ export default function TenderForm({ onLogout }) {
       newErrors.remark = 'टिप्पणी आवश्यक है';
     }
     
-    if (!form.document) {
-      newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
-    }
+    // if (!form.document) {
+    //   newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -384,8 +384,6 @@ export default function TenderForm({ onLogout }) {
                   className={`file-input ${errors.document ? 'error' : ''}`}
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें

@@ -157,13 +157,13 @@ export default function TechnicalApprovalPage({ onLogout }) {
       newErrors.remarks = 'टिप्पणी आवश्यक है';
     }
     
-    if (!form.document) {
-      newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
-    }
+    // if (!form.document) {
+    //   newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
+    // }
     
-    if (!form.images || form.images.length === 0) {
-      newErrors.images = 'कम से कम एक छवि संलग्न करना आवश्यक है';
-    }
+    // if (!form.images || form.images.length === 0) {
+    //   newErrors.images = 'कम से कम एक छवि संलग्न करना आवश्यक है';
+    // }
     
     if (!form.sanctionAmount || parseFloat(form.sanctionAmount) <= 0) {
       newErrors.sanctionAmount = 'वैध स्वीकृति राशि दर्ज करें';
@@ -451,8 +451,6 @@ export default function TechnicalApprovalPage({ onLogout }) {
                   className={`file-input ${errors.document ? 'error' : ''}`}
                   accept=".pdf,.doc,.docx,.jpg,.png"
                   onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
                 />
                 <label htmlFor="documentUpload" className="custom-file-label">
                   फ़ाइल चुनें
@@ -478,8 +476,6 @@ export default function TechnicalApprovalPage({ onLogout }) {
                   accept=".jpg,.jpeg,.png,.webp"
                   multiple
                   onChange={handleChange}
-                  disabled={isSubmitting}
-                  required
                 />
                 <label htmlFor="imagesUpload" className="custom-file-label">
                   छवियां चुनें
