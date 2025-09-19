@@ -26,28 +26,22 @@ const Report10 = ({ onLogout }) => {
       return;
     }
 
-    // if (!canAccessPage('reports')) {
-    //   alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
-    //   navigate('/dashboard');
-    //   return;
-    // }
-
     fetchPendingData();
   }, [isAuthenticated, token, navigate, canAccessPage]);
 
   // Filter data when search term or status filter changes
   useEffect(() => {
     let filtered = pendingData.filter(item => {
-      // Safe search across multiple fields
+      // Safe search across multiple fields using the new name fields
       const searchableText = [
         item.serialNumber,
         item.nameOfWork,
-        item.workAgency,
-        item.scheme,
-        item.city,
-        item.ward,
-        item.workDepartment,
-        item.appointedEngineer
+        item.workAgencyName,
+        item.schemeName,
+        item.cityName,
+        item.wardName,
+        item.workDepartmentName,
+        item.appointedEngineerName
       ].filter(Boolean).join(' ').toLowerCase();
 
       const matchesSearch = !searchTerm || searchableText.includes(searchTerm.toLowerCase());
@@ -169,7 +163,7 @@ const Report10 = ({ onLogout }) => {
       'योजना',
       'वर्तमान स्थिति',
       'प्रस्तुति दिनांक',
-      'स्वीकृत राशि',
+      'स्वीकृत राशि (लाख रुपये)',
       'शहर',
       'वार्ड',
       'कार्य विभाग',
@@ -182,15 +176,15 @@ const Report10 = ({ onLogout }) => {
         index + 1,
         `"${row.serialNumber || ''}"`,
         `"${row.nameOfWork || ''}"`,
-        `"${row.workAgency || ''}"`,
-        `"${row.scheme || ''}"`,
+        `"${row.workAgencyName || ''}"`, // Using the name field
+        `"${row.schemeName || ''}"`, // Using the name field
         `"${row.currentStatus || ''}"`,
         formatDate(row.submissionDate),
         row.sanctionAmount || 0,
-        `"${row.city || ''}"`,
-        `"${row.ward || ''}"`,
-        `"${row.workDepartment || ''}"`,
-        `"${row.appointedEngineer || ''}"`
+        `"${row.cityName || ''}"`, // Using the name field
+        `"${row.wardName || ''}"`, // Using the name field
+        `"${row.workDepartmentName || ''}"`, // Using the name field
+        `"${row.appointedEngineerName || ''}"`  // Using the name field
       ].join(','))
     ].join('\n');
 
@@ -282,7 +276,7 @@ const Report10 = ({ onLogout }) => {
         {/* Summary Cards */}
         {!loading && !error && summary && (
           <div className="stats-section">
-            <h2 className="section-title">लंबित कार्य सारांश ({summary.reportYear})</h2>
+            <h2 className="section-title">लंबित कार्य सारांश ({summary.reportYear || 'All Years'})</h2>
             <div className="stats-grid">
               <div className="stat-card total">
                 <div className="stat-icon">
@@ -300,7 +294,7 @@ const Report10 = ({ onLogout }) => {
                 </div>
                 <div className="stat-content">
                   <h3>तकनीकी प्रतीक्षित</h3>
-                  <p className="stat-number">{formatNumber(summary.pendingTechnical)}</p>
+                  <p className="stat-number">{formatNumber(summary.statusBreakdown?.['Pending Technical Approval'] || 0)}</p>
                 </div>
               </div>
 
@@ -310,7 +304,7 @@ const Report10 = ({ onLogout }) => {
                 </div>
                 <div className="stat-content">
                   <h3>प्रशासकीय प्रतीक्षित</h3>
-                  <p className="stat-number">{formatNumber(summary.pendingAdministrative)}</p>
+                  <p className="stat-number">{formatNumber(summary.statusBreakdown?.['Pending Administrative Approval'] || 0)}</p>
                 </div>
               </div>
 
@@ -320,7 +314,7 @@ const Report10 = ({ onLogout }) => {
                 </div>
                 <div className="stat-content">
                   <h3>निविदा प्रतीक्षित</h3>
-                  <p className="stat-number">{formatNumber(summary.pendingTender)}</p>
+                  <p className="stat-number">{formatNumber(summary.statusBreakdown?.['Pending Tender'] || 0)}</p>
                 </div>
               </div>
 
@@ -330,7 +324,7 @@ const Report10 = ({ onLogout }) => {
                 </div>
                 <div className="stat-content">
                   <h3>कार्य आदेश प्रतीक्षित</h3>
-                  <p className="stat-number">{formatNumber(summary.pendingWorkOrder)}</p>
+                  <p className="stat-number">{formatNumber(summary.statusBreakdown?.['Pending Work Order'] || 0)}</p>
                 </div>
               </div>
             </div>
@@ -338,7 +332,7 @@ const Report10 = ({ onLogout }) => {
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल लंबित राशि</h3>
+                  <h3>कुल लंबित राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(summary.totalPendingAmount)}</p>
                 </div>
               </div>
@@ -421,7 +415,7 @@ const Report10 = ({ onLogout }) => {
               <thead>
                 <tr>
                   <th>क्र.</th>
-                  <th>कार्य संख्या</th>
+                  {/* <th>कार्य संख्या</th> */}
                   <th>कार्य का नाम</th>
                   <th>कार्य एजेंसी</th>
                   <th>योजना</th>
@@ -439,16 +433,16 @@ const Report10 = ({ onLogout }) => {
                   filteredData.map((row, index) => (
                     <tr key={row.serialNumber || index}>
                       <td>{index + 1}</td>
-                      <td style={{ fontWeight: '600', color: '#3b82f6' }}>
+                      {/* <td style={{ fontWeight: '600', color: '#3b82f6' }}>
                         {row.serialNumber || '-'}
-                      </td>
+                      </td> */}
                       <td style={{ textAlign: 'left', fontWeight: '500', maxWidth: '200px' }}>
                         {row.nameOfWork || '-'}
                       </td>
                       <td style={{ fontWeight: '500' }}>
-                        {row.workAgency || '-'}
+                        {row.workAgencyName || '-'}
                       </td>
-                      <td>{row.scheme || '-'}</td>
+                      <td>{row.schemeName || '-'}</td>
                       <td>
                         <div style={{ 
                           display: 'flex', 
@@ -462,10 +456,10 @@ const Report10 = ({ onLogout }) => {
                       </td>
                       <td>{formatDate(row.submissionDate)}</td>
                       <td className="amount-cell">{formatCurrency(row.sanctionAmount)}</td>
-                      <td>{row.city || '-'}</td>
-                      <td>{row.ward || '-'}</td>
-                      <td>{row.workDepartment || '-'}</td>
-                      <td>{row.appointedEngineer || '-'}</td>
+                      <td>{row.cityName || '-'}</td>
+                      <td>{row.wardName || '-'}</td>
+                      <td>{row.workDepartmentName || '-'}</td>
+                      <td>{row.appointedEngineerName || '-'}</td>
                     </tr>
                   ))
                 ) : (

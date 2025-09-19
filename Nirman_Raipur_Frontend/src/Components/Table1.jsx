@@ -27,7 +27,7 @@ const Table1 = ({
     engineer: "",
     ward: "",
     typeOfLocation: "",
-    workDetail: "" // Added missing filter
+    workDetail: ""
   });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
@@ -202,7 +202,7 @@ const Table1 = ({
     });
   }
 
-  // Fetch data from API
+  // FIXED: Fetch data from API with proper server-side pagination
   async function fetchWorkProposals() {
     if (!isAuthenticated || !token) {
       setError("Authentication required. Please login.");
@@ -214,7 +214,7 @@ const Table1 = ({
       setLoading(true);
       setError("");
       
-      // Build query parameters
+      // Build query parameters for server-side filtering and pagination
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: size.toString()
@@ -226,6 +226,17 @@ const Table1 = ({
           queryParams.append(key, value);
         }
       });
+
+      // Add work stage filter if specified
+      if (workStage) {
+        queryParams.append('status', workStage);
+      }
+
+      // Add sorting if specified
+      if (sortKey) {
+        queryParams.append('sortBy', sortKey);
+        queryParams.append('sortOrder', sortDir);
+      }
       
       const response = await fetch(`${BASE_SERVER_URL}/work-proposals?${queryParams}`, {
         method: 'GET',
@@ -250,8 +261,14 @@ const Table1 = ({
         const transformedData = transformApiData(result.data);
         setData(transformedData);
         
+        // Use server-side pagination info
         if (result.pagination) {
-          setPagination(result.pagination);
+          setPagination({
+            current: result.pagination.current || page,
+            pages: result.pagination.pages || 1,
+            total: result.pagination.total || 0,
+            limit: result.pagination.limit || size
+          });
         }
       } else {
         throw new Error('Invalid response format');
@@ -260,18 +277,36 @@ const Table1 = ({
     } catch (error) {
       console.error('Error fetching work proposals:', error);
       setError(error.message || 'Failed to load data');
+      // Reset pagination on error
+      setPagination({
+        current: 1,
+        pages: 1,
+        total: 0,
+        limit: size
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  // Fetch both work proposals and dropdown data
+  // FIXED: Fetch data when page, size, filters, or sorting changes
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      fetchWorkProposals();
+    }
+  }, [page, size, filters, sortKey, sortDir, workStage, isAuthenticated, token]);
+
+  // Fetch dropdown data once on mount
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchDropdownData();
-      fetchWorkProposals();
     }
-  }, [page, size, isAuthenticated, token]);
+  }, [isAuthenticated, token]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filters, size, sortKey, sortDir]);
 
   function refreshData() {
     if (isAuthenticated && token) {
@@ -299,51 +334,15 @@ const Table1 = ({
     return workStage ? stageTitles[workStage] || `${workStage} की स्वीकृति सूची` : pageTitle;
   };
 
-  const stageFiltered = useMemo(() => {
-    if (!workStage) {
-      return data;
-    }
-    return data.filter((item) => {
-      return item.details === workStage;
-    });
-  }, [data, workStage]);
-
-  const filtered = useMemo(() => {
-    return stageFiltered.filter((d) => {
-      if (filters.type && !d.name.toLowerCase().includes(filters.type.toLowerCase())) return false;
-      if (filters.plan && !d.plan.toLowerCase().includes(filters.plan.toLowerCase())) return false;
-      if (filters.city && !d.area.toLowerCase().includes(filters.city.toLowerCase())) return false;
-      if (filters.q) {
-        const searchText = Object.values(d).join(" ").toLowerCase();
-        if (!searchText.includes(filters.q.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [stageFiltered, filters]);
-
-  const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
-    const arr = [...filtered];
-    arr.sort((a, b) => {
-      const A = (a[sortKey] ?? "").toString().toLowerCase();
-      const B = (b[sortKey] ?? "").toString().toLowerCase();
-      if (!isNaN(+A) && !isNaN(+B))
-        return sortDir === "asc" ? +A - +B : +B - +A;
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-    return arr;
-  }, [filtered, sortKey, sortDir]);
-
-  const pages = Math.max(1, Math.ceil(sorted.length / size));
-  const start = (page - 1) * size;
-  const pageRows = sorted.slice(start, start + size);
-  const totalFilteredItems = sorted.length;
-
-  useEffect(() => {
-    if (page > pages) setPage(pages);
-  }, [pages, page]);
+  // FIXED: Use server-side pagination values
+  const pages = pagination.pages || 1;
+  const totalItems = pagination.total || 0;
+  const currentPage = pagination.current || page;
+  const pageSize = pagination.limit || size;
+  
+  // Calculate display values for current page
+  const start = ((currentPage - 1) * pageSize);
+  const end = Math.min(start + pageSize, totalItems);
 
   function showToast(msg) {
     setToast(msg);
@@ -363,11 +362,10 @@ const Table1 = ({
       typeOfLocation: "",
       workDetail: ""
     });
-    setPage(1);
   }
 
   function exportCSV() {
-    const rows = filtered.map((r) => [
+    const rows = data.map((r) => [
       r.id,
       r.name,
       r.area,
@@ -469,8 +467,9 @@ const Table1 = ({
   function toggleSort(idx) {
     const k = keyMap[idx];
     if (!k) return;
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
       setSortKey(k);
       setSortDir("asc");
     }
@@ -508,8 +507,17 @@ const Table1 = ({
     }
   }, []);
 
-  // Show authentication error if not authenticated
-  if (!isAuthenticated) {
+  // Debug pagination
+  console.log('Table1 Pagination Debug:', {
+    currentPage,
+    pages,
+    totalItems,
+    pageSize,
+    start,
+    end,
+    dataLength: data.length
+  });
+if (!isAuthenticated) {
     return (
       <div className="work-ref">
         <div className="header">
@@ -598,14 +606,13 @@ const Table1 = ({
       </div>
     );
   }
-
   return (
     <div className="work-ref">
       <div className="header">
         <TopBar onLogout={onLogout} />
         <div className="subbar">
           <span className="dot" />
-          <h2>{getStageTitle()} - कुल: {totalFilteredItems}</h2>
+          <h2>{getStageTitle()} - कुल: {totalItems}</h2>
         </div>
       </div>
       <div className="wrap">
@@ -621,7 +628,6 @@ const Table1 = ({
                   value={filters.type}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, type: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--कार्य के प्रकार चुने--</option>
@@ -641,7 +647,6 @@ const Table1 = ({
                   value={filters.workDepartment}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, workDepartment: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--कार्य विभाग चुने--</option>
@@ -661,7 +666,6 @@ const Table1 = ({
                   value={filters.engineer}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, engineer: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--इंजीनियर चुने--</option>
@@ -681,7 +685,6 @@ const Table1 = ({
                   value={filters.plan}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, plan: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--योजना चुने--</option>
@@ -701,7 +704,6 @@ const Table1 = ({
                   value={filters.workDetail}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, workDetail: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--कार्य विवरण चुने--</option>
@@ -719,7 +721,6 @@ const Table1 = ({
                   value={filters.typeOfLocation}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, typeOfLocation: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--क्षेत्र चुने--</option>
@@ -739,7 +740,6 @@ const Table1 = ({
                   value={filters.city}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, city: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--शहर चुने--</option>
@@ -759,7 +759,6 @@ const Table1 = ({
                   value={filters.ward}
                   onChange={(e) => {
                     setFilters((f) => ({ ...f, ward: e.target.value }));
-                    setPage(1);
                   }}
                 >
                   <option value="">--वार्ड चुने--</option>
@@ -842,12 +841,11 @@ const Table1 = ({
                 onChange={(e) => {
                   const newSize = parseInt(e.target.value) || 10;
                   setSize(newSize);
-                  setPage(1);
                 }}
               >
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
+                <option style={{color:"black"}}>10</option>
+                <option style={{color:"black"}}>25</option>
+                <option style={{color:"black"}}>50</option>
               </select>{" "}
               entries
             </small>
@@ -859,7 +857,6 @@ const Table1 = ({
                 value={filters.q}
                 onChange={(e) => {
                   setFilters((f) => ({ ...f, q: e.target.value }));
-                  setPage(1);
                 }}
                 placeholder="खोजें..."
               />
@@ -894,7 +891,7 @@ const Table1 = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((r, i) => (
+                  {data.map((r, i) => (
                     <tr key={r.id}>
                       <td>{start + i + 1}</td>
                       <td>{String(r.name || '')}</td>
@@ -934,7 +931,7 @@ const Table1 = ({
                       </td>
                     </tr>
                   ))}
-                  {pageRows.length === 0 && (
+                  {data.length === 0 && !loading && (
                     <tr>
                       <td
                         colSpan={12}
@@ -944,49 +941,83 @@ const Table1 = ({
                       </td>
                     </tr>
                   )}
+                  {loading && (
+                    <tr>
+                      <td
+                        colSpan={12}
+                        style={{ textAlign: "center", padding: 30 }}
+                      >
+                        डेटा लोड हो रहा है...
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
+            
+            {/* FIXED: Corrected Pagination */}
             <div className="pager">
               <button
                 aria-label="Previous page"
-                className={"page nav" + (page === 1 ? " disabled" : "")}
-                onClick={() => page > 1 && setPage((p) => Math.max(1, p - 1))}
+                className={"page nav" + (currentPage === 1 ? " disabled" : "")}
+                onClick={() => {
+                  console.log('Table1 Previous clicked, current page:', currentPage);
+                  if (currentPage > 1) {
+                    const newPage = Math.max(1, currentPage - 1);
+                    console.log('Table1 Setting page to:', newPage);
+                    setPage(newPage);
+                  }
+                }}
+                disabled={currentPage === 1}
               >
                 <i className="fa-solid fa-chevron-left" />
               </button>
+              
               {Array.from({ length: pages }, (_, i) => i + 1)
                 .filter(
                   (p) =>
-                    p >= Math.max(1, page - 2) &&
-                    p <= Math.min(pages, page + 2),
+                    p >= Math.max(1, currentPage - 2) &&
+                    p <= Math.min(pages, currentPage + 2),
                 )
                 .map((p) => (
                   <button
                     key={p}
-                    className={"page" + (p === page ? " active" : "")}
-                    onClick={() => setPage(p)}
+                    className={"page" + (p === currentPage ? " active" : "")}
+                    onClick={() => {
+                      console.log('Table1 Page clicked:', p, 'Current page:', currentPage);
+                      setPage(p);
+                    }}
                   >
                     {p}
                   </button>
                 ))}
+              
               <button
                 aria-label="Next page"
-                className={"page nav" + (page === pages ? " disabled" : "")}
-                onClick={() =>
-                  page < pages && setPage((p) => Math.min(pages, p + 1))
-                }
+                className={"page nav" + (currentPage === pages ? " disabled" : "")}
+                onClick={() => {
+                  console.log('Table1 Next clicked, current page:', currentPage, 'total pages:', pages);
+                  if (currentPage < pages) {
+                    const newPage = Math.min(pages, currentPage + 1);
+                    console.log('Table1 Setting page to:', newPage);
+                    setPage(newPage);
+                  }
+                }}
+                disabled={currentPage === pages}
               >
                 <i className="fa-solid fa-chevron-right" />
               </button>
             </div>
             
             <div style={{ marginTop: '10px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
-              Showing {Math.min(start + 1, totalFilteredItems)} to {Math.min(start + size, totalFilteredItems)} of {totalFilteredItems} entries
+              Showing {Math.min(start + 1, totalItems)} to {Math.min(end, totalItems)} of {totalItems} entries
               {workStage && <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>({workStage})</span>}
               {isAdmin && <span style={{ marginLeft: '10px', color: '#28a745', fontWeight: 'bold' }}>(Admin)</span>}
               <span style={{ marginLeft: '10px', color: '#007bff' }}>
                 इंजीनियर: {dropdownData.engineers.length}
+              </span>
+              <span style={{ marginLeft: '10px', color: '#6c757d' }}>
+                Page {currentPage} of {pages}
               </span>
             </div>
           </div>

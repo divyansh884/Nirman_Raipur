@@ -106,9 +106,9 @@ const Report2 = ({ onLogout }) => {
       ['पूर्ण', dashboardData.proposals.completed],
       ['', ''],
       ['वित्तीय विवरण', ''],
-      ['कुल स्वीकृत राशि', dashboardData.financial.totalSanctionAmount],
-      ['कुल अनुमोदित राशि', dashboardData.financial.totalApprovedAmount],
-      ['कुल जारी राशि', dashboardData.financial.totalReleasedAmount]
+      ['कुल स्वीकृत राशि (लाख रुपये)', dashboardData.financial.totalSanctionAmount],
+      ['कुल अनुमोदित राशि (लाख रुपये)', dashboardData.financial.totalApprovedAmount],
+      ['कुल जारी राशि (लाख रुपये)', dashboardData.financial.totalReleasedAmount]
     ];
 
     const csvContent = csvData.map(row => row.join(',')).join('\n');
@@ -262,21 +262,21 @@ const Report2 = ({ onLogout }) => {
               <div className="financial-grid">
                 <div className="financial-card sanction">
                   <div className="financial-content">
-                    <h3>कुल स्वीकृत राशि</h3>
+                    <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</p>
                   </div>
                 </div>
 
                 <div className="financial-card approved">
                   <div className="financial-content">
-                    <h3>कुल अनुमोदित राशि</h3>
+                    <h3>कुल अनुमोदित राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</p>
                   </div>
                 </div>
 
                 <div className="financial-card released">
                   <div className="financial-content">
-                    <h3>कुल जारी राशि</h3>
+                    <h3>कुल जारी राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</p>
                   </div>
                 </div>
@@ -316,15 +316,15 @@ const Report2 = ({ onLogout }) => {
                       <td className="number-cell">{formatNumber(dashboardData.proposals.completed)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल स्वीकृत राशि</td>
+                      <td>कुल स्वीकृत राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल अनुमोदित राशि</td>
+                      <td>कुल अनुमोदित राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल जारी राशि</td>
+                      <td>कुल जारी राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</td>
                     </tr>
                   </tbody>

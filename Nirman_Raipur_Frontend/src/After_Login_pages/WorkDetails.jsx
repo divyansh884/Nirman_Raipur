@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './WorkDetails.css';
 import { useParams, useNavigate } from "react-router-dom";
 import useAuthStore from '../Store/useAuthStore.js';
@@ -28,59 +28,116 @@ const WorkDetails = ({ onLogout, onBack }) => {
   // Entry Selection Modal Component
   const EntrySelectionModal = ({ entries, onSelect, onCancel }) => {
     const [inputValue, setInputValue] = useState('');
-
+    
+    // Validate props
+    if (!Array.isArray(entries)) {
+      console.error('EntrySelectionModal: entries must be an array');
+      return null;
+    }
+    
+    // Calculate available entries (excluding the first one)
+    const availableEntries = entries.length - 1;
+    
+    // Enhanced submit handler
     const handleSubmit = () => {
-      const entryNum = parseInt(inputValue);
-      if (entryNum >= 1 && entryNum <= entries.length) {
-        onSelect(entryNum);
-      } else if (inputValue === '') {
+      const trimmedInput = inputValue.trim();
+      
+      if (trimmedInput === '') {
         onSelect('all');
-      } else {
-        alert(`कृपया 1 से ${entries.length} तक की संख्या दर्ज करें या सभी एंट्री देखने के लिए खाली छोड़ें`);
+        return;
+      }
+      
+      const entryNum = parseInt(trimmedInput);
+      
+      if (isNaN(entryNum)) {
+        alert('कृपया एक वैध संख्या दर्ज करें');
+        return;
+      }
+      
+      if (entryNum < 1 || entryNum > availableEntries) {
+        alert(`कृपया 1 से ${availableEntries} तक की संख्या दर्ज करें`);
+        return;
+      }
+      
+      // Check for decimal numbers
+      if (entryNum !== parseFloat(trimmedInput)) {
+        alert('कृपया दशमलव संख्या नहीं, पूर्ण संख्या दर्ज करें');
+        return;
+      }
+      
+      try {
+        onSelect(entryNum);
+      } catch (error) {
+        console.error('Error in onSelect callback:', error);
+        alert('एंट्री चयन में त्रुटि हुई');
       }
     };
-
+    
     const handleKeyPress = (e) => {
       if (e.key === 'Enter') {
         handleSubmit();
       }
     };
+    
+    // Enhanced input change handler
+    const handleInputChange = (e) => {
+      const value = e.target.value;
+      // Allow only numbers and empty string
+      if (value === '' || /^\d+$/.test(value)) {
+        setInputValue(value);
+      }
+    };
+    
+    // Don't show modal if no usable entries
+    if (entries.length <= 1) {
+      return null;
+    }
 
     return (
-      <div className="entry-modal-overlay">
-        <div className="entry-modal-box">
+      <div className="entry-modal-overlay" onClick={onCancel}>
+        <div className="entry-modal-box" onClick={(e) => e.stopPropagation()}>
           <h3>प्रगति एंट्री चुनें</h3>
-          <p>कुल {entries.length} प्रगति एंट्री उपलब्ध हैं</p>
+          <p>कुल {availableEntries} प्रगति एंट्री उपलब्ध हैं</p>
           
           <div className="entry-options">
-            {entries.map((_, index) => (
-              <button
-                key={index}
-                className="entry-option-btn"
-                onClick={() => onSelect(index + 1)}
-              >
-                Entry {index + 1}
-              </button>
-            ))}
             <button
               className="entry-option-btn all-entries"
               onClick={() => onSelect('all')}
             >
-              All Entries
+              All Entries ({availableEntries})
             </button>
+            
+            {/* Enhanced entry buttons */}
+            {entries.slice(1).map((entry, index) => {
+              const entryNumber = index + 1;
+              return (
+                <button
+                  key={`entry-${entryNumber}`}
+                  className="entry-option-btn"
+                  onClick={() => {
+                    try {
+                      onSelect(entryNumber);
+                    } catch (error) {
+                      console.error('Error selecting entry:', error);
+                      alert('एंट्री चयन में त्रुटि हुई');
+                    }
+                  }}
+                >
+                  Entry {entryNumber}
+                </button>
+              );
+            })}
           </div>
-
+          
           <div className="manual-entry">
-            <label>या एंट्री नंबर टाइप करें:</label>
+            <label>या एंट्री नंबर टाइप करें (खाली छोड़ें = सभी):</label>
             <div className="input-group">
               <input
-                type="number"
+                type="text"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder={`1 से ${entries.length} तक`}
-                min="1"
-                max={entries.length}
+                placeholder={`1-${availableEntries} या खाली छोड़ें`}
                 autoFocus
               />
               <button onClick={handleSubmit} className="submit-btn">
@@ -88,181 +145,209 @@ const WorkDetails = ({ onLogout, onBack }) => {
               </button>
             </div>
           </div>
+          
+          <div className="modal-actions">
+            <button onClick={onCancel} className="cancel-btn">
+              रद्द करें
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
-  // Entry Switcher Component
+  // Fixed Entry Switcher Component
   const EntrySwitcher = ({ entries, currentEntry, onSwitch }) => {
-    if (entries.length <= 1) return null;
-
+    // Need at least 2 entries total to have 1 displayable entry (since we skip the first one)
+    if (!Array.isArray(entries) || entries.length <= 1) return null;
+    
+    const availableEntries = entries.length - 1;
+    
+    console.log('🔄 EntrySwitcher render:', {
+      entriesLength: entries.length,
+      availableEntries,
+      currentEntry
+    });
+    
     return (
       <div className="entry-switcher">
         <label>एंट्री बदलें:</label>
         <div className="switcher-buttons">
           <button
-            onClick={() => onSwitch('all')}
+            onClick={() => {
+              console.log('📋 Switching to All');
+              onSwitch('all');
+            }}
             className={`switcher-btn ${currentEntry === 'all' ? 'active' : ''}`}
           >
-            All
+            All ({availableEntries})
           </button>
-          {entries.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => onSwitch(index + 1)}
-              className={`switcher-btn ${currentEntry === (index + 1) ? 'active' : ''}`}
-            >
-              {index + 1}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // ✅ UPDATED: Image Slideshow Component - No Auto-play
- // ✅ UPDATED: Image Slideshow Component with Zoom on Click
-const ImageSlideshow = ({ images }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showZoomModal, setShowZoomModal] = useState(false); // ✅ NEW: Zoom modal state
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [images]);
-
-  if (images.length === 0) {
-    return (
-      <div className="no-slideshow">
-        <i className="fa-solid fa-image" style={{fontSize: '48px', color: '#ddd', marginBottom: '10px'}}></i>
-        <p>कोई छवि उपलब्ध नहीं है</p>
-      </div>
-    );
-  }
-
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
-
-  const goToSlide = (index) => {
-    setCurrentIndex(index);
-  };
-
-  // ✅ NEW: Zoom functions
-  const openZoom = () => {
-    setShowZoomModal(true);
-  };
-
-  const closeZoom = () => {
-    setShowZoomModal(false);
-  };
-
-  return (
-    <>
-      <div className="image-slideshow">
-        <div className="slideshow-container">
-          <div className="slide-wrapper">
-            <img 
-              src={images[currentIndex].url} 
-              alt={images[currentIndex].caption}
-              className="slide-image"
-              onClick={openZoom} // ✅ UPDATED: Open zoom modal on click
-              onError={(e) => {
-                console.error("Slideshow image failed to load:", images[currentIndex].url);
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
-              }}
-            />
-            <div className="slide-overlay">
-              <i className="fa-solid fa-expand"></i>
-              <span>क्लिक करके बड़ा करें</span>
-            </div>
-          </div>
-
-          {images.length > 1 && (
-            <>
-              <button onClick={prevSlide} className="slide-nav slide-prev">
-                <i className="fa-solid fa-chevron-left"></i>
-              </button>
-              <button onClick={nextSlide} className="slide-nav slide-next">
-                <i className="fa-solid fa-chevron-right"></i>
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="slide-caption">
-          <h4>{images[currentIndex].caption}</h4>
-          <p>{images[currentIndex].section}</p>
-        </div>
-
-        {images.length > 1 && (
-          <div className="slide-dots">
-            {images.map((_, index) => (
+          
+          {/* ✅ Fixed: Skip first entry and use proper keys */}
+          {entries.slice(1).map((_, index) => {
+            const entryNumber = index + 1;
+            return (
               <button
-                key={index}
-                onClick={() => goToSlide(index)}
-                className={`slide-dot ${index === currentIndex ? 'active' : ''}`}
-              />
-            ))}
-          </div>
-        )}
+                key={`entry-btn-${entryNumber}`} // ✅ Fixed: Unique stable key
+                onClick={() => {
+                  console.log(`📌 Switching to entry ${entryNumber}`);
+                  onSwitch(entryNumber);
+                }}
+                className={`switcher-btn ${currentEntry === entryNumber ? 'active' : ''}`}
+              >
+                {entryNumber}
+              </button>
+            );
+          })}
+        </div>
+        <div className="entry-info">
+          <span>कुल उपलब्ध एंट्री: {availableEntries}</span>
+          <span style={{ marginLeft: '10px', fontSize: '0.9em', color: '#666' }}>
+            वर्तमान: {currentEntry === 'all' ? 'सभी' : `एंट्री ${currentEntry}`}
+          </span>
+        </div>
       </div>
+    );
+  };
 
-      {/* ✅ NEW: Zoom Modal */}
-      {showZoomModal && (
-        <div className="zoom-modal-overlay" onClick={closeZoom}>
-          <div className="zoom-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="zoom-close-btn" onClick={closeZoom}>
-              <i className="fa-solid fa-times"></i>
-            </button>
-            
-            <div className="zoom-image-container">
+  // ✅ UPDATED: Image Slideshow Component with Zoom on Click
+  const ImageSlideshow = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [showZoomModal, setShowZoomModal] = useState(false);
+
+    useEffect(() => {
+      setCurrentIndex(0);
+    }, [images]);
+
+    if (images.length === 0) {
+      return (
+        <div className="no-slideshow">
+          <i className="fa-solid fa-image" style={{fontSize: '48px', color: '#ddd', marginBottom: '10px'}}></i>
+          <p>कोई छवि उपलब्ध नहीं है</p>
+        </div>
+      );
+    }
+
+    const nextSlide = () => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    };
+
+    const prevSlide = () => {
+      setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    };
+
+    const goToSlide = (index) => {
+      setCurrentIndex(index);
+    };
+
+    const openZoom = () => {
+      setShowZoomModal(true);
+    };
+
+    const closeZoom = () => {
+      setShowZoomModal(false);
+    };
+
+    return (
+      <>
+        <div className="image-slideshow">
+          <div className="slideshow-container">
+            <div className="slide-wrapper">
               <img 
                 src={images[currentIndex].url} 
                 alt={images[currentIndex].caption}
-                className="zoomed-image"
+                className="slide-image"
+                onClick={openZoom}
                 onError={(e) => {
-                  console.error("Zoomed image failed to load:", images[currentIndex].url);
+                  console.error("Slideshow image failed to load:", images[currentIndex].url);
+                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
                 }}
               />
+              <div className="slide-overlay">
+                <i className="fa-solid fa-expand"></i>
+                <span>क्लिक करके बड़ा करें</span>
+              </div>
             </div>
-            
-            <div className="zoom-image-info">
-              <h3>{images[currentIndex].caption}</h3>
-              <p>{images[currentIndex].section}</p>
-              <span className="zoom-counter">
-                {currentIndex + 1} / {images.length}
-              </span>
-            </div>
-            
-            {/* ✅ Navigation in zoom modal */}
+
             {images.length > 1 && (
               <>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); prevSlide(); }} 
-                  className="zoom-nav zoom-prev"
-                >
+                <button onClick={prevSlide} className="slide-nav slide-prev">
                   <i className="fa-solid fa-chevron-left"></i>
                 </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); nextSlide(); }} 
-                  className="zoom-nav zoom-next"
-                >
+                <button onClick={nextSlide} className="slide-nav slide-next">
                   <i className="fa-solid fa-chevron-right"></i>
                 </button>
               </>
             )}
           </div>
-        </div>
-      )}
-    </>
-  );
-};
 
+          <div className="slide-caption">
+            <h4>{images[currentIndex].caption}</h4>
+            <p>{images[currentIndex].section}</p>
+          </div>
+
+          {images.length > 1 && (
+            <div className="slide-dots">
+              {images.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`slide-dot ${index === currentIndex ? 'active' : ''}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Zoom Modal */}
+        {showZoomModal && (
+          <div className="zoom-modal-overlay" onClick={closeZoom}>
+            <div className="zoom-modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="zoom-close-btn" onClick={closeZoom}>
+                <i className="fa-solid fa-times"></i>
+              </button>
+              
+              <div className="zoom-image-container">
+                <img 
+                  src={images[currentIndex].url} 
+                  alt={images[currentIndex].caption}
+                  className="zoomed-image"
+                  onError={(e) => {
+                    console.error("Zoomed image failed to load:", images[currentIndex].url);
+                  }}
+                />
+              </div>
+              
+              <div className="zoom-image-info">
+                <h3>{images[currentIndex].caption}</h3>
+                <p>{images[currentIndex].section}</p>
+                <span className="zoom-counter">
+                  {currentIndex + 1} / {images.length}
+                </span>
+              </div>
+              
+              {images.length > 1 && (
+                <>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); prevSlide(); }} 
+                    className="zoom-nav zoom-prev"
+                  >
+                    <i className="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); nextSlide(); }} 
+                    className="zoom-nav zoom-next"
+                  >
+                    <i className="fa-solid fa-chevron-right"></i>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
 
   // Load Font Awesome and fonts
   useEffect(() => {
@@ -374,8 +459,10 @@ const ImageSlideshow = ({ images }) => {
     return images;
   };
 
-  // Handle entry selection
+  // Enhanced handleEntrySelection Function
   const handleEntrySelection = (entryNumber) => {
+    console.log('🎯 Entry selection:', entryNumber);
+    
     setShowEntryPrompt(false);
     setSelectedEntry(entryNumber);
     
@@ -384,54 +471,78 @@ const ImageSlideshow = ({ images }) => {
     let filteredData;
     
     if (entryNumber === 'all') {
-      filteredData = originalWorkData;
+      filteredData = { ...originalWorkData };
     } else {
-      const entryIndex = parseInt(entryNumber) - 1;
+      const entryIndex = parseInt(entryNumber);
+      console.log(`🔍 Selecting entry at index ${entryIndex}`);
+      
       if (originalWorkData.workProgress && originalWorkData.workProgress[entryIndex]) {
         filteredData = {
           ...originalWorkData,
           workProgress: [originalWorkData.workProgress[entryIndex]]
         };
+        console.log(`✅ Selected entry:`, originalWorkData.workProgress[entryIndex]);
       } else {
-        filteredData = originalWorkData;
+        console.error(`❌ Entry at index ${entryIndex} not found`);
+        filteredData = { ...originalWorkData };
       }
     }
     
     setWorkData(filteredData);
     
-    // ✅ UPDATED: Always extract ALL images regardless of selected entry
+    // ✅ Always extract ALL images regardless of selected entry
     const extractedImages = extractImagesFromData(originalWorkData);
     setAllImages(extractedImages);
     setCurrentSlideIndex(0);
   };
 
-  // Handle entry switching (for changing on page)
-  const handleEntrySwitching = (entryNumber) => {
+  // Enhanced handleEntrySwitching Function
+  const handleEntrySwitching = useCallback((entryNumber) => {
+    console.log('🔄 Entry switching to:', entryNumber, typeof entryNumber);
+    
     setSelectedEntry(entryNumber);
     
-    if (!originalWorkData) return;
+    if (!originalWorkData) {
+      console.warn('⚠️ No originalWorkData available');
+      return;
+    }
     
     let filteredData;
     
     if (entryNumber === 'all') {
-      filteredData = originalWorkData;
+      filteredData = { ...originalWorkData }; // ✅ Create new object reference
+      console.log('📋 Showing all entries');
     } else {
-      const entryIndex = parseInt(entryNumber) - 1;
+      const entryIndex = parseInt(entryNumber);
+      console.log(`🔍 Looking for entry at index ${entryIndex}`);
+      
       if (originalWorkData.workProgress && originalWorkData.workProgress[entryIndex]) {
         filteredData = {
           ...originalWorkData,
-          workProgress: [originalWorkData.workProgress[entryIndex]]
+          workProgress: [originalWorkData.workProgress[entryIndex]] // ✅ Array with one element
         };
+        console.log(`✅ Found entry at index ${entryIndex}:`, originalWorkData.workProgress[entryIndex]);
       } else {
-        filteredData = originalWorkData;
+        console.error(`❌ Entry at index ${entryIndex} not found`);
+        filteredData = { ...originalWorkData };
       }
     }
     
+    console.log('📊 Setting filtered data:', {
+      progressLength: filteredData.workProgress?.length,
+      selectedEntry: entryNumber
+    });
+    
+    // ✅ This should trigger re-render
     setWorkData(filteredData);
     
-    // ✅ UPDATED: Always keep ALL images, don't re-extract
-    // Images remain the same regardless of entry selection
-  };
+  }, [originalWorkData]);
+
+  // ✅ Re-render when workData or selectedEntry changes
+  useEffect(() => {
+    console.log('🔄 WorkData updated:', workData);
+    console.log('📌 Selected entry:', selectedEntry);
+  }, [workData, selectedEntry]);
 
   // Fetch work details from API
   useEffect(() => {
@@ -596,9 +707,7 @@ const ImageSlideshow = ({ images }) => {
       return '-';
     }
   };
-
-  // Authentication/Loading/Error states
-  if (!isAuthenticated) {
+ if (!isAuthenticated) {
     return (
       <div className="work-details-ref">
         <div className="header">
@@ -628,8 +737,7 @@ const ImageSlideshow = ({ images }) => {
       </div>
     );
   }
-
-  if (loading) {
+ if (loading) {
     return (
       <div className="work-details-ref">
         <div className="header">
@@ -730,7 +838,7 @@ const ImageSlideshow = ({ images }) => {
           
           {/* Entry Switcher in Header */}
           <EntrySwitcher 
-            entries={availableEntries}
+            entries={availableEntries || []}
             currentEntry={selectedEntry}
             onSwitch={handleEntrySwitching}
           />
@@ -738,6 +846,8 @@ const ImageSlideshow = ({ images }) => {
       </div>
 
       <div className="wrap">
+        {/* Debug Info - Remove in production */}
+
         {/* Two column layout with slideshow */}
         <div className="content-grid-two">
           {/* Main Work Details Section */}
@@ -781,7 +891,7 @@ const ImageSlideshow = ({ images }) => {
                     <span>{safeRender(workData.scheme)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>राशि (रुपये में)</label>
+                    <label>राशि (लाख रुपये)</label>
                     <span>{formatCurrency(workData.sanctionAmount)}</span>
                   </div>
                   <div className="detail-row">
@@ -802,7 +912,7 @@ const ImageSlideshow = ({ images }) => {
                   </div>
                   <div className="detail-row">
                     <label>नियुक्त इंजीनियर</label>
-                    <span>{safeRender(workData.appointedEngineer)}</span>
+                    <span>{safeRender(workData.appointedEngineer?.fullName || workData.appointedEngineer)}</span>
                   </div>
                   <div className="detail-row">
                     <label>नियुक्त एस.डी.ओ</label>
@@ -810,80 +920,142 @@ const ImageSlideshow = ({ images }) => {
                   </div>
                   <div className="detail-row">
                     <label>वर्तमान स्थिति</label>
-                    <span className="status-badge">{safeRender(workData.currentStatus)}</span>
+                    <span>{safeRender(workData.currentStatus)}</span>
                   </div>
                   <div className="detail-row">
-                    <label>समग्र प्रगति</label>
-                    <span>{workData.overallProgress || 0}%</span>
+                    <label>कार्य विवरण</label>
+                    <span>{safeRender(workData.workDescription)}</span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Progress Details Section */}
+            {/* ✅ FIXED Progress Details Section */}
             {workData.workProgress && workData.workProgress.length > 0 && (
               <section className="panel progress-section">
                 <div className="panel-header">
                   <h3>प्रगति विवरण 📊</h3>
                   <div style={{fontSize:'12px', opacity:0.9}}>
                     {selectedEntry === 'all' 
-                      ? `Total Entries: ${originalWorkData?.workProgress?.length || 0}`
-                      : `Entry ${selectedEntry} of ${originalWorkData?.workProgress?.length || 0}`
+                      ? `Total Entries: ${(originalWorkData?.workProgress?.length || 0) - 1}`
+                      : `Entry ${selectedEntry} of ${(originalWorkData?.workProgress?.length || 0) - 1}`
                     }
                   </div>
                 </div>
                 <div className="p-body">
-                  {workData.workProgress.map((progress, index) => {
-                    const actualIndex = selectedEntry === 'all' 
-                      ? index 
-                      : parseInt(selectedEntry) - 1;
+                  {(() => {
+                    console.log('🔍 Rendering progress. Selected entry:', selectedEntry);
+                    console.log('📊 WorkData progress length:', workData.workProgress?.length);
+                    console.log('📊 WorkData progress:', workData.workProgress);
                     
-                    return (
-                      <div key={progress._id || index} className="progress-detail-card">
-                        <div className="progress-header">
-                          <h4>Progress Entry {actualIndex + 1}</h4>
-                          <span className="progress-date">{formatDate(progress.createdAt)}</span>
+                    if (selectedEntry === 'all') {
+                      // Show all entries except index 0
+                      const progressEntries = originalWorkData.workProgress?.slice(1) || [];
+                      console.log('📋 Showing all entries:', progressEntries.length);
+                      
+                      return progressEntries.map((progress, index) => (
+                        <div key={progress._id || `all-${index}`} className="progress-detail-card">
+                          <div className="progress-header">
+                            <h4>Progress Entry {index + 1}</h4>
+                            <span className="progress-date">{formatDate(progress.createdAt)}</span>
+                          </div>
+                          
+                          <div className="progress-grid">
+                            <div className="progress-item">
+                              <label>विवरण</label>
+                              <span>{safeRender(progress.desc)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>स्वीकृत राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(progress.sanctionedAmount)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>कुल जारी राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(progress.totalAmountReleasedSoFar)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>शेष राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(progress.remainingBalance)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>व्यय राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(progress.expenditureAmount)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>MB स्टेज</label>
+                              <span>{safeRender(progress.mbStageMeasurementBookStag)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>दस्तावेज़</label>
+                              <DocumentButton 
+                                document={progress.progressDocuments} 
+                                title={`प्रगति दस्तावेज़ ${index + 1}`}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div className="progress-grid">
-                          <div className="progress-item">
-                            <label>विवरण</label>
-                            <span>{safeRender(progress.desc)}</span>
+                      ));
+                    } else {
+                      // ✅ FIXED: Show specific entry - workData.workProgress[0] contains the selected entry
+                      const specificProgress = workData.workProgress[0];
+                      console.log('📌 Showing specific entry:', selectedEntry, specificProgress);
+                      
+                      if (!specificProgress) {
+                        return (
+                          <div className="no-progress">
+                            <p>कोई प्रगति डेटा उपलब्ध नहीं है</p>
                           </div>
-                          <div className="progress-item">
-                            <label>स्वीकृत राशि</label>
-                            <span>{formatCurrency(progress.sanctionedAmount)}</span>
+                        );
+                      }
+                      
+                      return (
+                        <div key={specificProgress._id || `entry-${selectedEntry}`} className="progress-detail-card">
+                          <div className="progress-header">
+                            <h4>Progress Entry {selectedEntry}</h4>
+                            <span className="progress-date">{formatDate(specificProgress.createdAt)}</span>
                           </div>
-                          <div className="progress-item">
-                            <label>कुल जारी राशि</label>
-                            <span>{formatCurrency(progress.totalAmountReleasedSoFar)}</span>
-                          </div>
-                          <div className="progress-item">
-                            <label>शेष राशि</label>
-                            <span>{formatCurrency(progress.remainingBalance)}</span>
-                          </div>
-                          <div className="progress-item">
-                            <label>व्यय राशि</label>
-                            <span>{formatCurrency(progress.expenditureAmount)}</span>
-                          </div>
-                          <div className="progress-item">
-                            <label>MB स्टेज</label>
-                            <span>{safeRender(progress.mbStageMeasurementBookStag)}</span>
-                          </div>
-                          <div className="progress-item">
-                            <label>दस्तावेज़</label>
-                            <DocumentButton 
-                              document={progress.progressDocuments} 
-                              title={`प्रगति दस्तावेज़ ${actualIndex + 1}`}
-                            />
+                          
+                          <div className="progress-grid">
+                            <div className="progress-item">
+                              <label>विवरण</label>
+                              <span>{safeRender(specificProgress.desc)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>स्वीकृत राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(specificProgress.sanctionedAmount)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>कुल जारी राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(specificProgress.totalAmountReleasedSoFar)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>शेष राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(specificProgress.remainingBalance)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>व्यय राशि (लाख रुपये)</label>
+                              <span>{formatCurrency(specificProgress.expenditureAmount)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>MB स्टेज</label>
+                              <span>{safeRender(specificProgress.mbStageMeasurementBookStag)}</span>
+                            </div>
+                            <div className="progress-item">
+                              <label>दस्तावेज़</label>
+                              <DocumentButton 
+                                document={specificProgress.progressDocuments} 
+                                title={`प्रगति दस्तावेज़ ${selectedEntry}`}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  })()}
                 </div>
               </section>
-            )}
+)}
+
           </div>
 
           {/* ✅ UPDATED: Slideshow Section - Shows ALL images */}
@@ -913,7 +1085,7 @@ const ImageSlideshow = ({ images }) => {
                 <div className="panel-header approval-header">
                   <h3>तकनीकी स्वीकृति 📝</h3>
                   <div style={{fontSize:'12px', opacity:0.9}}>
-                    Status: {workData.technicalApproval.status}
+                     <span>Approved Date:{formatDate(workData.technicalApproval.createdAt)}</span>
                   </div>
                 </div>
                 <div className="p-body">
@@ -928,7 +1100,7 @@ const ImageSlideshow = ({ images }) => {
                     </div>
                     <div className="approval-item">
                       <label>स्वीकृतकर्ता</label>
-                      <span>{safeRender(workData.technicalApproval.approvedBy)}</span>
+                      <span>{safeRender(workData.technicalApproval.approvedBy.fullName)}</span>
                     </div>
                     <div className="approval-item">
                       <label>टिप्पणी</label>
@@ -952,7 +1124,7 @@ const ImageSlideshow = ({ images }) => {
                 <div className="panel-header approval-header">
                   <h3>प्रशासकीय स्वीकृति 📝</h3>
                   <div style={{fontSize:'12px', opacity:0.9}}>
-                    Status: {workData.administrativeApproval.status}
+                     <span>Approved Date:{formatDate(workData.administrativeApproval.createdAt)}</span>
                   </div>
                 </div>
                 <div className="p-body">
@@ -971,7 +1143,7 @@ const ImageSlideshow = ({ images }) => {
                     </div>
                     <div className="approval-item">
                       <label>स्वीकृतकर्ता</label>
-                      <span>{safeRender(workData.administrativeApproval.approvedBy)}</span>
+                      <span>{safeRender(workData.administrativeApproval.approvedBy.fullName)}</span>
                     </div>
                     <div className="approval-item">
                       <label>टिप्पणी</label>
@@ -995,7 +1167,7 @@ const ImageSlideshow = ({ images }) => {
                 <div className="panel-header approval-header">
                   <h3>निविदा प्रक्रिया 📋</h3>
                   <div style={{fontSize:'12px', opacity:0.9}}>
-                    Status: {workData.tenderProcess.tenderStatus}
+                    <span>Issused Date:{formatDate(workData.tenderProcess.issuedDates)}</span>
                   </div>
                 </div>
                 <div className="p-body">
@@ -1037,6 +1209,7 @@ const ImageSlideshow = ({ images }) => {
               <section className="panel approval-section">
                 <div className="panel-header approval-header">
                   <h3>कार्य आदेश 📄</h3>
+                  <span>Issused Date:{formatDate(workData.tenderProcess.issuedDates)}</span>
                 </div>
                 <div className="p-body">
                   <div className="custom-table-container">
@@ -1050,10 +1223,10 @@ const ImageSlideshow = ({ images }) => {
                           <td>कार्य आदेश की दिनांक</td>
                           <td style={{fontWeight:'bold'}}>{formatDate(workData.workOrder.dateOfWorkOrder)}</td>
                         </tr>
-                        <tr>
+                        {/* <tr>
                           <td>कार्य आदेश राशि</td>
                           <td style={{fontWeight:'bold'}}>{formatCurrency(workData.workOrderAmount)}</td>
-                        </tr>
+                        </tr> */}
                         <tr>
                           <td>ठेकेदार / ग्रामपंचायत</td>
                           <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.contractorOrGramPanchayat)}</td>

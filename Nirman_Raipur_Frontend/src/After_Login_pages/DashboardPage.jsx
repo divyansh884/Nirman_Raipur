@@ -152,7 +152,7 @@ export default function DashboardPage({ onLogout }) {
     { label: "कार्य निरस्त", route: "/work", icon: <XCircle size={28} />, color: "stat-red" },
     { label: "कार्य बंद", route: "/work", icon: <Lock size={28} />, color: "stat-gray" },
     { label: "30 दिनों से लंबित कार्य", route: "/work", icon: <Clock size={28} />, color: "stat-brown" },
-    { label: "फोटो रहित कार्य", route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
+    // { label: "फोटो रहित कार्य", route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
   ];
 
 
@@ -272,21 +272,21 @@ export default function DashboardPage({ onLogout }) {
               <div className="financial-grid">
                 <div className="financial-card sanction">
                   <div className="financial-content">
-                    <h3>कुल स्वीकृत राशि</h3>
+                    <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</p>
                   </div>
                 </div>
 
                 <div className="financial-card approved">
                   <div className="financial-content">
-                    <h3>कुल अनुमोदित राशि</h3>
+                    <h3>कुल अनुमोदित राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</p>
                   </div>
                 </div>
 
                 <div className="financial-card released">
                   <div className="financial-content">
-                    <h3>कुल जारी राशि</h3>
+                    <h3>कुल जारी राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</p>
                   </div>
                 </div>
@@ -301,7 +301,7 @@ export default function DashboardPage({ onLogout }) {
                   <thead>
                     <tr>
                       <th>विवरण</th>
-                      <th>संख्या / राशि</th>
+                      <th>संख्या / राशि (लाख रुपये)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -326,15 +326,15 @@ export default function DashboardPage({ onLogout }) {
                       <td className="number-cell">{formatNumber(dashboardData.proposals.completed)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल स्वीकृत राशि</td>
+                      <td>कुल स्वीकृत राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल अनुमोदित राशि</td>
+                      <td>कुल अनुमोदित राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</td>
                     </tr>
                     <tr className="financial-row">
-                      <td>कुल जारी राशि</td>
+                      <td>कुल जारी राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</td>
                     </tr>
                   </tbody>

@@ -60,7 +60,7 @@ const Report3 = ({ onLogout }) => {
         // Map API data to table structure
         const mappedData = Array.isArray(result.data) ? result.data.map((item, index) => ({
           serialNo: index + 1,
-          departmentName: item._id || item.departmentName || '-',
+          departmentName: item.departmentName || '-',
           totalProposals: item.totalProposals || 0,
           totalSanctionAmount: item.totalSanctionAmount || 0,
           completed: item.completed || 0,
@@ -110,7 +110,7 @@ const Report3 = ({ onLogout }) => {
       'क्र.',
       'विभाग का नाम',
       'कुल प्रस्ताव',
-      'कुल स्वीकृत राशि',
+      'कुल स्वीकृत राशि (लाख रुपये)',
       'पूर्ण',
       'प्रगति में',
       'प्रतीक्षित'
@@ -278,7 +278,7 @@ const Report3 = ({ onLogout }) => {
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल स्वीकृत राशि</h3>
+                  <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(totals.totalAmount)}</p>
                 </div>
               </div>
@@ -295,7 +295,7 @@ const Report3 = ({ onLogout }) => {
                   <th>क्र.</th>
                   <th>विभाग का नाम</th>
                   <th>कुल प्रस्ताव</th>
-                  <th>कुल स्वीकृत राशि</th>
+                  <th>कुल स्वीकृत राशि (लाख रुपये)</th>
                   <th>पूर्ण</th>
                   <th>प्रगति में</th>
                   <th>प्रतीक्षित</th>

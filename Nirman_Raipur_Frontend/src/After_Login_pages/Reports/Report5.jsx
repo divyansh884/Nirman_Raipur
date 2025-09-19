@@ -114,13 +114,13 @@ const Report5 = ({ onLogout }) => {
       'क्र.',
       'वित्तीय वर्ष',
       'कुल प्रस्ताव',
-      'स्वीकृत राशि',
-      'अनुमोदित राशि',
-      'जारी राशि',
-      'पूर्ण कार्य',
-      'अनुमोदन दर (%)',
-      'जारी दर (%)',
-      'पूर्णता दर (%)'
+      'स्वीकृत राशि (लाख रुपये)',
+      // 'अनुमोदित राशि',
+      // 'जारी राशि',
+      // 'पूर्ण कार्य',
+      // 'अनुमोदन दर (%)',
+      // 'जारी दर (%)',
+      // 'पूर्णता दर (%)'
     ];
 
     const csvContent = [
@@ -269,7 +269,7 @@ const Report5 = ({ onLogout }) => {
                 </div>
               </div>
 
-              <div className="stat-card in-progress">
+              {/* <div className="stat-card in-progress">
                 <div className="stat-icon">
                   <TrendingUp size={32} />
                 </div>
@@ -277,9 +277,9 @@ const Report5 = ({ onLogout }) => {
                   <h3>पूर्णता दर</h3>
                   <p className="stat-number">{overallCompletionRate}%</p>
                 </div>
-              </div>
+              </div> */}
 
-              <div className="stat-card pending-technical">
+              {/* <div className="stat-card pending-technical">
                 <div className="stat-icon">
                   <DollarSign size={32} />
                 </div>
@@ -287,18 +287,18 @@ const Report5 = ({ onLogout }) => {
                   <h3>जारी दर</h3>
                   <p className="stat-number">{overallReleaseRate}%</p>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल स्वीकृत राशि</h3>
+                  <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(totals.totalSanctionAmount)}</p>
                 </div>
               </div>
 
-              <div className="financial-card approved">
+              {/* <div className="financial-card approved">
                 <div className="financial-content">
                   <h3>कुल अनुमोदित राशि</h3>
                   <p className="financial-amount">{formatCurrency(totals.totalApprovedAmount)}</p>
@@ -310,7 +310,7 @@ const Report5 = ({ onLogout }) => {
                   <h3>कुल जारी राशि</h3>
                   <p className="financial-amount">{formatCurrency(totals.totalReleasedAmount)}</p>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         )}
@@ -324,13 +324,13 @@ const Report5 = ({ onLogout }) => {
                   <th>क्र.</th>
                   <th>वित्तीय वर्ष</th>
                   <th>कुल प्रस्ताव</th>
-                  <th>स्वीकृत राशि</th>
-                  <th>अनुमोदित राशि</th>
+                  <th>स्वीकृत राशि (लाख रुपये)</th>
+                  {/* <th>अनुमोदित राशि</th>
                   <th>जारी राशि</th>
                   <th>पूर्ण कार्य</th>
                   <th>अनुमोदन दर</th>
                   <th>जारी दर</th>
-                  <th>पूर्णता दर</th>
+                  <th>पूर्णता दर</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -343,12 +343,12 @@ const Report5 = ({ onLogout }) => {
                       </td>
                       <td className="number-cell">{formatNumber(row.totalProposals)}</td>
                       <td className="amount-cell">{formatCurrency(row.totalSanctionAmount)}</td>
-                      <td className="amount-cell">{formatCurrency(row.totalApprovedAmount)}</td>
-                      <td className="amount-cell">{formatCurrency(row.totalReleasedAmount)}</td>
+                      {/* <td className="amount-cell">{formatCurrency(row.totalApprovedAmount)}</td> */}
+                      {/* <td className="amount-cell">{formatCurrency(row.totalReleasedAmount)}</td>
                       <td className="number-cell">{formatNumber(row.completedWorks)}</td>
                       <td className="number-cell">{row.approvalRate}%</td>
                       <td className="number-cell">{row.releaseRate}%</td>
-                      <td className="number-cell">{row.completionRate}%</td>
+                      <td className="number-cell">{row.completionRate}%</td> */}
                     </tr>
                   ))
                 ) : (
@@ -367,12 +367,12 @@ const Report5 = ({ onLogout }) => {
                     </td>
                     <td className="number-cell">{formatNumber(totals.totalProposals)}</td>
                     <td className="amount-cell">{formatCurrency(totals.totalSanctionAmount)}</td>
-                    <td className="amount-cell">{formatCurrency(totals.totalApprovedAmount)}</td>
-                    <td className="amount-cell">{formatCurrency(totals.totalReleasedAmount)}</td>
+                    {/* <td className="amount-cell">{formatCurrency(totals.totalApprovedAmount)}</td> */}
+                    {/* <td className="amount-cell">{formatCurrency(totals.totalReleasedAmount)}</td>
                     <td className="number-cell">{formatNumber(totals.totalCompletedWorks)}</td>
                     <td className="number-cell">{overallApprovalRate}%</td>
                     <td className="number-cell">{overallReleaseRate}%</td>
-                    <td className="number-cell">{overallCompletionRate}%</td>
+                    <td className="number-cell">{overallCompletionRate}%</td> */}
                   </tr>
                 )}
               </tbody>

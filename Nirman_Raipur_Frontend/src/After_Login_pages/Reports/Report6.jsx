@@ -345,7 +345,7 @@ const Report6 = ({ onLogout }) => {
               <thead>
                 <tr>
                   <th>क्र.</th>
-                  <th>कार्य संख्या</th>
+                  {/* <th>कार्य संख्या</th> */}
                   <th>कार्य का नाम</th>
                   <th>विभाग</th>
                   <th>वर्तमान स्थिति</th>
@@ -356,14 +356,14 @@ const Report6 = ({ onLogout }) => {
                   filteredData.map((row, index) => (
                     <tr key={row.id}>
                       <td>{index + 1}</td>
-                      <td style={{ fontWeight: '600', color: '#3b82f6' }}>
+                      {/* <td style={{ fontWeight: '600', color: '#3b82f6' }}>
                         {row.serialNumber}
-                      </td>
+                      </td> */}
                       <td style={{ textAlign: 'left', fontWeight: '500' }}>
                         {row.nameOfWork}
                       </td>
                       <td style={{ fontWeight: '500' }}>
-                        {row.workDepartment}
+                        {row.workDepartment.name}
                       </td>
                       <td>
                         <div style={{ 

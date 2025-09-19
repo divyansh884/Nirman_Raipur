@@ -350,7 +350,7 @@ export default function WorkInProgressForm({ onLogout }) {
       <div className="wrap">
         <section className="panel">
           <div className="panel-header">
-            <h3>राशि प्रगति विवरण</h3>
+            <h3>राशि प्रगति विवरण </h3>
           </div>
 
           <form className="p-body" onSubmit={handleSubmit}>
@@ -378,7 +378,7 @@ export default function WorkInProgressForm({ onLogout }) {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">
-                  स्वीकृत राशि (₹) <span className="req">*</span>
+                  स्वीकृत राशि (लाख रुपये) <span className="req">*</span>
                 </label>
                 <input
                   type="number"
@@ -399,7 +399,7 @@ export default function WorkInProgressForm({ onLogout }) {
               
               <div className="form-group">
                 <label className="form-label">
-                  कुल जारी की गई राशि (₹) <span className="req">*</span>
+                  कुल जारी की गई राशि (लाख रुपये) <span className="req">*</span>
                 </label>
                 <input
                   type="number"
@@ -420,7 +420,7 @@ export default function WorkInProgressForm({ onLogout }) {
               
               <div className="form-group">
                 <label className="form-label">
-                  शेष राशि (₹) <span className="req">*</span>
+                  शेष राशि (लाख रुपये) <span className="req">*</span>
                 </label>
                 <input
                   type="number"
@@ -462,7 +462,7 @@ export default function WorkInProgressForm({ onLogout }) {
               
               <div className="form-group">
                 <label className="form-label">
-                  व्यय राशि (₹) <span className="req">*</span>
+                  व्यय राशि (लाख रुपये) <span className="req">*</span>
                 </label>
                 <input
                   type="number"
@@ -553,7 +553,7 @@ export default function WorkInProgressForm({ onLogout }) {
                 <thead>
                   <tr>
                     <th>किस्त क्रमांक</th>
-                    <th>राशि (₹)</th>
+                    <th>राशि (लाख रुपये)</th>
                     <th>दिनांक</th>
                     <th>एक्शन</th>
                   </tr>

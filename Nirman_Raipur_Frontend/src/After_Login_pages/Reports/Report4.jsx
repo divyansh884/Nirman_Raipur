@@ -131,7 +131,7 @@ const Report4 = ({ onLogout }) => {
       'क्र.',
       'स्थिति का नाम',
       'संख्या',
-      'कुल राशि'
+      'कुल राशि (लाख रुपये)'
     ];
 
     const csvContent = [
@@ -269,7 +269,7 @@ const Report4 = ({ onLogout }) => {
               </div>
               <div className="financial-card approved">
                 <div className="financial-content">
-                  <h3>कुल राशि</h3>
+                  <h3>कुल राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(totals.totalAmount)}</p>
                 </div>
               </div>
@@ -286,7 +286,7 @@ const Report4 = ({ onLogout }) => {
                   <th>क्र.</th>
                   <th>स्थिति का नाम</th>
                   <th>संख्या</th>
-                  <th>कुल राशि</th>
+                  <th>कुल राशि (लाख रुपये)</th>
                   <th>प्रतिशत</th>
                 </tr>
               </thead>

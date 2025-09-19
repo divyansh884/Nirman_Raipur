@@ -123,20 +123,20 @@ const Report7 = ({ onLogout }) => {
       'प्रशासकीय प्रतीक्षित',
       'प्रगति में',
       'पूर्ण',
-      'स्वीकृत राशि',
-      'अनुमोदित राशि',
-      'जारी राशि',
-      'औसत प्रगति (%)',
-      'कुल योजनाएं',
-      'कुल विभाग',
-      'पूर्णता दर (%)'
+      'स्वीकृत राशि (लाख रुपये)',
+      // 'अनुमोदित राशि',
+      // 'जारी राशि',
+      // 'औसत प्रगति (%)',
+      // 'कुल योजनाएं',
+      // 'कुल विभाग',
+      // 'पूर्णता दर (%)'
     ];
 
     const csvContent = [
       headers.join(','),
       ...filteredData.map((row, index) => [
         index + 1,
-        `"${row.agency}"`,
+        `"${row.agencyName}"`,
         row.totalWorks,
         row.pendingTechnical,
         row.pendingAdministrative,
@@ -170,6 +170,7 @@ const Report7 = ({ onLogout }) => {
 
   // Calculate aggregated statistics
   const aggregatedStats = filteredData.reduce((acc, item) => ({
+    
     totalWorks: acc.totalWorks + item.totalWorks,
     totalPendingTechnical: acc.totalPendingTechnical + item.pendingTechnical,
     totalPendingAdministrative: acc.totalPendingAdministrative + item.pendingAdministrative,
@@ -292,7 +293,7 @@ const Report7 = ({ onLogout }) => {
                 </div>
               </div>
 
-              <div className="stat-card in-progress">
+              {/* <div className="stat-card in-progress">
                 <div className="stat-icon">
                   <TrendingUp size={32} />
                 </div>
@@ -300,7 +301,7 @@ const Report7 = ({ onLogout }) => {
                   <h3>औसत पूर्णता दर</h3>
                   <p className="stat-number">{formatPercentage(avgCompletionRate)}</p>
                 </div>
-              </div>
+              </div> */}
 
               <div className="stat-card pending-technical">
                 <div className="stat-icon">
@@ -318,11 +319,11 @@ const Report7 = ({ onLogout }) => {
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल स्वीकृत राशि</h3>
+                  <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(summary.totalSanctionAmount)}</p>
                 </div>
               </div>
-              <div className="financial-card approved">
+              {/* <div className="financial-card approved">
                 <div className="financial-content">
                   <h3>कुल अनुमोदित राशि</h3>
                   <p className="financial-amount">{formatCurrency(aggregatedStats.totalApprovedAmount)}</p>
@@ -333,7 +334,7 @@ const Report7 = ({ onLogout }) => {
                   <h3>कुल जारी राशि</h3>
                   <p className="financial-amount">{formatCurrency(aggregatedStats.totalReleasedAmount)}</p>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         )}
@@ -385,13 +386,13 @@ const Report7 = ({ onLogout }) => {
                   <th>प्रशासकीय प्रतीक्षित</th>
                   <th>प्रगति में</th>
                   <th>पूर्ण</th>
-                  <th>स्वीकृत राशि</th>
-                  <th>अनुमोदित राशि</th>
-                  <th>जारी राशि</th>
-                  <th>औसत प्रगति</th>
+                  <th>स्वीकृत राशि (लाख रुपये)</th>
+                  {/* <th>अनुमोदित राशि</th>
+                  <th>जारी राशि</th> */}
+                  {/* <th>औसत प्रगति</th> */}
                   <th>कुल योजनाएं</th>
                   <th>कुल विभाग</th>
-                  <th>पूर्णता दर</th>
+                  {/* <th>पूर्णता दर</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -400,7 +401,7 @@ const Report7 = ({ onLogout }) => {
                     <tr key={row.agency}>
                       <td>{index + 1}</td>
                       <td style={{ textAlign: 'left', fontWeight: '600', maxWidth: '200px' }}>
-                        {row.agency}
+                        {row.agencyName}
                       </td>
                       <td className="number-cell">{formatNumber(row.totalWorks)}</td>
                       <td className="number-cell" style={{ color: '#f59e0b' }}>
@@ -416,12 +417,12 @@ const Report7 = ({ onLogout }) => {
                         {formatNumber(row.completed)}
                       </td>
                       <td className="amount-cell">{formatCurrency(row.totalSanctionAmount)}</td>
-                      <td className="amount-cell">{formatCurrency(row.totalApprovedAmount)}</td>
-                      <td className="amount-cell">{formatCurrency(row.totalReleasedAmount)}</td>
-                      <td className="number-cell">{formatPercentage(row.avgProgressPercentage)}</td>
+                      {/* <td className="amount-cell">{formatCurrency(row.totalApprovedAmount)}</td>
+                      <td className="amount-cell">{formatCurrency(row.totalReleasedAmount)}</td> */}
+                      {/* <td className="number-cell">{formatPercentage(row.avgProgressPercentage)}</td> */}
                       <td className="number-cell">{formatNumber(row.totalSchemes)}</td>
                       <td className="number-cell">{formatNumber(row.totalDepartments)}</td>
-                      <td className="number-cell">
+                      {/* <td className="number-cell">
                         <span style={{ 
                           padding: '0.25rem 0.5rem',
                           borderRadius: '4px',
@@ -430,7 +431,7 @@ const Report7 = ({ onLogout }) => {
                         }}>
                           {formatPercentage(row.completionRate)}
                         </span>
-                      </td>
+                      </td> */}
                     </tr>
                   ))
                 ) : (
@@ -458,12 +459,12 @@ const Report7 = ({ onLogout }) => {
                     <td className="number-cell">{formatNumber(aggregatedStats.totalInProgress)}</td>
                     <td className="number-cell">{formatNumber(aggregatedStats.totalCompleted)}</td>
                     <td className="amount-cell">{formatCurrency(aggregatedStats.totalSanctionAmount)}</td>
-                    <td className="amount-cell">{formatCurrency(aggregatedStats.totalApprovedAmount)}</td>
-                    <td className="amount-cell">{formatCurrency(aggregatedStats.totalReleasedAmount)}</td>
-                    <td className="number-cell">-</td>
+                    {/* <td className="amount-cell">{formatCurrency(aggregatedStats.totalApprovedAmount)}</td>
+                    <td className="amount-cell">{formatCurrency(aggregatedStats.totalReleasedAmount)}</td> */}
+                    {/* <td className="number-cell">-</td> */}
                     <td className="number-cell">{formatNumber(aggregatedStats.totalSchemes)}</td>
                     <td className="number-cell">{formatNumber(aggregatedStats.totalDepartments)}</td>
-                    <td className="number-cell">{formatPercentage(avgCompletionRate)}</td>
+                    {/* <td className="number-cell">{formatPercentage(avgCompletionRate)}</td> */}
                   </tr>
                 )}
               </tbody>

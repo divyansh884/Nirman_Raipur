@@ -143,7 +143,7 @@ const Report11 = ({ onLogout }) => {
     const headers = [
       'स्थिति',
       'संख्या',
-      'कुल राशि',
+      'कुल राशि (लाख रुपये)',
       'प्रतिशत',
       'श्रेणी'
     ];
@@ -284,14 +284,14 @@ const Report11 = ({ onLogout }) => {
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल राशि</h3>
+                  <h3>कुल राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(summary.totalAmount)}</p>
                 </div>
               </div>
               {summary.categoryBreakdown && Object.entries(summary.categoryBreakdown).slice(0, 2).map(([category, data]) => (
                 <div key={category} className="financial-card approved">
                   <div className="financial-content">
-                    <h3>{category} राशि</h3>
+                    <h3>{category} राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(data.totalAmount)}</p>
                   </div>
                 </div>
@@ -339,7 +339,7 @@ const Report11 = ({ onLogout }) => {
                   <tr>
                     <th>स्थिति</th>
                     <th>संख्या</th>
-                    <th>कुल राशि</th>
+                    <th>कुल राशि (लाख रुपये)</th>
                     <th>प्रतिशत</th>
                     <th>श्रेणी</th>
                     <th>विवरण</th>
@@ -410,7 +410,7 @@ const Report11 = ({ onLogout }) => {
                                       <th>क्र.</th>
                                       <th>कार्य संख्या</th>
                                       <th>कार्य का नाम</th>
-                                      <th>स्वीकृत राशि</th>
+                                      <th>स्वीकृत राशि (लाख रुपये)</th>
                                     </tr>
                                   </thead>
                                   <tbody>

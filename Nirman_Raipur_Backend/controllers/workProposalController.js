@@ -139,7 +139,7 @@ const getWorkProposal = async (req, res) => {
       .populate("typeOfLocation", "name")
       .populate("city", "name")
       .populate("ward", "name")
-      .populate("appointedEngineer", "name")
+      .populate("appointedEngineer", "fullName")
       .populate("appointedSDO", "name")
 
     if (!workProposal) {

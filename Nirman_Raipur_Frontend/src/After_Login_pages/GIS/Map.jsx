@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -6,9 +6,9 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import TopBar from "../../Components/TopBar.jsx";
 import { BASE_SERVER_URL } from '../../constants.jsx';
-import useAuthStore from '../../Store/useAuthStore.js'; // ✅ Import auth store
+import useAuthStore from '../../Store/useAuthStore.js';
 
-// ✅ Fix Leaflet default icons issue
+// Fix Leaflet default icons issue
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
@@ -24,19 +24,77 @@ L.Icon.Default.mergeOptions({
   shadowSize: [41, 41],
 });
 
-const workIcon = L.icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-  shadowUrl: shadowUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+// Custom marker icons for different statuses
+const getWorkIcon = (status) => {
+  const statusLower = status?.toLowerCase() || '';
+  let color = 'blue';
+  
+  if (statusLower.includes('completed') || statusLower.includes('पूर्ण')) color = 'green';
+  else if (statusLower.includes('progress') || statusLower.includes('प्रगति')) color = 'orange';
+  else if (statusLower.includes('pending') || statusLower.includes('लंबित')) color = 'red';
+  else if (statusLower.includes('approved') || statusLower.includes('स्वीकृत')) color = 'blue';
+  
+  return L.icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: shadowUrl,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+};
+
+// Simple bounds calculation for map centering
+const calculateMapBounds = (works) => {
+  if (works.length === 0) {
+    return {
+      center: [21.24081703, 81.59685393],
+      zoom: 12
+    };
+  }
+
+  if (works.length === 1) {
+    const work = works[0];
+    return {
+      center: [parseFloat(work.latitude), parseFloat(work.longitude)],
+      zoom: 15
+    };
+  }
+
+  // Calculate bounds for multiple works
+  const latitudes = works.map(w => parseFloat(w.latitude));
+  const longitudes = works.map(w => parseFloat(w.longitude));
+  
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLng = Math.min(...longitudes);
+  const maxLng = Math.max(...longitudes);
+  
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  
+  // Calculate zoom level based on bounds
+  const latDiff = maxLat - minLat;
+  const lngDiff = maxLng - minLng;
+  const maxDiff = Math.max(latDiff, lngDiff);
+  
+  let zoom = 12;
+  if (maxDiff < 0.01) zoom = 16;
+  else if (maxDiff < 0.05) zoom = 14;
+  else if (maxDiff < 0.1) zoom = 13;
+  else if (maxDiff < 0.5) zoom = 11;
+  else if (maxDiff < 1) zoom = 10;
+  else zoom = 9;
+  
+  return {
+    center: [centerLat, centerLng],
+    zoom: zoom
+  };
+};
 
 export default function WorksMap({ onLogout }) {
   const navigate = useNavigate();
 
-  // ✅ Get authentication from Zustand store (same pattern as AdministrativeApprovalPage)
   const { 
     token, 
     isAuthenticated, 
@@ -49,13 +107,22 @@ export default function WorksMap({ onLogout }) {
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // ✅ Dynamic filter options from data
+  // Performance monitoring
+  const [performanceStats, setPerformanceStats] = useState({
+    fetchTime: 0,
+    renderTime: 0,
+    totalWorks: 0
+  });
+
+  // Dynamic filter options from data
   const [filterOptions, setFilterOptions] = useState({
     workTypes: [],
     financialYears: [],
     departments: [],
-    cities: []
+    cities: [],
+    statuses: []
   });
 
   const [filters, setFilters] = useState({
@@ -63,13 +130,15 @@ export default function WorksMap({ onLogout }) {
     financialYear: "",
     department: "",
     city: "",
+    status: "",
+    limitMarkers: true // Add option to limit markers for performance
   });
 
-  // ✅ Set page title and check authentication on component mount (same pattern as AdministrativeApprovalPage)
+  const [displayLimit, setDisplayLimit] = useState(100); // Limit markers shown
+
   useEffect(() => {
     document.title = "निर्माण | GIS Mapping";
 
-    // Check authentication on component mount
     const checkAuth = () => {
       if (!isAuthenticated || !token) {
         alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
@@ -77,7 +146,6 @@ export default function WorksMap({ onLogout }) {
         return;
       }
 
-      // ✅ Check if user has permission to access maps/reports
       const permissions = getUserPermissions();
       const canAccess = true;
       
@@ -87,16 +155,14 @@ export default function WorksMap({ onLogout }) {
         return;
       }
 
-      // User is authenticated and authorized, fetch data
       fetchWorks();
     };
 
     checkAuth();
   }, [isAuthenticated, token, navigate, canAccessPage, getUserPermissions]);
 
-  // ✅ Enhanced fetch with proper authentication (similar to AdministrativeApprovalPage API pattern)
+  // Enhanced fetch with performance monitoring
   const fetchWorks = async () => {
-    // Check authentication using Zustand store
     if (!isAuthenticated || !token) {
       alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
       navigate("/login");
@@ -105,28 +171,44 @@ export default function WorksMap({ onLogout }) {
 
     setLoading(true);
     setError(null);
+    const startTime = performance.now();
     
     try {
-      console.log("📤 Fetching works data for user:", user?.email);
+      console.log("📤 Fetching works data for mapping");
 
-      // ✅ Make API call using axios with proper authentication headers (same pattern as AdministrativeApprovalPage)
       const response = await axios.get(`${BASE_SERVER_URL}/work-proposals`, {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
+        params: {
+          limit: 500 // Get up to 500 works
+        },
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.lengthComputable) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            setLoadingProgress(progress);
+          }
+        }
       });
 
-      console.log("✅ Works data fetched successfully:", response.data);
+      const fetchTime = performance.now() - startTime;
+      console.log(`✅ Works data fetched in ${fetchTime.toFixed(2)}ms`);
 
       const worksData = response.data.data || [];
       setWorks(worksData);
       extractFilterOptions(worksData);
       
+      // Update performance stats
+      setPerformanceStats(prev => ({
+        ...prev,
+        fetchTime,
+        totalWorks: worksData.length
+      }));
+      
     } catch (err) {
       console.error("❌ Works fetch error:", err);
       
-      // ✅ Handle different error scenarios (same pattern as AdministrativeApprovalPage)
       if (err.response) {
         const status = err.response.status;
         const errorMessage = err.response.data?.message || "डेटा लोड करने में त्रुटि हुई";
@@ -152,10 +234,11 @@ export default function WorksMap({ onLogout }) {
       setWorks([]);
     } finally {
       setLoading(false);
+      setLoadingProgress(0);
     }
   };
 
-  // ✅ FIXED: Extract unique values handling nested object structures
+  // Enhanced extract filter options with status
   const extractFilterOptions = (data) => {
     if (!Array.isArray(data)) {
       console.warn("Invalid data format for extracting filter options:", data);
@@ -191,73 +274,84 @@ export default function WorksMap({ onLogout }) {
       }).filter(Boolean)
     )];
 
+    const statuses = [...new Set(data.map(w => w.currentStatus).filter(Boolean))];
+
     setFilterOptions({
       workTypes: workTypes.sort(),
-      financialYears: financialYears.sort(),
+      financialYears: financialYears.sort().reverse(),
       departments: departments.sort(),
-      cities: cities.sort()
-    });
-
-    console.log("Filter options extracted:", {
-      workTypes: workTypes.length,
-      financialYears: financialYears.length,
-      departments: departments.length,
-      cities: cities.length
+      cities: cities.sort(),
+      statuses: statuses.sort()
     });
   };
 
-  // ✅ FIXED: Filter works handling nested object structures
-  const filteredWorks = works.filter(work => {
-    if (!work) return false;
-
-    const workTypeName = work.typeOfWork && typeof work.typeOfWork === 'object' && work.typeOfWork.name
-      ? work.typeOfWork.name 
-      : work.typeOfWork;
-    const matchesWorkType = !filters.workType || workTypeName === filters.workType;
-
-    const matchesFinancialYear = !filters.financialYear || work.financialYear === filters.financialYear;
-
-    const departmentName = work.workDepartment && typeof work.workDepartment === 'object' && work.workDepartment.name
-      ? work.workDepartment.name
-      : work.workDepartment;
-    const matchesDepartment = !filters.department || departmentName === filters.department;
-
-    const cityName = work.city && typeof work.city === 'object' && work.city.name
-      ? work.city.name
-      : work.city;
-    const matchesCity = !filters.city || cityName === filters.city;
-
-    return matchesWorkType && matchesFinancialYear && matchesDepartment && matchesCity;
-  });
-
-  // ✅ Enhanced coordinate validation
-  const validWorks = filteredWorks.filter(work => {
-    if (!work || !work.latitude || !work.longitude) {
-      return false;
-    }
-
-    const lat = parseFloat(work.latitude);
-    const lng = parseFloat(work.longitude);
+  // Optimized filtering with useMemo for performance
+  const filteredWorks = useMemo(() => {
+    const startTime = performance.now();
     
-    const isValid = !isNaN(lat) && 
-                   !isNaN(lng) && 
-                   lat !== 0 && 
-                   lng !== 0 &&
-                   lat >= -90 && 
-                   lat <= 90 &&
-                   lng >= -180 && 
-                   lng <= 180;
+    const filtered = works.filter(work => {
+      if (!work) return false;
 
-    if (!isValid) {
-      console.warn(`Invalid coordinates for work ${work._id}:`, {
-        latitude: work.latitude,
-        longitude: work.longitude,
-        parsed: { lat, lng }
-      });
+      const workTypeName = work.typeOfWork && typeof work.typeOfWork === 'object' && work.typeOfWork.name
+        ? work.typeOfWork.name 
+        : work.typeOfWork;
+      const matchesWorkType = !filters.workType || workTypeName === filters.workType;
+
+      const matchesFinancialYear = !filters.financialYear || work.financialYear === filters.financialYear;
+
+      const departmentName = work.workDepartment && typeof work.workDepartment === 'object' && work.workDepartment.name
+        ? work.workDepartment.name
+        : work.workDepartment;
+      const matchesDepartment = !filters.department || departmentName === filters.department;
+
+      const cityName = work.city && typeof work.city === 'object' && work.city.name
+        ? work.city.name
+        : work.city;
+      const matchesCity = !filters.city || cityName === filters.city;
+
+      const matchesStatus = !filters.status || work.currentStatus === filters.status;
+
+      return matchesWorkType && matchesFinancialYear && matchesDepartment && matchesCity && matchesStatus;
+    });
+
+    const renderTime = performance.now() - startTime;
+    setPerformanceStats(prev => ({ ...prev, renderTime }));
+    
+    return filtered;
+  }, [works, filters]);
+
+  // Enhanced coordinate validation
+  const validWorks = useMemo(() => {
+    const valid = filteredWorks.filter(work => {
+      if (!work || work.latitude === null || work.longitude === null) {
+        return false;
+      }
+
+      const lat = parseFloat(work.latitude);
+      const lng = parseFloat(work.longitude);
+      
+      const isValid = !isNaN(lat) && 
+                     !isNaN(lng) && 
+                     lat !== 0 && 
+                     lng !== 0 &&
+                     lat >= -90 && 
+                     lat <= 90 &&
+                     lng >= -180 && 
+                     lng <= 180;
+
+      return isValid;
+    });
+
+    // Apply display limit if enabled
+    if (filters.limitMarkers && valid.length > displayLimit) {
+      return valid.slice(0, displayLimit);
     }
+    
+    return valid;
+  }, [filteredWorks, filters.limitMarkers, displayLimit]);
 
-    return isValid;
-  });
+  // Calculate map bounds
+  const mapBounds = useMemo(() => calculateMapBounds(validWorks), [validWorks]);
 
   const resetFilters = () => {
     setFilters({
@@ -265,10 +359,11 @@ export default function WorksMap({ onLogout }) {
       financialYear: "",
       department: "",
       city: "",
+      status: "",
+      limitMarkers: true
     });
   };
 
-  // ✅ Handle logout (same pattern as AdministrativeApprovalPage)
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
       logout();
@@ -276,17 +371,15 @@ export default function WorksMap({ onLogout }) {
     }
   };
 
-  // ✅ Handle work details navigation
   const handleWorkClick = (work) => {
     const permissions = getUserPermissions();
-    if (permissions?.canAccessWork || permissions?.isFullAdmin) {
+    if (permissions?.canAccessWork || permissions?.isFullAdmin || user?.role === 'Admin') {
       navigate(`/work-details/${work._id}`);
     } else {
       alert('आपके पास कार्य विवरण देखने की अनुमति नहीं है।');
     }
   };
 
-  // ✅ IMPROVED: Safe render function handling nested object structures
   const safeRender = (value, fallback = 'N/A') => {
     if (value === null || value === undefined || value === '') return fallback;
     
@@ -307,13 +400,12 @@ export default function WorksMap({ onLogout }) {
     }
     
     if (typeof value === 'object') {
-      return '[Object]';
+      return JSON.stringify(value);
     }
     
     return String(value);
   };
 
-  // ✅ Show authentication error if not authenticated (same pattern as AdministrativeApprovalPage)
   if (!isAuthenticated) {
     return (
       <div className="workorder-page">
@@ -343,29 +435,61 @@ export default function WorksMap({ onLogout }) {
 
   return (
     <div style={{ padding: 0, margin: 0 }}>
-      {/* ✅ Header with user info */}
+      {/* Header with performance stats */}
       <div className="header" style={{marginBottom: '10px'}}>
-          <TopBar onLogout={onLogout} />
-          <div className="subbar">
-            <span className="dot" />
-            <h2>GIS Mapping</h2>
+        <TopBar onLogout={onLogout} />
+        <div className="subbar">
+          <span className="dot" />
+          <h2>
+            GIS Mapping - कुल: {works.length} | मानचित्र पर: {validWorks.length}
+            {performanceStats.fetchTime > 0 && (
+              <span style={{ fontSize: '0.7em', color: '#666', marginLeft: '10px' }}>
+                (लोड टाइम: {performanceStats.fetchTime.toFixed(0)}ms)
+              </span>
+            )}
+          </h2>
+        </div>
+      </div>
+
+      {/* Enhanced Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-md mb-6 border border-gray-200">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">
+            🔍 Filter Works
+          </h2>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={filters.limitMarkers}
+                onChange={(e) => setFilters({ ...filters, limitMarkers: e.target.checked })}
+              />
+              Limit to {displayLimit} markers
+            </label>
+            <select
+              value={displayLimit}
+              onChange={(e) => setDisplayLimit(parseInt(e.target.value))}
+              className="text-sm px-2 py-1 border rounded"
+            >
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+              <option value={500}>500</option>
+            </select>
+            <span className="text-xs text-gray-500">
+              Performance: {performanceStats.renderTime.toFixed(1)}ms
+            </span>
           </div>
         </div>
 
-      {/* 🔹 Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-md mb-6 border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">
-          🔍 Filter Works
-        </h2>
         <div className="flex flex-wrap gap-3">
-          {/* Work Type Filter */}
           <select
             value={filters.workType}
             onChange={(e) => setFilters({ ...filters, workType: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
             disabled={loading}
           >
-            <option value="">All Work Types</option>
+            <option value="">सभी कार्य प्रकार ({filterOptions.workTypes.length})</option>
             {filterOptions.workTypes.map((type) => (
               <option key={type} value={type}>
                 {safeRender(type)}
@@ -373,14 +497,13 @@ export default function WorksMap({ onLogout }) {
             ))}
           </select>
 
-          {/* Financial Year Filter */}
           <select
             value={filters.financialYear}
             onChange={(e) => setFilters({ ...filters, financialYear: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
             disabled={loading}
           >
-            <option value="">All Financial Years</option>
+            <option value="">सभी वित्तीय वर्ष ({filterOptions.financialYears.length})</option>
             {filterOptions.financialYears.map((year) => (
               <option key={year} value={year}>
                 {safeRender(year)}
@@ -388,14 +511,13 @@ export default function WorksMap({ onLogout }) {
             ))}
           </select>
 
-          {/* Department Filter */}
           <select
             value={filters.department}
             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
             disabled={loading}
           >
-            <option value="">All Departments</option>
+            <option value="">सभी विभाग ({filterOptions.departments.length})</option>
             {filterOptions.departments.map((dept) => (
               <option key={dept} value={dept}>
                 {safeRender(dept)}
@@ -403,17 +525,30 @@ export default function WorksMap({ onLogout }) {
             ))}
           </select>
 
-          {/* City Filter */}
           <select
             value={filters.city}
             onChange={(e) => setFilters({ ...filters, city: e.target.value })}
             className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
             disabled={loading}
           >
-            <option value="">All Cities</option>
+            <option value="">सभी शहर ({filterOptions.cities.length})</option>
             {filterOptions.cities.map((city) => (
               <option key={city} value={city}>
                 {safeRender(city)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm"
+            disabled={loading}
+          >
+            <option value="">सभी स्थितियां ({filterOptions.statuses.length})</option>
+            {filterOptions.statuses.map((status) => (
+              <option key={status} value={status}>
+                {safeRender(status)}
               </option>
             ))}
           </select>
@@ -425,63 +560,65 @@ export default function WorksMap({ onLogout }) {
             className="px-4 py-2 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition shadow"
             disabled={loading}
           >
-            {loading ? "डेटा लोड हो रहा है..." : "🔄 Refresh Data"}
+            {loading ? `डेटा लोड हो रहा है... ${loadingProgress.toFixed(0)}%` : "🔄 डेटा रिफ्रेश करें"}
           </button>
           <button
             onClick={resetFilters}
             className="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition shadow"
             disabled={loading}
           >
-            ❌ Reset Filters
+            ❌ फ़िल्टर रीसेट करें
           </button>
         </div>
 
-        {/* ✅ Show statistics */}
-        <div className="mt-4 text-sm text-gray-600">
-          Total Works: <strong>{works.length}</strong> | Filtered: <strong>{filteredWorks.length}</strong> | On Map: <strong>{validWorks.length}</strong>
-          {filteredWorks.length > validWorks.length && (
-            <span className="text-amber-600 ml-2">
-              ({filteredWorks.length - validWorks.length} works missing coordinates)
-            </span>
-          )}
+        {/* Enhanced Statistics */}
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div className="bg-blue-50 p-3 rounded-lg text-center">
+            <div className="font-bold text-blue-600">{works.length}</div>
+            <div className="text-xs">कुल कार्य</div>
+          </div>
+          <div className="bg-green-50 p-3 rounded-lg text-center">
+            <div className="font-bold text-green-600">{filteredWorks.length}</div>
+            <div className="text-xs">फ़िल्टर किए गए</div>
+          </div>
+          <div className="bg-purple-50 p-3 rounded-lg text-center">
+            <div className="font-bold text-purple-600">{validWorks.length}</div>
+            <div className="text-xs">मानचित्र पर</div>
+          </div>
+          <div className="bg-orange-50 p-3 rounded-lg text-center">
+            <div className="font-bold text-orange-600">{filteredWorks.length - validWorks.length}</div>
+            <div className="text-xs">निर्देशांक नहीं</div>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-lg text-center">
+            <div className="font-bold text-gray-600">{performanceStats.renderTime.toFixed(0)}ms</div>
+            <div className="text-xs">रेंडर टाइम</div>
+          </div>
         </div>
 
-        {/* ✅ Active Filters Display */}
-        {(filters.workType || filters.financialYear || filters.department || filters.city) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="text-sm font-medium text-gray-600">Active Filters:</span>
-            {filters.workType && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs">
-                Type: {safeRender(filters.workType)}
-              </span>
-            )}
-            {filters.financialYear && (
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs">
-                Year: {safeRender(filters.financialYear)}
-              </span>
-            )}
-            {filters.department && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs">
-                Dept: {safeRender(filters.department)}
-              </span>
-            )}
-            {filters.city && (
-              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs">
-                City: {safeRender(filters.city)}
-              </span>
-            )}
+        {/* Show warning for large datasets */}
+        {filteredWorks.length > displayLimit && filters.limitMarkers && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-amber-800 text-sm">
+              ⚠️ डिस्प्ले सीमा: {filteredWorks.length} में से पहले {displayLimit} कार्य दिखाए गए हैं।
+              <button
+                onClick={() => setFilters({ ...filters, limitMarkers: false })}
+                className="ml-2 text-amber-700 underline hover:text-amber-800"
+              >
+                सभी दिखाएं
+              </button>
+            </p>
           </div>
         )}
       </div>
 
-      {/* 🔹 Map + Info Panel */}
+      {/* Map */}
       <div className="flex">
         <div className="flex-1 rounded-xl overflow-hidden shadow-md border border-gray-200">
-          {loading ? (
+          {loading && works.length === 0 ? (
             <div className="flex items-center justify-center h-[600px] text-gray-600">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                Loading map data...
+                मानचित्र डेटा लोड हो रहा है... {loadingProgress.toFixed(0)}%
               </div>
             </div>
           ) : error ? (
@@ -495,69 +632,66 @@ export default function WorksMap({ onLogout }) {
                 🔄 पुनः प्रयास करें
               </button>
             </div>
+          ) : validWorks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[600px] text-gray-600">
+              <i className="fa-solid fa-map-marker-alt" style={{ fontSize: '48px', marginBottom: '20px', color: '#6b7280' }}></i>
+              <p className="text-center mb-4">
+                {filteredWorks.length === 0 
+                  ? "फ़िल्टर के अनुसार कोई कार्य नहीं मिला"
+                  : "कोई वैध निर्देशांक नहीं मिले"
+                }
+              </p>
+            </div>
           ) : (
             <MapContainer
-              center={[21.24081703, 81.59685393]} // ✅ FIXED: Use coordinates from your data
-              zoom={12}
+              key={`map-${mapBounds.center[0]}-${mapBounds.center[1]}-${mapBounds.zoom}`}
+              center={mapBounds.center}
+              zoom={mapBounds.zoom}
               style={{ height: "600px", width: "100%" }}
             >
               <TileLayer
-                attribution="&copy; OpenStreetMap"
+                attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* ✅ Render markers with click handlers */}
-              {validWorks.map((work) => {
+              {/* Render markers without clustering */}
+              {validWorks.map((work, index) => {
                 const lat = parseFloat(work.latitude);
                 const lng = parseFloat(work.longitude);
                 
                 if (isNaN(lat) || isNaN(lng)) {
-                  console.warn(`Invalid coordinates for work ${work._id}:`, { lat: work.latitude, lng: work.longitude });
                   return null;
                 }
 
                 return (
                   <Marker
-                    key={work._id || `marker-${lat}-${lng}`}
+                    key={work._id || `marker-${index}`}
                     position={[lat, lng]}
-                    icon={workIcon}
+                    icon={getWorkIcon(work.currentStatus)}
                     eventHandlers={{
                       click: () => handleWorkClick(work)
                     }}
                   >
-                    <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
-                      <div className="max-w-[280px] max-h-[200px] overflow-y-auto break-words text-sm p-2">
-                        <p className="font-bold text-blue-900 mb-1">
-                          {safeRender(work.nameOfWork, 'Unnamed Work')}
-                        </p>
-                        <p className="italic text-gray-600 mb-1">
-                          <strong>Type:</strong> {safeRender(work.typeOfWork, 'Unknown Type')}
-                        </p>
-                        <p className="text-xs text-gray-700 mb-1">
-                          <span className="font-medium">Status:</span> {safeRender(work.currentStatus, 'Unknown')}
-                        </p>
-                        <p className="text-xs text-gray-700 mb-1">
-                          <span className="font-medium">Agency:</span> {safeRender(work.workAgency, 'Unknown')}
-                        </p>
-                        <p className="text-xs text-gray-700 mb-1">
-                          <span className="font-medium">Department:</span> {safeRender(work.workDepartment, 'Unknown')}
-                        </p>
-                        <p className="text-xs text-gray-700 mb-1">
-                          <span className="font-medium">FY:</span> {safeRender(work.financialYear, 'Unknown')}
-                        </p>
-                        <p className="font-semibold text-green-700 mb-1">
-                          ₹ {work.sanctionAmount ? work.sanctionAmount.toLocaleString() : '0'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Serial: {safeRender(work.serialNumber, 'N/A')}
-                        </p>
-                        <p className="text-xs text-gray-400">
+                    <Tooltip direction="top" offset={[0, -10]} opacity={0.9} permanent={false}>
+                      <div className="max-w-[300px] text-sm p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        <div className="font-bold text-blue-900 mb-2">
+                          {safeRender(work.nameOfWork, 'अनामांकित कार्य')}
+                        </div>
+                        
+                        <div className="space-y-1 text-xs">
+                          <div><strong>प्रकार:</strong> {safeRender(work.typeOfWork)}</div>
+                          <div><strong>स्थिति:</strong> {safeRender(work.currentStatus, 'अज्ञात')}</div>
+                          <div><strong>एजेंसी:</strong> {safeRender(work.workAgency)}</div>
+                          <div><strong>राशि:</strong> ₹{work.sanctionAmount?.toLocaleString('hi-IN') || '0'}</div>
+                        </div>
+                        
+                        <div className="text-xs text-gray-500 mt-2">
                           📍 {lat.toFixed(4)}, {lng.toFixed(4)}
-                        </p>
-                        {/* ✅ Click hint */}
-                        <p className="text-xs text-blue-600 italic mt-2">
-                          👆 Click marker for details
-                        </p>
+                        </div>
+                        
+                        <div className="text-xs text-blue-600 italic mt-2">
+                          👆 विस्तार के लिए क्लिक करें
+                        </div>
                       </div>
                     </Tooltip>
                   </Marker>
@@ -567,57 +701,53 @@ export default function WorksMap({ onLogout }) {
           )}
         </div>
 
-        {/* 🔹 Info Panel */}
-        <div className="ml-4 w-64 p-4 bg-white rounded-xl shadow-md border border-gray-200">
-          <h4 className="text-lg font-semibold mb-3 flex items-center">
-            📊 Map Summary
-          </h4>
+        {/* Info Panel */}
+        <div className="ml-4 w-80 p-4 bg-white rounded-xl shadow-md border border-gray-200">
+          <h4 className="text-lg font-semibold mb-3">📊 प्रदर्शन डैशबोर्ड</h4>
           
           <div className="space-y-3 text-sm">
             <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="font-medium text-blue-900">Works on Map</p>
-              <p className="text-2xl font-bold text-blue-600">{validWorks.length}</p>
+              <p className="font-medium text-blue-900">लोड किए गए कार्य</p>
+              <p className="text-2xl font-bold text-blue-600">{works.length}</p>
             </div>
             
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="font-medium text-gray-700">Total Works</p>
-              <p className="text-xl font-semibold text-gray-600">{works.length}</p>
+            <div className="p-3 bg-green-50 rounded-lg">
+              <p className="font-medium text-green-900">मानचित्र पर दिखाए गए</p>
+              <p className="text-2xl font-bold text-green-600">{validWorks.length}</p>
+              <p className="text-xs text-green-600">
+                {filters.limitMarkers ? `सीमा: ${displayLimit}` : 'कोई सीमा नहीं'}
+              </p>
             </div>
 
-            {filteredWorks.length !== works.length && (
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="font-medium text-green-900">Filtered Results</p>
-                <p className="text-xl font-semibold text-green-600">{filteredWorks.length}</p>
+            <div className="p-3 bg-yellow-50 rounded-lg">
+              <p className="font-medium text-yellow-900">प्रदर्शन</p>
+              <div className="text-xs text-yellow-700">
+                <div>फ़ेच: {performanceStats.fetchTime.toFixed(0)}ms</div>
+                <div>रेंडर: {performanceStats.renderTime.toFixed(0)}ms</div>
               </div>
-            )}
-          </div>
-
-          {/* ✅ User permissions info */}
-          <div className="pt-4 border-t border-gray-200 mb-4">
-            <h5 className="font-medium text-gray-700 mb-2">👤 Your Access Level:</h5>
-            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-              <strong>{user?.role}</strong>
-              <br />
-              {getUserPermissions()?.canAccessWork ? '✅ Can view work details' : '❌ Limited work access'}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-gray-200">
-            <p className="font-medium text-gray-700 mb-2">Filter Options Available:</p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p>• Work Types: {filterOptions.workTypes.length}</p>
-              <p>• Financial Years: {filterOptions.financialYears.length}</p>
-              <p>• Departments: {filterOptions.departments.length}</p>
-              <p>• Cities: {filterOptions.cities.length}</p>
-            </div>
-          </div>
-
-          {/* Legend */}
+          {/* Legend with status colors */}
           <div className="mt-4 pt-3 border-t border-gray-200">
-            <h5 className="font-medium text-gray-700 mb-2">📍 Legend</h5>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-              <span>Work Location (clickable)</span>
+            <h5 className="font-medium text-gray-700 mb-2">📍 स्थिति रंग कोड</h5>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                <span>पूर्ण</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                <span>प्रगति में</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                <span>लंबित</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                <span>अन्य</span>
+              </div>
             </div>
           </div>
         </div>

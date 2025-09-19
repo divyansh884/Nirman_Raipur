@@ -26,12 +26,38 @@ const generateFinancialYears = () => {
   return years;
 };
 
+// Enhanced coordinate parsing function
+const parseCoordinate = (value, type) => {
+  // Handle empty, null, undefined, or string "0" values
+  if (!value || value === '' || value === '0' || value === 0) {
+    return null;
+  }
+  
+  const parsed = parseFloat(value);
+  
+  // Return null if parsing failed
+  if (isNaN(parsed)) {
+    return null;
+  }
+  
+  // Validate coordinate ranges
+  if (type === 'latitude' && (parsed < -90 || parsed > 90)) {
+    throw new Error(`Invalid latitude: ${parsed}. Must be between -90 and 90.`);
+  }
+  
+  if (type === 'longitude' && (parsed < -180 || parsed > 180)) {
+    throw new Error(`Invalid longitude: ${parsed}. Must be between -180 and 180.`);
+  }
+  
+  return parsed;
+};
+
 const initialState = {
   financialYear: '', // Will be set to current financial year
   workDepartment: '',
   userDepartment: '', // subDept
   approvingDepartment: '', // centralDept
-  workAgency: '', // ✅ Work Agency field
+  workAgency: '', // Work Agency field
   scheme: '',
   longitude: '',
   latitude: '',
@@ -53,7 +79,7 @@ const initialState = {
   plan: '',
   assembly: '',
   workOrderAmount: '',
-  // ✅ Checkbox states
+  // Checkbox states
   isDPROrNot: true, // Default true (DPR received)
   isTenderOrNot: false, // Default false (no tender required)
 };
@@ -105,7 +131,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
     fetchDropdownData();
   }, [isAuthenticated, token, navigate]);
 
-  // Fetch dropdown data from backend
+  // Enhanced fetch dropdown data from backend
   const fetchDropdownData = async () => {
     if (!isAuthenticated || !token) return;
 
@@ -121,7 +147,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
         { key: 'sdos', url: '/admin/sdo' }
       ];
 
-      // Fetch regular dropdown data
+      // Fetch regular dropdown data with enhanced error handling
       const promises = endpoints.map(endpoint =>
         fetch(`${BASE_SERVER_URL}${endpoint.url}`, {
            method: 'GET',
@@ -134,14 +160,16 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
           return res.json();
         }).then(data => ({ 
           key: endpoint.key, 
-          data: data.success ? data.data : (data.data || data) 
+          data: Array.isArray(data.success ? data.data : (data.data || data)) 
+            ? (data.success ? data.data : (data.data || data))
+            : []
         })).catch(err => {
           console.error(`Error fetching ${endpoint.key}:`, err);
           return { key: endpoint.key, data: [] };
         })
       );
 
-      // Fetch engineers (users with role 'Engineer')
+      // Fetch engineers (users with role 'Engineer') with enhanced error handling
       const engineersPromise = fetch(`${BASE_SERVER_URL}/admin/user`, {
         method: 'GET',
         headers: {
@@ -222,6 +250,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
     }
   }
 
+  // Enhanced validation function
   function validate() {
     const requiredFields = [
       'financialYear', 'workDepartment', 'userDepartment', 'approvingDepartment', 
@@ -237,17 +266,37 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
       }
     });
     
-    // Additional validations
-    if (form.longitude && (isNaN(parseFloat(form.longitude)) || Math.abs(parseFloat(form.longitude)) > 180)) {
-      err.longitude = '* वैध रेखांश दर्ज करें (-180 से 180)';
+    // Enhanced coordinate validations
+    try {
+      if (form.longitude && form.longitude.toString().trim() !== '') {
+        parseCoordinate(form.longitude, 'longitude');
+      }
+    } catch (coordError) {
+      err.longitude = '* ' + coordError.message;
     }
     
-    if (form.latitude && (isNaN(parseFloat(form.latitude)) || Math.abs(parseFloat(form.latitude)) > 90)) {
-      err.latitude = '* वैध अक्षांश दर्ज करें (-90 से 90)';
+    try {
+      if (form.latitude && form.latitude.toString().trim() !== '') {
+        parseCoordinate(form.latitude, 'latitude');
+      }
+    } catch (coordError) {
+      err.latitude = '* ' + coordError.message;
     }
     
+    // Work order amount validation
     if (form.workOrderAmount && (isNaN(parseFloat(form.workOrderAmount)) || parseFloat(form.workOrderAmount) < 0)) {
       err.workOrderAmount = '* वैध राशि दर्ज करें (0 या अधिक)';
+    }
+    
+    // Date validation
+    if (form.estimatedCompletionDateOfWork) {
+      const selectedDate = new Date(form.estimatedCompletionDateOfWork);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+      
+      if (selectedDate <= today) {
+        err.estimatedCompletionDateOfWork = '* भविष्य की तारीख चुनें';
+      }
     }
     
     setErrors(err);
@@ -264,6 +313,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
     }
   }
 
+  // Enhanced submit function with better error handling
   async function submit(e) {
     e.preventDefault();
     if (!validate()) return;
@@ -277,24 +327,37 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
     setIsSubmitting(true);
     
     try {
-      // ✅ Prepare data according to the API body structure
+      // Validate and parse coordinates
+      let longitude = null;
+      let latitude = null;
+      
+      try {
+        longitude = parseCoordinate(form.longitude, 'longitude');
+        latitude = parseCoordinate(form.latitude, 'latitude');
+      } catch (coordError) {
+        alert('निर्देशांक त्रुटि: ' + coordError.message);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare data according to the API body structure
       const workProposalData = {
         // Required fields from API body
         typeOfWork: form.typeOfWork,
         nameOfWork: form.nameOfWork,
-        workAgency: form.workAgency, // ✅ Use workAgency directly from form
+        workAgency: form.workAgency, // Use workAgency directly from form
         scheme: form.scheme,
         nameOfJPDBT: form.nameOfJPDBT || 'Default JPDBT',
-        nameOfGPWard: form.nameOfGPWard || form.ward,
+        nameOfGPWard: form.nameOfGPWard || form.ward || 'Default Ward',
         workDescription: form.workDescription,
         financialYear: form.financialYear,
         workDepartment: form.workDepartment,
         approvingDepartment: form.approvingDepartment,
-        sanctionAmount: 0, // ✅ Hidden field - default to 0 as required
+        sanctionAmount: 0, // Hidden field - default to 0 as required
         plan: form.plan || 'Default Plan',
         assembly: form.assembly || 'Default Assembly',
-        longitude: form.longitude ? parseFloat(form.longitude) : 75.0364,
-        latitude: form.latitude ? parseFloat(form.latitude) : 23.3345,
+        longitude: longitude, // Enhanced parsing - will be null if invalid/empty
+        latitude: latitude, // Enhanced parsing - will be null if invalid/empty
         typeOfLocation: form.typeOfLocation,
         city: form.city,
         ward: form.ward,
@@ -337,6 +400,9 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
         } else if (response.status === 403) {
           alert('आपको इस कार्य को करने की अनुमति नहीं है।');
           return;
+        } else if (response.status === 409 || (result.error && result.error.includes('duplicate'))) {
+          alert('यह कार्य प्रस्ताव पहले से मौजूद है। कृपया विवरण जांचें।');
+          return;
         }
         
         throw new Error(result.message || 'Failed to create work proposal');
@@ -356,7 +422,10 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
     } catch (error) {
       console.error('Error creating work proposal:', error);
       
-      if (error.message.includes('validation')) {
+      // Enhanced error handling
+      if (error.message.includes('duplicate') || error.message.includes('E11000')) {
+        alert('डुप्लिकेट डेटा त्रुटि: यह कार्य प्रस्ताव पहले से मौजूद है। कृपया अलग विवरण दर्ज करें।');
+      } else if (error.message.includes('validation')) {
         alert('कृपया सभी आवश्यक फ़ील्ड भरें और वैध डेटा दर्ज करें।');
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         alert('नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।');
@@ -365,7 +434,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
         logout();
         navigate('/login');
       } else {
-        alert('कार्य प्रस्ताव बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।');
+        alert('कार्य प्रस्ताव बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।\n\nविस्तार: ' + error.message);
       }
     } finally {
       setIsSubmitting(false);
@@ -429,7 +498,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
           
           {/* Row 1 */}
           <div className="atw-grid">
-            {/* ✅ Dynamic Financial Year Dropdown */}
+            {/* Dynamic Financial Year Dropdown */}
             <div className="fld">
               <label>वित्तीय वर्ष <span className="req">*</span></label>
               <select name="financialYear" value={form.financialYear} onChange={update} disabled={isSubmitting}>
@@ -443,7 +512,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
               {errors.financialYear && <small className="err">{errors.financialYear}</small>}
             </div>
 
-            {/* ✅ Dynamic Work Department Dropdown */}
+            {/* Dynamic Work Department Dropdown */}
             <div className="fld">
               <label>कार्य विभाग <span className="req">*</span></label>
               <select name="workDepartment" value={form.workDepartment} onChange={update} disabled={isSubmitting}>
@@ -486,7 +555,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
 
           {/* Row 2 */}
           <div className="atw-grid">
-            {/* ✅ Dynamic Scheme Dropdown */}
+            {/* Dynamic Scheme Dropdown */}
             <div className="fld">
               <label>योजना <span className="req">*</span></label>
               <select name="scheme" value={form.scheme} onChange={update} disabled={isSubmitting}>
@@ -500,7 +569,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
               {errors.scheme && <small className="err">{errors.scheme}</small>}
             </div>
 
-            {/* ✅ ADDED Work Agency Dropdown */}
+            {/* Work Agency Dropdown */}
             <div className="fld">
               <label>कार्य एजेंसी <span className="req">*</span></label>
               <select name="workAgency" value={form.workAgency} onChange={update} disabled={isSubmitting}>
@@ -520,12 +589,14 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
                 name="longitude" 
                 value={form.longitude} 
                 onChange={update} 
-                placeholder="देशान्तर(Longitude)" 
+                placeholder="उदाहरण: 81.629641" 
                 type="number" 
                 step="any"
                 disabled={isSubmitting}
+                title="देशान्तर -180 से 180 के बीच होना चाहिए"
               />
               {errors.longitude && <small className="err">{errors.longitude}</small>}
+              <small style={{ fontSize: '0.8em', color: '#666' }}>खाली छोड़ें यदि ज्ञात नहीं है</small>
             </div>
 
             <div className="fld">
@@ -534,18 +605,20 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
                 name="latitude" 
                 value={form.latitude} 
                 onChange={update} 
-                placeholder="अक्षांश(Latitude)" 
+                placeholder="उदाहरण: 21.250000" 
                 type="number" 
                 step="any"
                 disabled={isSubmitting}
+                title="अक्षांश -90 से 90 के बीच होना चाहिए"
               />
               {errors.latitude && <small className="err">{errors.latitude}</small>}
+              <small style={{ fontSize: '0.8em', color: '#666' }}>खाली छोड़ें यदि ज्ञात नहीं है</small>
             </div>
           </div>
 
           {/* Row 3 */}
           <div className="atw-grid">
-            {/* ✅ Dynamic Type of Location Dropdown */}
+            {/* Dynamic Type of Location Dropdown */}
             <div className="fld">
               <label>क्षेत्र का प्रकार</label>
               <select name="typeOfLocation" value={form.typeOfLocation} onChange={update} disabled={isSubmitting}>
@@ -558,7 +631,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
               </select>
             </div>
 
-            {/* ✅ Dynamic City Dropdown */}
+            {/* Dynamic City Dropdown */}
             <div className="fld">
               <label>शहर / नगर</label>
               <select name="city" value={form.city} onChange={update} disabled={isSubmitting}>
@@ -571,7 +644,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
               </select>
             </div>
 
-            {/* ✅ Dynamic Ward Dropdown */}
+            {/* Dynamic Ward Dropdown */}
             <div className="fld">
               <label>वार्ड / ग्राम</label>
               <select name="ward" value={form.ward} onChange={update} disabled={isSubmitting}>
@@ -584,7 +657,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
               </select>
             </div>
 
-            {/* ✅ Dynamic Work Type Dropdown */}
+            {/* Dynamic Work Type Dropdown */}
             <div className="fld">
               <label>कार्य के प्रकार <span className="req">*</span></label>
               <select name="typeOfWork" value={form.typeOfWork} onChange={update} disabled={isSubmitting}>
@@ -607,7 +680,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
                 name="map"
                 value={form.map} 
                 onChange={update} 
-                placeholder="नक्शा URL"
+                placeholder="नक्शा URL या फाइल पथ"
                 disabled={isSubmitting}
               />
             </div>
@@ -649,7 +722,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
 
           {/* Row 5 */}
           <div className="atw-grid">
-            {/* ✅ Dynamic Engineer Dropdown */}
+            {/* Dynamic Engineer Dropdown */}
             <div className="fld">
               <label>इंजीनियर अधिकारी<span className="req">*</span></label>
               <select name="appointedEngineer" value={form.appointedEngineer} onChange={update} disabled={isSubmitting}>
@@ -660,9 +733,10 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
                   </option>
                 ))}
               </select>
+              {errors.appointedEngineer && <small className="err">{errors.appointedEngineer}</small>}
             </div>
 
-            {/* ✅ Dynamic SDO Dropdown */}
+            {/* Dynamic SDO Dropdown */}
             <div className="fld">
               <label>नियुक्त एसडीओ</label>
               <select name="appointedSDO" value={form.appointedSDO} onChange={update} disabled={isSubmitting}>
@@ -683,6 +757,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
                 onChange={update} 
                 type="date"
                 disabled={isSubmitting}
+                min={new Date().toISOString().split('T')[0]} // Prevent past dates
               />
               {errors.estimatedCompletionDateOfWork && <small className="err">{errors.estimatedCompletionDateOfWork}</small>}
             </div>
@@ -701,7 +776,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
             </div>
           </div>
 
-          {/* ✅ Checkbox Section */}
+          {/* Checkbox Section */}
           <div className="atw-grid">
             <div className="fld checkbox-col span-2">
               <label className="chk">
@@ -730,7 +805,13 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
           
           <div className="atw-form-actions">
             <button type="submit" className="atw-btn primary" disabled={isSubmitting}>
-              {isSubmitting ? 'सबमिट हो रहा है...' : 'SUBMIT'}
+              {isSubmitting ? (
+                <span>
+                  <i className="fas fa-spinner fa-spin"></i> सबमिट हो रहा है...
+                </span>
+              ) : (
+                'SUBMIT'
+              )}
             </button>
             <button type="button" className="atw-btn" onClick={cancel} disabled={isSubmitting}>
               CANCEL

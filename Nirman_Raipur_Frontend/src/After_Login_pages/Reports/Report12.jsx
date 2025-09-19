@@ -28,12 +28,6 @@ const Report12 = ({ onLogout }) => {
       return;
     }
 
-    // if (!canAccessPage('reports')) {
-    //   alert("आपके पास इस पेज तक पहुंचने की अनुमति नहीं है।");
-    //   navigate('/dashboard');
-    //   return;
-    // }
-
     fetchEngineerData();
   }, [isAuthenticated, token, navigate, canAccessPage]);
 
@@ -41,7 +35,8 @@ const Report12 = ({ onLogout }) => {
   useEffect(() => {
     let filtered = engineerData.filter(item => {
       if (!searchTerm) return true;
-      return item.engineer?.toLowerCase().includes(searchTerm.toLowerCase());
+      // Updated to search in engineerName instead of engineer
+      return item.engineerName?.toLowerCase().includes(searchTerm.toLowerCase());
     });
 
     // Sort the filtered data
@@ -142,9 +137,9 @@ const Report12 = ({ onLogout }) => {
     return <BarChart3 size={16} style={{ color: '#6b7280' }} />;
   };
 
-  // Toggle expand/collapse for engineer details
-  const toggleEngineerExpansion = (engineer) => {
-    setExpandedEngineer(expandedEngineer === engineer ? null : engineer);
+  // Toggle expand/collapse for engineer details - using engineer ID for tracking
+  const toggleEngineerExpansion = (engineerId) => {
+    setExpandedEngineer(expandedEngineer === engineerId ? null : engineerId);
   };
 
   // CSV export function
@@ -161,33 +156,29 @@ const Report12 = ({ onLogout }) => {
       'प्रशासकीय प्रतीक्षित',
       'प्रगति में',
       'पूर्ण',
-      'स्वीकृत राशि',
-      'अनुमोदित राशि',
-      'जारी राशि',
+      'स्वीकृत राशि (लाख रुपये)',
       'कुल विभाग',
       'कुल क्षेत्र',
       'कुल योजनाएं',
       'कुल एजेंसियां',
-      'पूर्णता दर (%)'
+      // 'पूर्णता दर (%)'
     ];
 
     const csvContent = [
       headers.join(','),
       ...filteredData.map(row => [
-        `"${row.engineer || ''}"`,
+        `"${row.engineerName || ''}"`, // Updated to use engineerName
         row.totalAssignedWorks || 0,
         row.pendingTechnical || 0,
         row.pendingAdministrative || 0,
         row.inProgress || 0,
         row.completed || 0,
         row.totalSanctionAmount || 0,
-        row.totalApprovedAmount || 0,
-        row.totalReleasedAmount || 0,
         row.totalDepartments || 0,
         row.totalAreas || 0,
         row.totalSchemes || 0,
         row.totalAgencies || 0,
-        row.completionRate || 0
+        // row.completionRate || 0
       ].join(','))
     ].join('\n');
 
@@ -280,10 +271,7 @@ const Report12 = ({ onLogout }) => {
         {!loading && !error && summary && (
           <div className="stats-section">
             <h2 className="section-title">
-              अभियंता सारांश ({summary.reportYear})
-              <span style={{ fontSize: '0.8rem', fontWeight: 'normal', marginLeft: '1rem' }}>
-                जनरेटेड: {new Date(summary.generatedAt).toLocaleDateString('hi-IN')}
-              </span>
+              अभियंता सारांश ({summary.reportYear || 'All Years'})
             </h2>
             
             <div className="stats-grid">
@@ -316,7 +304,7 @@ const Report12 = ({ onLogout }) => {
                   <p className="stat-number">{summary.avgWorksPerEngineer.toFixed(1)}</p>
                 </div>
               </div>
-
+{/* 
               <div className="stat-card pending-technical">
                 <div className="stat-icon">
                   <CheckCircle size={32} />
@@ -325,13 +313,13 @@ const Report12 = ({ onLogout }) => {
                   <h3>औसत पूर्णता दर</h3>
                   <p className="stat-number">{formatPercentage(summary.avgCompletionRate)}</p>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="financial-grid">
               <div className="financial-card sanction">
                 <div className="financial-content">
-                  <h3>कुल स्वीकृत राशि</h3>
+                  <h3>कुल स्वीकृत राशि (लाख रुपये)</h3>
                   <p className="financial-amount">{formatCurrency(summary.totalSanctionAmount)}</p>
                 </div>
               </div>
@@ -384,7 +372,7 @@ const Report12 = ({ onLogout }) => {
                 <option value="completionRate">पूर्णता दर</option>
                 <option value="totalAssignedWorks">कुल कार्य</option>
                 <option value="completed">पूर्ण कार्य</option>
-                <option value="totalSanctionAmount">स्वीकृत राशि</option>
+                <option value="totalSanctionAmount">स्वीकृत राशि (लाख रुपये)</option>
               </select>
               
               <select
@@ -423,9 +411,8 @@ const Report12 = ({ onLogout }) => {
                     <th>पूर्ण</th>
                     <th>प्रगति में</th>
                     <th>प्रतीक्षित</th>
-                    <th>स्वीकृत राशि</th>
-                    <th>पूर्णता दर</th>
-                    <th>प्रदर्शन</th>
+                    <th>स्वीकृत राशि (लाख रुपये)</th>
+                    {/* <th>पूर्णता दर</th> */}
                     <th>कार्य विवरण</th>
                   </tr>
                 </thead>
@@ -435,7 +422,7 @@ const Report12 = ({ onLogout }) => {
                     const totalPending = (engineer.pendingTechnical || 0) + (engineer.pendingAdministrative || 0);
                     
                     return (
-                      <React.Fragment key={engineer.engineer || index}>
+                      <React.Fragment key={engineer._id || index}>
                         <tr style={{ backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white' }}>
                           <td>{index + 1}</td>
                           <td style={{ 
@@ -446,7 +433,7 @@ const Report12 = ({ onLogout }) => {
                             gap: '0.5rem'
                           }}>
                             <User size={16} style={{ color: '#3b82f6' }} />
-                            {engineer.engineer || 'N/A'}
+                            {engineer.engineerName || 'N/A'} {/* Updated to use engineerName */}
                           </td>
                           <td className="number-cell">{formatNumber(engineer.totalAssignedWorks)}</td>
                           <td className="number-cell" style={{ color: '#10b981', fontWeight: '600' }}>
@@ -459,7 +446,7 @@ const Report12 = ({ onLogout }) => {
                             {formatNumber(totalPending)}
                           </td>
                           <td className="amount-cell">{formatCurrency(engineer.totalSanctionAmount)}</td>
-                          <td className="number-cell">
+                          {/* <td className="number-cell">
                             <span style={{ 
                               padding: '0.25rem 0.5rem',
                               borderRadius: '12px',
@@ -470,22 +457,10 @@ const Report12 = ({ onLogout }) => {
                             }}>
                               {formatPercentage(engineer.completionRate || 0)}
                             </span>
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <span style={{
-                              padding: '0.25rem 0.75rem',
-                              borderRadius: '15px',
-                              backgroundColor: performance.bg,
-                              color: performance.color,
-                              fontSize: '0.8rem',
-                              fontWeight: '600'
-                            }}>
-                              {performance.label}
-                            </span>
-                          </td>
+                          </td> */}
                           <td style={{ textAlign: 'center' }}>
                             <button
-                              onClick={() => toggleEngineerExpansion(engineer.engineer)}
+                              onClick={() => toggleEngineerExpansion(engineer._id)} 
                               style={{
                                 background: 'none',
                                 border: 'none',
@@ -498,19 +473,19 @@ const Report12 = ({ onLogout }) => {
                                 gap: '0.25rem'
                               }}
                             >
-                              {expandedEngineer === engineer.engineer ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              {expandedEngineer === engineer._id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                               {engineer.workTypes?.length || 0} कार्य
                             </button>
                           </td>
                         </tr>
 
                         {/* Expanded Work Details */}
-                        {expandedEngineer === engineer.engineer && engineer.workTypes && (
+                        {expandedEngineer === engineer._id && engineer.workTypes && (
                           <tr>
-                            <td colSpan="10" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
+                            <td colSpan="9" style={{ padding: 0, backgroundColor: '#f1f5f9' }}>
                               <div style={{ padding: '1rem' }}>
                                 <h4 style={{ margin: '0 0 1rem 0', color: '#374151' }}>
-                                  {engineer.engineer} - कार्य विवरण
+                                  {engineer.engineerName} - कार्य विवरण {/* Updated to use engineerName */}
                                 </h4>
                                 
                                 {/* Engineer Statistics */}
@@ -547,9 +522,11 @@ const Report12 = ({ onLogout }) => {
                                     <thead>
                                       <tr style={{ backgroundColor: '#e2e8f0' }}>
                                         <th>क्र.</th>
+                                        <th>कार्य प्रकार</th>
                                         <th>कार्य का नाम</th>
+                                        <th>योजना</th>
                                         <th>वर्तमान स्थिति</th>
-                                        <th>स्वीकृत राशि</th>
+                                        <th>स्वीकृत राशि (लाख रुपये)</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -557,8 +534,14 @@ const Report12 = ({ onLogout }) => {
                                         engineer.workTypes.map((work, workIndex) => (
                                           <tr key={workIndex}>
                                             <td>{workIndex + 1}</td>
+                                            <td style={{ textAlign: 'left' }}>
+                                              {work.typeOfWorkName || work.typeOfWork || '-'} {/* Updated to use name field */}
+                                            </td>
                                             <td style={{ textAlign: 'left', maxWidth: '300px' }}>
                                               {work.nameOfWork || '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'left' }}>
+                                              {work.schemeName || work.scheme || '-'} {/* Updated to use name field */}
                                             </td>
                                             <td>
                                               <div style={{ 
@@ -578,7 +561,7 @@ const Report12 = ({ onLogout }) => {
                                         ))
                                       ) : (
                                         <tr>
-                                          <td colSpan="4" style={{ 
+                                          <td colSpan="6" style={{ 
                                             textAlign: 'center', 
                                             color: '#6b7280', 
                                             fontStyle: 'italic',

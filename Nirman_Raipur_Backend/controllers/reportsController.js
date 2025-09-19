@@ -107,8 +107,17 @@ const getDepartmentWiseReport = async (req, res) => {
     const report = await WorkProposal.aggregate([
       { $match: matchStage },
       {
+    $lookup: {
+      from: "departments", // collection name (usually plural)
+      localField: "workDepartment",
+      foreignField: "_id",
+      as: "departmentInfo"
+    }
+  },
+      {
         $group: {
           _id: '$workDepartment',
+           departmentName: { $first: { $arrayElemAt: ["$departmentInfo.name", 0] } },
           totalProposals: { $sum: 1 },
           totalSanctionAmount: { $sum: '$sanctionAmount' },
           completed: {
@@ -247,7 +256,7 @@ const getProgressReport = async (req, res) => {
     }
 
     const report = await WorkProposal.find(matchStage)
-      .populate('submittedBy', 'fullName department')
+      .populate("workDepartment", "name")
       .populate('workProgress.lastUpdatedBy', 'fullName')
       .select('serialNumber nameOfWork workDepartment currentStatus workProgress workOrder.dateOfWorkOrder completionDate')
       .sort({ 'workProgress.updatedAt': -1 });
@@ -293,56 +302,63 @@ exports.getAgencyWiseReport = async (req, res) => {
       filter.workAgency = new RegExp(agency, 'i');
     }
     
-    const agencyWiseData = await WorkProposal.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$workAgency',
-          totalWorks: { $sum: 1 },
-          totalSanctionAmount: { $sum: '$sanctionAmount' },
-          pendingTechnical: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Technical Approval'] }, 1, 0] }
-          },
-          pendingAdministrative: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Administrative Approval'] }, 1, 0] }
-          },
-          inProgress: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work In Progress'] }, 1, 0] }
-          },
-          completed: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work Completed'] }, 1, 0] }
-          },
-          totalApprovedAmount: { $sum: '$administrativeApproval.approvedAmount' },
-          totalReleasedAmount: { $sum: '$workProgress.totalAmountReleasedSoFar' },
-          avgProgressPercentage: { $avg: '$workProgress.progressPercentage' },
-          schemes: { $addToSet: '$scheme' },
-          departments: { $addToSet: '$workDepartment' }
-        }
-      },
-      {
-        $project: {
-          agency: '$_id',
-          totalWorks: 1,
-          totalSanctionAmount: 1,
-          pendingTechnical: 1,
-          pendingAdministrative: 1,
-          inProgress: 1,
-          completed: 1,
-          totalApprovedAmount: { $ifNull: ['$totalApprovedAmount', 0] },
-          totalReleasedAmount: { $ifNull: ['$totalReleasedAmount', 0] },
-          avgProgressPercentage: { $ifNull: ['$avgProgressPercentage', 0] },
-          totalSchemes: { $size: '$schemes' },
-          totalDepartments: { $size: '$departments' },
-          completionRate: {
-            $multiply: [
-              { $divide: ['$completed', '$totalWorks'] },
-              100
-            ]
-          }
-        }
-      },
-      { $sort: { totalWorks: -1 } }
-    ]);
+    // Use regular find with populate
+    const proposals = await WorkProposal.find(filter)
+      .populate('workAgency', 'name')
+      .populate('workDepartment', 'name')
+      .populate('scheme', 'name');
+    
+    // Process data in JavaScript
+    const agencyMap = {};
+    
+    proposals.forEach(proposal => {
+      const agencyId = proposal.workAgency?._id?.toString();
+      const agencyName = proposal.workAgency?.name;
+      
+      if (!agencyId) return;
+      
+      if (!agencyMap[agencyId]) {
+        agencyMap[agencyId] = {
+          _id: agencyId,
+          agency: agencyId,
+          agencyName: agencyName,
+          totalWorks: 0,
+          totalSanctionAmount: 0,
+          pendingTechnical: 0,
+          pendingAdministrative: 0,
+          inProgress: 0,
+          completed: 0,
+          totalApprovedAmount: 0,
+          totalReleasedAmount: 0,
+          schemes: new Set(),
+          departments: new Set()
+        };
+      }
+      
+      const agency = agencyMap[agencyId];
+      agency.totalWorks += 1;
+      agency.totalSanctionAmount += proposal.sanctionAmount || 0;
+      agency.totalApprovedAmount += proposal.administrativeApproval?.approvedAmount || 0;
+      
+      // Count status
+      if (proposal.currentStatus === 'Pending Technical Approval') agency.pendingTechnical += 1;
+      if (proposal.currentStatus === 'Pending Administrative Approval') agency.pendingAdministrative += 1;
+      if (proposal.currentStatus === 'Work In Progress') agency.inProgress += 1;
+      if (proposal.currentStatus === 'Work Completed') agency.completed += 1;
+      
+      // Add to sets
+      if (proposal.scheme?.name) agency.schemes.add(proposal.scheme.name);
+      if (proposal.workDepartment?.name) agency.departments.add(proposal.workDepartment.name);
+    });
+    
+    // Convert to final format
+    const agencyWiseData = Object.values(agencyMap).map(agency => ({
+      ...agency,
+      totalSchemes: agency.schemes.size,
+      totalDepartments: agency.departments.size,
+      completionRate: agency.totalWorks > 0 ? (agency.completed / agency.totalWorks) * 100 : 0,
+      avgProgressPercentage: 0 // Calculate if needed
+    })).sort((a, b) => b.totalWorks - a.totalWorks);
     
     const summary = {
       totalAgencies: agencyWiseData.length,
@@ -360,6 +376,7 @@ exports.getAgencyWiseReport = async (req, res) => {
     });
   }
 };
+
 
 exports.getBlockWiseReport = async (req, res) => {
   try {
@@ -379,57 +396,77 @@ exports.getBlockWiseReport = async (req, res) => {
       filter.city = new RegExp(block, 'i');
     }
     
-    const blockWiseData = await WorkProposal.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$city',
-          totalWorks: { $sum: 1 },
-          totalSanctionAmount: { $sum: '$sanctionAmount' },
-          pendingTechnical: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Technical Approval'] }, 1, 0] }
-          },
-          pendingAdministrative: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Administrative Approval'] }, 1, 0] }
-          },
-          inProgress: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work In Progress'] }, 1, 0] }
-          },
-          completed: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work Completed'] }, 1, 0] }
-          },
-          totalApprovedAmount: { $sum: '$administrativeApproval.approvedAmount' },
-          totalReleasedAmount: { $sum: '$workProgress.totalAmountReleasedSoFar' },
-          agencies: { $addToSet: '$workAgency' },
-          schemes: { $addToSet: '$scheme' },
-          departments: { $addToSet: '$workDepartment' }
-        }
-      },
-      {
-        $project: {
-          block: '$_id',
-          totalWorks: 1,
-          totalSanctionAmount: 1,
-          pendingTechnical: 1,
-          pendingAdministrative: 1,
-          inProgress: 1,
-          completed: 1,
-          totalApprovedAmount: { $ifNull: ['$totalApprovedAmount', 0] },
-          totalReleasedAmount: { $ifNull: ['$totalReleasedAmount', 0] },
-          totalAgencies: { $size: '$agencies' },
-          totalSchemes: { $size: '$schemes' },
-          totalDepartments: { $size: '$departments' },
-          completionRate: {
-            $cond: [
-              { $gt: ['$totalWorks', 0] },
-              { $multiply: [{ $divide: ['$completed', '$totalWorks'] }, 100] },
-              0
-            ]
-          }
-        }
-      },
-      { $sort: { totalWorks: -1 } }
-    ]);
+    // Use regular find with populate
+    const proposals = await WorkProposal.find(filter)
+      .populate('city', 'name')
+      .populate('workAgency', 'name')
+      .populate('scheme', 'name')
+      .populate('workDepartment', 'name');
+    
+    // Process data in JavaScript
+    const blockMap = {};
+    
+    proposals.forEach(proposal => {
+      const cityId = proposal.city?._id?.toString();
+      const cityName = proposal.city?.name || 'Unknown Block';
+      
+      if (!cityId) return;
+      
+      if (!blockMap[cityId]) {
+        blockMap[cityId] = {
+          _id: cityId,
+          block: cityId,
+          blockName: cityName,
+          totalWorks: 0,
+          totalSanctionAmount: 0,
+          pendingTechnical: 0,
+          pendingAdministrative: 0,
+          inProgress: 0,
+          completed: 0,
+          totalApprovedAmount: 0,
+          totalReleasedAmount: 0,
+          agencies: new Set(),
+          schemes: new Set(),
+          departments: new Set()
+        };
+      }
+      
+      const block = blockMap[cityId];
+      block.totalWorks += 1;
+      block.totalSanctionAmount += proposal.sanctionAmount || 0;
+      block.totalApprovedAmount += proposal.administrativeApproval?.approvedAmount || 0;
+      block.totalReleasedAmount += proposal.workProgress?.reduce((sum, progress) => sum + (progress.totalAmountReleasedSoFar || 0), 0) || 0;
+      
+      // Count status
+      if (proposal.currentStatus === 'Pending Technical Approval') block.pendingTechnical += 1;
+      if (proposal.currentStatus === 'Pending Administrative Approval') block.pendingAdministrative += 1;
+      if (proposal.currentStatus === 'Work In Progress') block.inProgress += 1;
+      if (proposal.currentStatus === 'Work Completed') block.completed += 1;
+      
+      // Add to sets
+      if (proposal.workAgency?._id) block.agencies.add(proposal.workAgency._id.toString());
+      if (proposal.scheme?._id) block.schemes.add(proposal.scheme._id.toString());
+      if (proposal.workDepartment?._id) block.departments.add(proposal.workDepartment._id.toString());
+    });
+    
+    // Convert to final format
+    const blockWiseData = Object.values(blockMap).map(block => ({
+      _id: block._id,
+      block: block.block,
+      blockName: block.blockName,
+      totalWorks: block.totalWorks,
+      totalSanctionAmount: block.totalSanctionAmount,
+      pendingTechnical: block.pendingTechnical,
+      pendingAdministrative: block.pendingAdministrative,
+      inProgress: block.inProgress,
+      completed: block.completed,
+      totalApprovedAmount: block.totalApprovedAmount,
+      totalReleasedAmount: block.totalReleasedAmount,
+      totalAgencies: block.agencies.size,
+      totalSchemes: block.schemes.size,
+      totalDepartments: block.departments.size,
+      completionRate: block.totalWorks > 0 ? (block.completed / block.totalWorks) * 100 : 0
+    })).sort((a, b) => b.totalWorks - a.totalWorks);
     
     const summary = {
       totalBlocks: blockWiseData.length,
@@ -450,6 +487,7 @@ exports.getBlockWiseReport = async (req, res) => {
   }
 };
 
+
 exports.getSchemeWiseReport = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -468,57 +506,77 @@ exports.getSchemeWiseReport = async (req, res) => {
       filter.scheme = new RegExp(scheme, 'i');
     }
     
-    const schemeWiseData = await WorkProposal.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$scheme',
-          totalWorks: { $sum: 1 },
-          totalSanctionAmount: { $sum: '$sanctionAmount' },
-          pendingTechnical: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Technical Approval'] }, 1, 0] }
-          },
-          pendingAdministrative: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Administrative Approval'] }, 1, 0] }
-          },
-          inProgress: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work In Progress'] }, 1, 0] }
-          },
-          completed: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work Completed'] }, 1, 0] }
-          },
-          totalApprovedAmount: { $sum: '$administrativeApproval.approvedAmount' },
-          totalReleasedAmount: { $sum: '$workProgress.totalAmountReleasedSoFar' },
-          areas: { $addToSet: '$city' },
-          agencies: { $addToSet: '$workAgency' },
-          departments: { $addToSet: '$workDepartment' }
-        }
-      },
-      {
-        $project: {
-          scheme: '$_id',
-          totalWorks: 1,
-          totalSanctionAmount: 1,
-          pendingTechnical: 1,
-          pendingAdministrative: 1,
-          inProgress: 1,
-          completed: 1,
-          totalApprovedAmount: { $ifNull: ['$totalApprovedAmount', 0] },
-          totalReleasedAmount: { $ifNull: ['$totalReleasedAmount', 0] },
-          totalAreas: { $size: '$areas' },
-          totalAgencies: { $size: '$agencies' },
-          totalDepartments: { $size: '$departments' },
-          completionRate: {
-            $cond: [
-              { $gt: ['$totalWorks', 0] },
-              { $multiply: [{ $divide: ['$completed', '$totalWorks'] }, 100] },
-              0
-            ]
-          }
-        }
-      },
-      { $sort: { totalWorks: -1 } }
-    ]);
+    // Use regular find with populate
+    const proposals = await WorkProposal.find(filter)
+      .populate('scheme', 'name')
+      .populate('city', 'name')
+      .populate('workAgency', 'name')
+      .populate('workDepartment', 'name');
+    
+    // Process data in JavaScript
+    const schemeMap = {};
+    
+    proposals.forEach(proposal => {
+      const schemeId = proposal.scheme?._id?.toString();
+      const schemeName = proposal.scheme?.name || 'Unknown Scheme';
+      
+      if (!schemeId) return;
+      
+      if (!schemeMap[schemeId]) {
+        schemeMap[schemeId] = {
+          _id: schemeId,
+          scheme: schemeId,
+          schemeName: schemeName,
+          totalWorks: 0,
+          totalSanctionAmount: 0,
+          pendingTechnical: 0,
+          pendingAdministrative: 0,
+          inProgress: 0,
+          completed: 0,
+          totalApprovedAmount: 0,
+          totalReleasedAmount: 0,
+          areas: new Set(),
+          agencies: new Set(),
+          departments: new Set()
+        };
+      }
+      
+      const scheme = schemeMap[schemeId];
+      scheme.totalWorks += 1;
+      scheme.totalSanctionAmount += proposal.sanctionAmount || 0;
+      scheme.totalApprovedAmount += proposal.administrativeApproval?.approvedAmount || 0;
+      scheme.totalReleasedAmount += proposal.workProgress?.reduce((sum, progress) => sum + (progress.totalAmountReleasedSoFar || 0), 0) || 0;
+      
+      // Count status
+      if (proposal.currentStatus === 'Pending Technical Approval') scheme.pendingTechnical += 1;
+      if (proposal.currentStatus === 'Pending Administrative Approval') scheme.pendingAdministrative += 1;
+      if (proposal.currentStatus === 'Work In Progress') scheme.inProgress += 1;
+      if (proposal.currentStatus === 'Work Completed') scheme.completed += 1;
+      
+      // Add to sets
+      if (proposal.city?._id) scheme.areas.add(proposal.city._id.toString());
+      if (proposal.workAgency?._id) scheme.agencies.add(proposal.workAgency._id.toString());
+      if (proposal.workDepartment?._id) scheme.departments.add(proposal.workDepartment._id.toString());
+    });
+    
+    // Convert to final format
+    const schemeWiseData = Object.values(schemeMap).map(scheme => ({
+      _id: scheme._id,
+      scheme: scheme.scheme,
+      schemeName: scheme.schemeName,
+      totalWorks: scheme.totalWorks,
+      totalSanctionAmount: scheme.totalSanctionAmount,
+      pendingTechnical: scheme.pendingTechnical,
+      pendingAdministrative: scheme.pendingAdministrative,
+      inProgress: scheme.inProgress,
+      completed: scheme.completed,
+      totalApprovedAmount: scheme.totalApprovedAmount,
+      totalReleasedAmount: scheme.totalReleasedAmount,
+      totalAreas: scheme.areas.size,
+      totalAgencies: scheme.agencies.size,
+      totalDepartments: scheme.departments.size,
+      completionRate: scheme.totalWorks > 0 ? (scheme.completed / scheme.totalWorks) * 100 : 0
+    })).sort((a, b) => b.totalWorks - a.totalWorks);
     
     const summary = {
       totalSchemes: schemeWiseData.length,
@@ -538,6 +596,7 @@ exports.getSchemeWiseReport = async (req, res) => {
     });
   }
 };
+
 
 exports.getPendingWorksReport = async (req, res) => {
   try {
@@ -564,86 +623,59 @@ exports.getPendingWorksReport = async (req, res) => {
     };
     
     const pendingWorks = await WorkProposal.find(filter)
-      .select('serialNumber nameOfWork workAgency scheme currentStatus submissionDate sanctionAmount city ward workDepartment appointedEngineer')
+      .select('serialNumber nameOfWork workAgency scheme currentStatus submissionDate sanctionAmount city ward workDepartment appointedEngineer submittedBy')
+      .populate('workAgency', 'name')
+      .populate('scheme', 'name')
+      .populate('city', 'name')
+      .populate('ward', 'name')
+      .populate('workDepartment', 'name')
+      .populate('appointedEngineer', 'displayName fullName')
       .populate('submittedBy', 'fullName department')
       .sort({ submissionDate: -1 })
       .lean();
     
-    const summary = await WorkProposal.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          totalPendingWorks: { $sum: 1 },
-          totalPendingAmount: { $sum: '$sanctionAmount' },
-          pendingByStatus: {
-            $push: {
-              status: '$currentStatus',
-              agency: '$workAgency',
-              scheme: '$scheme',
-              department: '$workDepartment'
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          totalPendingWorks: 1,
-          totalPendingAmount: 1,
-          statusBreakdown: {
-            $reduce: {
-              input: '$pendingByStatus',
-              initialValue: {},
-              in: {
-                $mergeObjects: [
-                  '$$value',
-                  {
-                    $arrayToObject: [
-                      [{
-                        k: '$$this.status',
-                        v: { $add: [{ $ifNull: [{ $getField: { field: '$$this.status', input: '$$value' } }, 0] }, 1] }
-                      }]
-                    ]
-                  }
-                ]
-              }
-            }
-          },
-          uniqueAgencies: {
-            $size: {
-              $setUnion: {
-                $map: {
-                  input: '$pendingByStatus',
-                  as: 'item',
-                  in: '$$item.agency'
-                }
-              }
-            }
-          },
-          uniqueSchemes: {
-            $size: {
-              $setUnion: {
-                $map: {
-                  input: '$pendingByStatus',
-                  as: 'item',
-                  in: '$$item.scheme'
-                }
-              }
-            }
-          }
-        }
-      }
-    ]);
+    // Process the data to include names and calculate summary
+    const processedWorks = pendingWorks.map(work => ({
+      ...work,
+      workAgencyName: work.workAgency?.name || 'Unknown Agency',
+      schemeName: work.scheme?.name || 'Unknown Scheme',
+      cityName: work.city?.name || 'Unknown City',
+      wardName: work.ward?.name || 'Unknown Ward',
+      workDepartmentName: work.workDepartment?.name || 'Unknown Department',
+      appointedEngineerName: work.appointedEngineer?.displayName || work.appointedEngineer?.fullName || 'Not Assigned',
+      submittedByName: work.submittedBy?.fullName || 'Unknown'
+    }));
     
-    const summaryData = summary[0] || {
-      totalPendingWorks: 0,
-      totalPendingAmount: 0,
-      statusBreakdown: {},
-      uniqueAgencies: 0,
-      uniqueSchemes: 0
+    // Calculate summary data
+    const statusBreakdown = {};
+    const uniqueAgencies = new Set();
+    const uniqueSchemes = new Set();
+    const uniqueDepartments = new Set();
+    let totalPendingAmount = 0;
+    
+    processedWorks.forEach(work => {
+      // Status breakdown
+      statusBreakdown[work.currentStatus] = (statusBreakdown[work.currentStatus] || 0) + 1;
+      
+      // Unique counts
+      if (work.workAgency?._id) uniqueAgencies.add(work.workAgency._id.toString());
+      if (work.scheme?._id) uniqueSchemes.add(work.scheme._id.toString());
+      if (work.workDepartment?._id) uniqueDepartments.add(work.workDepartment._id.toString());
+      
+      // Total amount
+      totalPendingAmount += work.sanctionAmount || 0;
+    });
+    
+    const summaryData = {
+      totalPendingWorks: processedWorks.length,
+      totalPendingAmount: totalPendingAmount,
+      statusBreakdown: statusBreakdown,
+      uniqueAgencies: uniqueAgencies.size,
+      uniqueSchemes: uniqueSchemes.size,
+      uniqueDepartments: uniqueDepartments.size
     };
     
-    res.json(createStandardResponse(pendingWorks, summaryData, year));
+    res.json(createStandardResponse(processedWorks, summaryData, year));
   } catch (error) {
     console.error('Error in getPendingWorksReport:', error);
     res.status(500).json({ 
@@ -653,6 +685,7 @@ exports.getPendingWorksReport = async (req, res) => {
     });
   }
 };
+
 
 exports.getFinalStatusReport = async (req, res) => {
   try {
@@ -762,69 +795,100 @@ exports.getEngineerWiseReport = async (req, res) => {
       filter.appointedEngineer = new RegExp(engineer, 'i');
     }
     
-    const engineerWiseData = await WorkProposal.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$appointedEngineer',
-          totalAssignedWorks: { $sum: 1 },
-          totalSanctionAmount: { $sum: '$sanctionAmount' },
-          pendingTechnical: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Technical Approval'] }, 1, 0] }
-          },
-          pendingAdministrative: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Pending Administrative Approval'] }, 1, 0] }
-          },
-          inProgress: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work In Progress'] }, 1, 0] }
-          },
-          completed: {
-            $sum: { $cond: [{ $eq: ['$currentStatus', 'Work Completed'] }, 1, 0] }
-          },
-          totalApprovedAmount: { $sum: '$administrativeApproval.approvedAmount' },
-          totalReleasedAmount: { $sum: '$workProgress.totalAmountReleasedSoFar' },
-          departments: { $addToSet: '$workDepartment' },
-          areas: { $addToSet: '$city' },
-          schemes: { $addToSet: '$scheme' },
-          agencies: { $addToSet: '$workAgency' },
-          workTypes: {
-            $push: {
-              typeOfWork: '$typeOfWork',
-              nameOfWork: '$nameOfWork',
-              currentStatus: '$currentStatus',
-              sanctionAmount: '$sanctionAmount',
-              scheme: '$scheme'
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          engineer: '$_id',
-          totalAssignedWorks: 1,
-          totalSanctionAmount: 1,
-          pendingTechnical: 1,
-          pendingAdministrative: 1,
-          inProgress: 1,
-          completed: 1,
-          totalApprovedAmount: { $ifNull: ['$totalApprovedAmount', 0] },
-          totalReleasedAmount: { $ifNull: ['$totalReleasedAmount', 0] },
-          totalDepartments: { $size: '$departments' },
-          totalAreas: { $size: '$areas' },
-          totalSchemes: { $size: '$schemes' },
-          totalAgencies: { $size: '$agencies' },
-          completionRate: {
-            $cond: [
-              { $gt: ['$totalAssignedWorks', 0] },
-              { $multiply: [{ $divide: ['$completed', '$totalAssignedWorks'] }, 100] },
-              0
-            ]
-          },
-          workTypes: { $slice: ['$workTypes', 10] } // Limit to 10 recent works for performance
-        }
-      },
-      { $sort: { totalAssignedWorks: -1 } }
-    ]);
+    // Use regular find with populate
+    const proposals = await WorkProposal.find(filter)
+      .populate('appointedEngineer', 'displayName fullName')
+      .populate('workDepartment', 'name')
+      .populate('city', 'name')
+      .populate('scheme', 'name')
+      .populate('workAgency', 'name')
+      .populate('typeOfWork', 'name')
+      .sort({ submissionDate: -1 });
+    
+    // Process data in JavaScript
+    const engineerMap = {};
+    
+    proposals.forEach(proposal => {
+      const engineerId = proposal.appointedEngineer?._id?.toString();
+      const engineerName = proposal.appointedEngineer?.displayName || 
+                          proposal.appointedEngineer?.fullName || 
+                          'Unassigned Engineer';
+      
+      if (!engineerId) return;
+      
+      if (!engineerMap[engineerId]) {
+        engineerMap[engineerId] = {
+          _id: engineerId,
+          engineer: engineerId,
+          engineerName: engineerName,
+          totalAssignedWorks: 0,
+          totalSanctionAmount: 0,
+          pendingTechnical: 0,
+          pendingAdministrative: 0,
+          inProgress: 0,
+          completed: 0,
+          totalApprovedAmount: 0,
+          totalReleasedAmount: 0,
+          departments: new Set(),
+          areas: new Set(),
+          schemes: new Set(),
+          agencies: new Set(),
+          workTypes: []
+        };
+      }
+      
+      const engineer = engineerMap[engineerId];
+      engineer.totalAssignedWorks += 1;
+      engineer.totalSanctionAmount += proposal.sanctionAmount || 0;
+      engineer.totalApprovedAmount += proposal.administrativeApproval?.approvedAmount || 0;
+      engineer.totalReleasedAmount += proposal.workProgress?.reduce((sum, progress) => sum + (progress.totalAmountReleasedSoFar || 0), 0) || 0;
+      
+      // Count status
+      if (proposal.currentStatus === 'Pending Technical Approval') engineer.pendingTechnical += 1;
+      if (proposal.currentStatus === 'Pending Administrative Approval') engineer.pendingAdministrative += 1;
+      if (proposal.currentStatus === 'Work In Progress') engineer.inProgress += 1;
+      if (proposal.currentStatus === 'Work Completed') engineer.completed += 1;
+      
+      // Add to sets
+      if (proposal.workDepartment?._id) engineer.departments.add(proposal.workDepartment._id.toString());
+      if (proposal.city?._id) engineer.areas.add(proposal.city._id.toString());
+      if (proposal.scheme?._id) engineer.schemes.add(proposal.scheme._id.toString());
+      if (proposal.workAgency?._id) engineer.agencies.add(proposal.workAgency._id.toString());
+      
+      // Add work details (limit to 10 recent works)
+      if (engineer.workTypes.length < 10) {
+        engineer.workTypes.push({
+          typeOfWork: proposal.typeOfWork?.name || 'Unknown Type',
+          typeOfWorkName: proposal.typeOfWork?.name || 'Unknown Type',
+          nameOfWork: proposal.nameOfWork || 'Unknown Work',
+          currentStatus: proposal.currentStatus || 'Unknown Status',
+          sanctionAmount: proposal.sanctionAmount || 0,
+          scheme: proposal.scheme?.name || 'Unknown Scheme',
+          schemeName: proposal.scheme?.name || 'Unknown Scheme'
+        });
+      }
+    });
+    
+    // Convert to final format
+    const engineerWiseData = Object.values(engineerMap).map(engineer => ({
+      _id: engineer._id,
+      engineer: engineer.engineer,
+      engineerName: engineer.engineerName,
+      totalAssignedWorks: engineer.totalAssignedWorks,
+      totalSanctionAmount: engineer.totalSanctionAmount,
+      pendingTechnical: engineer.pendingTechnical,
+      pendingAdministrative: engineer.pendingAdministrative,
+      inProgress: engineer.inProgress,
+      completed: engineer.completed,
+      totalApprovedAmount: engineer.totalApprovedAmount,
+      totalReleasedAmount: engineer.totalReleasedAmount,
+      totalDepartments: engineer.departments.size,
+      totalAreas: engineer.areas.size,
+      totalSchemes: engineer.schemes.size,
+      totalAgencies: engineer.agencies.size,
+      completionRate: engineer.totalAssignedWorks > 0 ? (engineer.completed / engineer.totalAssignedWorks) * 100 : 0,
+      workTypes: engineer.workTypes
+    })).sort((a, b) => b.totalAssignedWorks - a.totalAssignedWorks);
     
     const summary = {
       totalEngineers: engineerWiseData.length,
@@ -846,6 +910,7 @@ exports.getEngineerWiseReport = async (req, res) => {
     });
   }
 };
+
 
 exports.getPhotoMissingReport = async (req, res) => {
   try {
