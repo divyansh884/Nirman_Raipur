@@ -61,6 +61,11 @@ import EditWorkOrder from "./Forms/EditWorkOder.jsx";
 import EditTechnical from "./Forms/EditTechnical.jsx";
 import EditAdministrative from "./Forms/EditAdministrative.jsx";
 import EditWork from "./Forms/EditWork.jsx";
+import WorkCancelled from "./After_Login_pages/WorkCancelled.jsx";
+import WorkCompleted from "./After_Login_pages/WorkCompleted.jsx";
+import WorkNstarted from "./After_Login_pages/WorknNstarted.jsx";
+import WorkStopped from "./After_Login_pages/WorkStopped.jsx";
+import UpdateWorkStatusForm from "./Forms/UpdateWorkStatusForm.jsx";
 
 const App = () => {
  // ✅ Fixed version
@@ -189,6 +194,11 @@ if (isAuthLoading) {
                 <Route path="/Edit-Technical/:workId" element={<EditTechnical />} />
                 <Route path="/Edit-Administrative/:workId" element={<EditAdministrative />} />
                 <Route path="/Edit-Work/:workId" element={<EditWork />} />
+                <Route path="/Work-Cancelled" element={<WorkCancelled />} />
+                <Route path="/Work-Completed" element={<WorkCompleted />} />
+                <Route path="/Work-Not-Started" element={<WorkNstarted />} />
+                <Route path="/Work-Stopped" element={<WorkStopped />} />
+                <Route path="/Update-Work-Status/:workId" element={<UpdateWorkStatusForm />} />
                 
                 {/* ✅ FIXED: Admin-only routes with proper conditional rendering */}
                 {isAdmin() && (

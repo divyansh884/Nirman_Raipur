@@ -141,17 +141,17 @@ export default function DashboardPage({ onLogout }) {
 
   const topStats = [
     { label: "दर्ज कार्य", route: "/work", icon: <FileText size={28} />, color: "stat-blue" },
-    { label: "आरंभ", route: "/work", icon: <CheckSquare size={28} />, color: "stat-cyan" },
+    { label: "आरंभ", route: "/Work-Not-Started", icon: <CheckSquare size={28} />, color: "stat-cyan" },
     { label: "तकनीकी स्वीकृति", route: "/technical-approval", icon: <ClipboardCheck size={28} />, color: "stat-green" },
     { label: "प्रशासकीय स्वीकृति", route: "/administrative-approval", icon: <FileSignature size={28} />, color: "stat-yellow" },
     { label: "निविदा स्तर पर", route: "/tender", icon: <Briefcase size={28} />, color: "stat-purple" },
     { label: "कार्य आदेश लंबित", route: "/work-order", icon: <ClipboardList size={28} />, color: "stat-pink" },
     { label: "कार्य आदेश जारी", route: "/work", icon: <ClipboardList size={28} />, color: "stat-indigo" },
     { label: "कार्य प्रगति पर", route: "/work-in-progress", icon: <Hammer size={28} />, color: "stat-orange" },
-    { label: "कार्य पूर्ण", route: "/work", icon: <CheckCircle size={28} />, color: "stat-green-dark" },
-    { label: "कार्य निरस्त", route: "/work", icon: <XCircle size={28} />, color: "stat-red" },
-    { label: "कार्य बंद", route: "/work", icon: <Lock size={28} />, color: "stat-gray" },
-    { label: "30 दिनों से लंबित कार्य", route: "/work", icon: <Clock size={28} />, color: "stat-brown" },
+    { label: "कार्य पूर्ण", route: "/Work-Completed", icon: <CheckCircle size={28} />, color: "stat-green-dark" },
+    { label: "कार्य निरस्त", route: "/Work-Cancelled", icon: <XCircle size={28} />, color: "stat-red" },
+    { label: "कार्य बंद", route: "/Work-Stopped", icon: <Lock size={28} />, color: "stat-gray" },
+    // { label: "30 दिनों से लंबित कार्य", route: "/work", icon: <Clock size={28} />, color: "stat-brown" },
     // { label: "फोटो रहित कार्य", route: "/work", icon: <ImageOff size={28} />, color: "stat-teal" },
   ];
 

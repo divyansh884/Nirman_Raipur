@@ -484,6 +484,8 @@ const workProposalSchema = new mongoose.Schema(
         "Work In Progress",
         "Work Completed",
         "Work Cancelled",
+        "Work Stopped",
+        "Work Not Started",
       ],
       default: "Pending Technical Approval",
     },

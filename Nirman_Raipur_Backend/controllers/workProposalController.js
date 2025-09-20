@@ -231,6 +231,7 @@ const updateWorkProposal = async (req, res) => {
       "estimatedCompletionDateOfWork",
       "isDPROrNot",
       "isTenderOrNot",
+      "currentStatus",
     ];
 
     const updates = {};
@@ -287,11 +288,13 @@ const deleteWorkProposal = async (req, res) => {
         message: "Access denied",
       });
     }
-
     // Check if can be deleted
     if (
       workProposal.currentStatus !== "Pending Technical Approval" &&
-      workProposal.currentStatus !== "Work In Progress" &&
+      workProposal.currentStatus !== "Work Completed" &&
+      workProposal.currentStatus !== "Work Cancelled" &&
+      workProposal.currentStatus !== "Work Stopped" &&
+      workProposal.currentStatus !== "Work Not Started" &&
       workProposal.currentStatus !== "Pending Administrative Approval"
     ) {
       return res.status(400).json({

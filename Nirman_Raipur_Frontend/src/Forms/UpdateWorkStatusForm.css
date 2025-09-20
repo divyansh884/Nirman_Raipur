@@ -1,0 +1,281 @@
+/* ✅ SCOPED CSS - All styles prefixed with component name to avoid conflicts */
+
+.update-work-status-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.update-work-status-header {
+  background-color: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+.update-work-status-subbar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 15px 20px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-work-status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.update-work-status-wrap {
+  max-width: 900px;
+  margin: 30px auto;
+  padding: 0 20px;
+}
+
+.update-work-status-panel {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.update-work-status-panel-header {
+  background: #123c7e;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.update-work-status-panel-header h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.update-work-status-body {
+  padding: 30px;
+}
+
+/* Work Info Card */
+.update-work-status-info-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+}
+
+.update-work-status-info-card h4 {
+  margin: 0 0 15px 0;
+  color: #495057;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.update-work-status-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.update-work-status-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.update-work-status-info-item label {
+  font-weight: 600;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.update-work-status-info-item span {
+  color: #495057;
+  font-size: 16px;
+}
+
+/* Status Section */
+.update-work-status-section {
+  display: grid;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+.update-work-status-current-status h4,
+.update-work-status-new-status .update-work-status-form-label {
+  margin-bottom: 10px;
+  color: #495057;
+  font-weight: 600;
+}
+
+.update-work-status-badge {
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.update-work-status-form-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px 15px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+  font-family: inherit;
+}
+
+.update-work-status-form-input:focus {
+  border-color: #4CAF50;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.update-work-status-form-input.error {
+  border-color: #dc3545;
+}
+
+/* Status Preview */
+.update-work-status-preview {
+  margin-top: 15px;
+}
+
+.update-work-status-preview h5 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-weight: 600;
+}
+
+/* Confirmation Message */
+.update-work-status-confirmation {
+  margin: 20px 0;
+}
+
+.update-work-status-alert {
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-work-status-alert-info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.update-work-status-alert i {
+  font-size: 18px;
+}
+
+/* Form Actions */
+.update-work-status-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.update-work-status-btn {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.update-work-status-btn-primary {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+}
+
+.update-work-status-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.update-work-status-btn-primary:disabled {
+  background: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.update-work-status-btn-ghost {
+  background: transparent;
+  color: #6c757d;
+  border: 2px solid #6c757d;
+}
+
+.update-work-status-btn-ghost:hover:not(:disabled) {
+  background: #6c757d;
+  color: white;
+}
+
+/* Error Text */
+.update-work-status-error-text {
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 5px;
+  display: block;
+}
+
+.update-work-status-req {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .update-work-status-wrap {
+    margin: 15px auto;
+    padding: 0 15px;
+  }
+  
+  .update-work-status-body {
+    padding: 20px;
+  }
+  
+  .update-work-status-info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .update-work-status-actions {
+    flex-direction: column;
+  }
+  
+  .update-work-status-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .update-work-status-subbar h2 {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .update-work-status-subbar {
+    padding: 10px 15px;
+  }
+  
+  .update-work-status-panel-header {
+    padding: 15px;
+  }
+  
+  .update-work-status-panel-header h3 {
+    font-size: 20px;
+  }
+}

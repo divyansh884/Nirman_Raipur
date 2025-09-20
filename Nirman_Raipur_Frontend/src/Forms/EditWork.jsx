@@ -953,7 +953,7 @@ export default function EditWork({ onWorkUpdated, onBack }) {
               {errors.workDescription && <small className="err">{errors.workDescription}</small>}
             </div>
 
-            <div className="fld">
+            {/* <div className="fld">
               <label>कार्य आदेश राशि (लाख रुपये)</label>
               <input 
                 name="workOrderAmount" 
@@ -965,7 +965,7 @@ export default function EditWork({ onWorkUpdated, onBack }) {
                 disabled={isSubmitting}
               />
               {errors.workOrderAmount && <small className="err">{errors.workOrderAmount}</small>}
-            </div>
+            </div> */}
           </div>
 
           {/* Checkbox Section */}

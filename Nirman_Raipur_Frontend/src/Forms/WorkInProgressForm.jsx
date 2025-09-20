@@ -10,10 +10,10 @@ export default function WorkInProgressForm({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { workId } = useParams();
-
+  
   // Get authentication from Zustand store
   const { token, isAuthenticated, logout } = useAuthStore();
-
+  
   // ✅ Set Page Title and Check Authentication
   useEffect(() => {
     document.title = "निर्माण | राशि प्रगति प्रपत्र";
@@ -23,7 +23,6 @@ export default function WorkInProgressForm({ onLogout }) {
       navigate(-1);
       return;
     }
-
     if (!isAuthenticated || !token) {
       alert("प्रमाणीकरण आवश्यक है। कृपया लॉगिन करें।");
       navigate("/login");
@@ -31,7 +30,7 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   }, [workId, navigate, isAuthenticated, token]);
 
-  // ✅ Updated form state to match API body structure
+  // ✅ Updated form state to include currentStatus
   const [form, setForm] = useState({
     desc: "",
     sanctionedAmount: "",
@@ -39,9 +38,19 @@ export default function WorkInProgressForm({ onLogout }) {
     remainingBalance: "",
     mbStageMeasurementBookStag: "",
     expenditureAmount: "",
+    currentStatus: "", // ✅ ADDED: Current status field
     document: null,
     images: []
   });
+
+  // ✅ Status options
+  const statusOptions = [
+    "Work In Progress",
+    "Work Completed", 
+    "Work Cancelled",
+    "Work Stopped",
+    "Work Not Started"
+  ];
 
   // ✅ Installments state - separate array
   const [installments, setInstallments] = useState([
@@ -98,7 +107,7 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
-  // ✅ Form validation
+  // ✅ Enhanced form validation with currentStatus
   const validateForm = () => {
     const newErrors = {};
     
@@ -126,13 +135,10 @@ export default function WorkInProgressForm({ onLogout }) {
       newErrors.expenditureAmount = 'वैध व्यय राशि दर्ज करें';
     }
 
-    // if (!form.document) {
-    //   newErrors.document = 'दस्तावेज़ संलग्न करना आवश्यक है';
-    // }
-
-    // if (!form.images || form.images.length === 0) {
-    //   newErrors.images = 'कम से कम एक छवि संलग्न करना आवश्यक है';
-    // }
+    // ✅ ADDED: Validate currentStatus (required field)
+    if (!form.currentStatus.trim()) {
+      newErrors.currentStatus = 'कार्य स्थिति चुनना आवश्यक है';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -153,6 +159,30 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
+  // ✅ ADDED: Function to update work status
+  const updateWorkStatus = async (statusValue) => {
+    try {
+      console.log("📤 Updating work status to:", statusValue);
+      
+      const response = await axios.put(
+        `${BASE_SERVER_URL}/work-proposals/${workId}`,
+        { currentStatus: statusValue },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log("✅ Work status updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Status update error:", error);
+      throw error;
+    }
+  };
+
   const handleLogout = () => {
     if (window.confirm("क्या आप लॉगआउट करना चाहते हैं?")) {
       logout();
@@ -164,7 +194,7 @@ export default function WorkInProgressForm({ onLogout }) {
     navigate(-1);
   };
 
-  // ✅ Main Submit Handler
+  // ✅ Enhanced Submit Handler with status update
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -172,13 +202,13 @@ export default function WorkInProgressForm({ onLogout }) {
       if (!validateForm()) {
         return;
       }
-
+      
       if (!isAuthenticated || !token) {
         alert("आपका सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।");
         navigate("/login");
         return;
       }
-
+      
       if (!workId) {
         alert("कार्य ID नहीं मिला। कृपया पेज रीलोड करें।");
         return;
@@ -186,10 +216,17 @@ export default function WorkInProgressForm({ onLogout }) {
 
       setIsSubmitting(true);
 
-      // ✅ Create FormData for file upload
+      // ✅ STEP 1: Update work status first
+      console.log("🚀 Step 1: Updating work status...");
+      await updateWorkStatus(form.currentStatus);
+
+      // ✅ STEP 2: Submit progress data
+      console.log("🚀 Step 2: Submitting progress data...");
+      
+      // Create FormData for file upload
       const formData = new FormData();
       
-      // Add text fields
+      // Add text fields (excluding currentStatus as it's already updated)
       formData.append("desc", form.desc);
       formData.append("sanctionedAmount", parseFloat(form.sanctionedAmount));
       formData.append("totalAmountReleasedSoFar", parseFloat(form.totalAmountReleasedSoFar));
@@ -197,7 +234,7 @@ export default function WorkInProgressForm({ onLogout }) {
       formData.append("mbStageMeasurementBookStag", form.mbStageMeasurementBookStag);
       formData.append("expenditureAmount", parseFloat(form.expenditureAmount));
 
-      // ✅ Add installments as JSON string (converted to proper format)
+      // Add installments as JSON string (converted to proper format)
       const processedInstallments = installments
         .filter(inst => inst.amount && inst.date) // Only include complete installments
         .map(inst => ({
@@ -212,7 +249,7 @@ export default function WorkInProgressForm({ onLogout }) {
       if (form.document) {
         formData.append("document", form.document);
       }
-
+      
       form.images.forEach((image, index) => {
         formData.append("images", image);
       });
@@ -226,12 +263,13 @@ export default function WorkInProgressForm({ onLogout }) {
       console.log("💰 Remaining Balance:", form.remainingBalance);
       console.log("📊 MB Stage:", form.mbStageMeasurementBookStag);
       console.log("💸 Expenditure Amount:", form.expenditureAmount);
+      console.log("🏷️ Current Status:", form.currentStatus);
       console.log("📁 Document:", form.document?.name);
       console.log("🖼️ Images:", form.images.length);
       console.log("📋 Installments:", processedInstallments);
 
-      // ✅ API call
-      const response = await axios.post(
+      // API call for progress update
+      const progressResponse = await axios.post(
         `${BASE_SERVER_URL}/work-proposals/${workId}/progress`,
         formData,
         {
@@ -242,8 +280,8 @@ export default function WorkInProgressForm({ onLogout }) {
         }
       );
 
-      console.log("✅ Progress submitted successfully:", response.data);
-      alert("राशि प्रगति प्रपत्र सफलतापूर्वक सहेजा गया!");
+      console.log("✅ Progress submitted successfully:", progressResponse.data);
+      alert("राशि प्रगति प्रपत्र और कार्य स्थिति सफलतापूर्वक सहेजी गई!");
       
       // Reset form
       setForm({
@@ -253,13 +291,14 @@ export default function WorkInProgressForm({ onLogout }) {
         remainingBalance: "",
         mbStageMeasurementBookStag: "",
         expenditureAmount: "",
+        currentStatus: "", // ✅ ADDED: Reset status field
         document: null,
         images: []
       });
       
       setInstallments([{ installmentNo: 1, amount: "", date: "" }]);
       setErrors({});
-
+      
       // Clear file inputs
       const documentInput = document.getElementById("documentUpload");
       const imagesInput = document.getElementById("imagesUpload");
@@ -270,7 +309,7 @@ export default function WorkInProgressForm({ onLogout }) {
       setTimeout(() => {
         navigate(-1);
       }, 1500);
-
+      
     } catch (error) {
       console.error("❌ Form submission error:", error);
       
@@ -350,10 +389,35 @@ export default function WorkInProgressForm({ onLogout }) {
       <div className="wrap">
         <section className="panel">
           <div className="panel-header">
-            <h3>राशि प्रगति विवरण </h3>
+            <h3>राशि प्रगति विवरण</h3>
           </div>
-
+          
           <form className="p-body" onSubmit={handleSubmit}>
+            {/* ✅ ADDED: Current Status Field */}
+            <div className="form-group full">
+              <label className="form-label">
+                कार्य की वर्तमान स्थिति <span className="req">*</span>
+              </label>
+              <select
+                name="currentStatus"
+                value={form.currentStatus}
+                onChange={handleChange}
+                className={`form-input ${errors.currentStatus ? 'error' : ''}`}
+                disabled={isSubmitting}
+                required
+              >
+                <option value="">-- कार्य स्थिति चुनें --</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              {errors.currentStatus && (
+                <span className="error-text">{errors.currentStatus}</span>
+              )}
+            </div>
+
             {/* Progress Description */}
             <div className="form-group full">
               <label className="form-label">
@@ -484,7 +548,7 @@ export default function WorkInProgressForm({ onLogout }) {
 
             {/* File Uploads */}
             <div className="form-grid">
-              {/* Document Upload - Required */}
+              {/* Document Upload */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
                   दस्तावेज़ संलग्न करें <span className="req">*</span>
@@ -508,7 +572,7 @@ export default function WorkInProgressForm({ onLogout }) {
                 )}
               </div>
 
-              {/* Images Upload - Required (Multiple) */}
+              {/* Images Upload */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
                   छवियां संलग्न करें <span className="req">*</span>
@@ -613,7 +677,7 @@ export default function WorkInProgressForm({ onLogout }) {
                 className="btn btn-primary"
                 disabled={isSubmitting || !workId}
               >
-                {isSubmitting ? "सबमिट हो रहा है..." : "Save Progress"}
+                {isSubmitting ? "सबमिट हो रहा है..." : "Save Progress & Update Status"}
               </button>
               <button
                 type="button"
