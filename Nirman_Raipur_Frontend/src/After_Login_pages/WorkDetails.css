@@ -853,7 +853,11 @@
   font-size: 16px;
   transition: border-color 0.2s ease;
 }
-
+.header-actions{
+  display: flex;
+  justify-content: space-between;
+  justify-items: center;
+}
 .input-group input:focus {
   outline: none;
   border-color: #3b82f6;

@@ -32,7 +32,16 @@ router.post('/:id/work-order', auth, uploadFields, s3UploadDoc, createWorkOrderV
 // @route   PUT /api/work-proposals/:id/work-order
 // @desc    Update work order
 // @access  Private (Work Order Manager)
-router.put('/:id/work-order', auth, updateWorkOrderValidation, updateWorkOrder);
+router.put(
+  "/:id/work-order",
+  auth,
+  // authorizeRole("Work Order Manager"),
+  uploadFields,
+  s3UploadDoc,
+  createWorkOrderValidation,
+  updateWorkOrder,
+);
+
 
 // @route   POST /api/work-proposals/:id/work-order/start-work
 // @desc    Start work (change status to Work In Progress)

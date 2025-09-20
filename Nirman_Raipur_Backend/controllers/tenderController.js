@@ -65,18 +65,16 @@ const startTenderProcess = async (req, res) => {
 // @desc    Update tender status
 // @route   PUT /api/work-proposals/:id/tender/status
 // @access  Private (Tender Manager)
-const updateTenderStatus = async (req, res) => {
+const updateTenderProcess = async (req, res) => {
   try {
-    const { tenderStatus, remark } = req.body;
-
-    const validStatuses = ['Notice Published', 'Bid Submission', 'Under Evaluation', 'Awarded', 'Cancelled'];
-    
-    if (!validStatuses.includes(tenderStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid tender status'
-      });
-    }
+    const { 
+      tenderTitle, 
+      tenderID, 
+      department, 
+      issuedDates, 
+      remark, 
+      tenderStatus 
+    } = req.body;
 
     const workProposal = await WorkProposal.findById(req.params.id);
 
@@ -87,47 +85,122 @@ const updateTenderStatus = async (req, res) => {
       });
     }
 
-    if (workProposal.currentStatus !== 'Tender In Progress') {
+    // Check if tender process exists
+    if (!workProposal.tenderProcess || !workProposal.tenderProcess.tenderTitle) {
       return res.status(400).json({
         success: false,
-        message: 'Tender process is not in progress'
+        message: 'Tender process does not exist. Please create tender first.'
       });
     }
 
-    workProposal.tenderProcess.tenderStatus = tenderStatus;
-    if (remark) {
-      workProposal.tenderProcess.remark = remark;
+    // Allow updates at ALL workflow stages (no status restrictions)
+    const allowedStatuses = [
+      'Pending Technical Approval',
+      'Rejected Technical Approval',
+      'Pending Administrative Approval',
+      'Rejected Administrative Approval',
+      'Pending Tender',
+      'Tender In Progress',
+      'Pending Work Order',
+      'Work Order Created',
+      'Work In Progress',
+      'Work Completed',
+      'Work Cancelled'
+    ];
+
+    if (!allowedStatuses.includes(workProposal.currentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tender process cannot be updated at current stage'
+      });
     }
 
-    // If tender is awarded, move to work order stage
-    if (tenderStatus === 'Awarded') {
-      workProposal.currentStatus = 'Pending Work Order';
-      workProposal.workProgressStage = 'Pending Work Order';
+    // Check department permission (uncomment if needed)
+    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'You can only update tenders for your department'
+    //   });
+    // }
+
+    const validTenderStatuses = [
+      'Not Started',
+      'Notice Published', 
+      'Bid Submission', 
+      'Under Evaluation', 
+      'Awarded', 
+      'Cancelled'
+    ];
+
+    // Validate tender status if provided
+    if (tenderStatus !== undefined && !validTenderStatuses.includes(tenderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid tender status. Valid statuses: ' + validTenderStatuses.join(', ')
+      });
     }
 
-    // If tender is cancelled, move back to pending tender
-    if (tenderStatus === 'Cancelled') {
-      workProposal.currentStatus = 'Pending Tender';
-      workProposal.workProgressStage = 'Pending Tender';
-      workProposal.tenderProcess.tenderStatus = 'Not Started';
+    const currentTenderProcess = workProposal.tenderProcess;
+
+    // Update tender process fields only if provided (partial update)
+    if (tenderTitle !== undefined) {
+      currentTenderProcess.tenderTitle = tenderTitle;
     }
+
+    if (tenderID !== undefined) {
+      currentTenderProcess.tenderID = tenderID;
+    }
+
+    if (department !== undefined) {
+      currentTenderProcess.department = department;
+    }
+
+    if (issuedDates !== undefined) {
+      currentTenderProcess.issuedDates = new Date(issuedDates);
+    }
+
+    if (remark !== undefined) {
+      currentTenderProcess.remark = remark;
+    }
+
+    if (tenderStatus !== undefined) {
+      currentTenderProcess.tenderStatus = tenderStatus;
+    }
+
+    // Update attached file if uploaded
+    if (req.s3Uploads?.document) {
+      currentTenderProcess.attachedFile = req.s3Uploads.document;
+    }
+
+    // Update modification timestamp and user
+    currentTenderProcess.lastModified = new Date();
+    currentTenderProcess.modifiedBy = req.user.id;
+
+    // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+    // This allows updating tender data without affecting workflow progression
 
     await workProposal.save();
 
     res.json({
       success: true,
-      message: 'Tender status updated successfully',
-      data: workProposal
+      message: 'Tender process updated successfully',
+      data: {
+        id: workProposal._id,
+        currentStatus: workProposal.currentStatus,
+        tenderProcess: workProposal.tenderProcess
+      }
     });
+
   } catch (error) {
-    console.error('Error updating tender status:', error);
+    console.error('Error updating tender process:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating tender status',
+      message: 'Error updating tender process',
       error: error.message
     });
   }
 };
+
 
 // @desc    Award tender to contractor
 // @route   POST /api/work-proposals/:id/tender/award
@@ -247,7 +320,7 @@ const getAllTenders = async (req, res) => {
 
 module.exports = {
   startTenderProcess,
-  updateTenderStatus,
+  updateTenderProcess,
   awardTender,
   getAllTenders
 };

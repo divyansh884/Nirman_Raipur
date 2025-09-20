@@ -2,7 +2,8 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const SDO = require('../models/subSchema/sdo');
 const { auth, authorizeRole } = require('../middleware/auth');
-
+const WorkProposal = require('../models/WorkProposal'); 
+const mongoose = require('mongoose');
 const router = express.Router();
 
 // Helper for validation
@@ -176,22 +177,103 @@ router.delete(
   validate([param('id').isMongoId()]),
   async (req, res) => {
     try {
-      const sdo = await SDO.findByIdAndDelete(req.params.id);
+      const sdoId = req.params.id;
+      
+      // First, check if the SDO exists
+      const sdo = await SDO.findById(sdoId);
       if (!sdo) {
         return res
           .status(404)
           .json({ success: false, message: 'SDO not found' });
       }
-      res.json({ success: true, message: 'SDO deleted' });
+
+      console.log(`🔍 Checking references for SDO: ${sdo.name} (ID: ${sdoId})`);
+
+      // ✅ COMPREHENSIVE CHECK: Get ALL work proposals and check manually
+      const allWorkProposals = await WorkProposal.find({}, 
+        'appointedSDO nameOfWork serialNumber currentStatus'
+      );
+      
+      // Filter work proposals that use this SDO
+      const workProposalsWithSDO = allWorkProposals.filter(wp => {
+        if (wp.appointedSDO && wp.appointedSDO._id) {
+          const workProposalSDOId = wp.appointedSDO._id.toString();
+          return workProposalSDOId === sdoId;
+        }
+        return false;
+      });
+
+      console.log(`🔍 Checked ${allWorkProposals.length} total work proposals`);
+      console.log(`📊 Found ${workProposalsWithSDO.length} work proposals using SDO "${sdo.name}" (ID: ${sdoId})`);
+
+      // Log the matching work proposals for debugging
+      if (workProposalsWithSDO.length > 0) {
+        console.log(`🚫 Work proposals using this SDO:`);
+        workProposalsWithSDO.forEach(wp => {
+          console.log(`   - ${wp.serialNumber}: ${wp.nameOfWork} (SDO: ${wp.appointedSDO.name})`);
+        });
+      }
+
+      // ✅ PREVENT DELETION if SDO is being used
+      if (workProposalsWithSDO.length > 0) {
+        const workProposalDetails = workProposalsWithSDO.map(wp => ({
+          id: wp._id,
+          serialNumber: wp.serialNumber,
+          nameOfWork: wp.nameOfWork,
+          currentStatus: wp.currentStatus,
+          appointedSDO: wp.appointedSDO?.name
+        }));
+
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete SDO "${sdo.name}": It is being used by ${workProposalsWithSDO.length} work proposal(s)`,
+          details: {
+            sdoId: sdoId,
+            sdoName: sdo.name,
+            totalReferences: workProposalsWithSDO.length,
+            referencedBy: {
+              collection: "Work Proposals",
+              count: workProposalsWithSDO.length,
+              workProposals: workProposalDetails
+            },
+            suggestions: [
+              "Update the appointed SDO field in all referenced work proposals before deleting this SDO",
+              "Consider reassigning work proposals to a different SDO",
+              "Contact the system administrator if this SDO needs to be replaced with another SDO"
+            ]
+          }
+        });
+      }
+
+      // ✅ NO REFERENCES FOUND - Safe to delete
+      console.log(`✅ No references found for SDO "${sdo.name}". Safe to delete.`);
+      
+      await SDO.findByIdAndDelete(sdoId);
+      
+      console.log(`🗑️ Successfully deleted SDO: ${sdo.name} (ID: ${sdoId})`);
+      
+      res.json({ 
+        success: true, 
+        message: `SDO "${sdo.name}" deleted successfully`,
+        data: {
+          deletedSDO: {
+            id: sdo._id,
+            name: sdo.name,
+            deletedAt: new Date()
+          }
+        }
+      });
+
     } catch (error) {
-      console.error('Error deleting SDO:', error);
+      console.error("❌ Error deleting SDO:", error);
       res.status(500).json({ 
         success: false, 
-        message: 'Internal server error',
+        message: "Internal server error",
         error: error.message 
       });
     }
   }
 );
+
 
 module.exports = router;

@@ -56,6 +56,11 @@ import Report12 from "./After_Login_pages/Reports/Report12.jsx";
 import AdminDepartmentForms from "./Forms/AdminDepartmentForms.jsx";
 import AdminUserForm from "./Forms/AdminUserForm.jsx";
 import AdminWorkForm from "./Forms/AdminWorkForm.jsx";
+import EditTender from "./Forms/EditTender.jsx";
+import EditWorkOrder from "./Forms/EditWorkOder.jsx";
+import EditTechnical from "./Forms/EditTechnical.jsx";
+import EditAdministrative from "./Forms/EditAdministrative.jsx";
+import EditWork from "./Forms/EditWork.jsx";
 
 const App = () => {
  // ✅ Fixed version
@@ -179,6 +184,11 @@ if (isAuthLoading) {
                 <Route path="/Report/Report10" element={<Report10 />} />
                 <Route path="/Report/Report11" element={<Report11 />} />
                 <Route path="/Report/Report12" element={<Report12 />} />
+                <Route path="/Edit-Tender/:workId" element={<EditTender />} />
+                <Route path="/Edit-Work-Order/:workId" element={<EditWorkOrder />} />
+                <Route path="/Edit-Technical/:workId" element={<EditTechnical />} />
+                <Route path="/Edit-Administrative/:workId" element={<EditAdministrative />} />
+                <Route path="/Edit-Work/:workId" element={<EditWork />} />
                 
                 {/* ✅ FIXED: Admin-only routes with proper conditional rendering */}
                 {isAdmin() && (

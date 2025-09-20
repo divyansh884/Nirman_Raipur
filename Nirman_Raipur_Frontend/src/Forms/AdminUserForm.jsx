@@ -442,7 +442,6 @@ function AdminUserForm({ onLogout }) {
                       <option value="Engineer">Engineer</option>
                       <option value="Tender Manager">Tender Manager</option>
                       <option value="Work Order Manager">Work Order Manager</option>
-                      <option value="User">User</option>
                     </select>
                     {errors.role && (
                       <span className="error-msg">{errors.role}</span>

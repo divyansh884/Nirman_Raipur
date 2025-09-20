@@ -2,7 +2,8 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const Scheme = require('../models/subSchema/scheme'); // ✅ Fixed: Remove destructuring
 const { auth, authorizeRole } = require('../middleware/auth');
-
+const WorkProposal = require('../models/WorkProposal'); 
+const mongoose = require('mongoose');
 const router = express.Router();
 
 // Helper for validation
@@ -168,28 +169,109 @@ router.patch(
 // --- DELETE ---
 // DELETE /api/admin/scheme/:id
 router.delete(
-  '/:id', // ✅ Changed from '/schemes/:id' to '/:id'
+  '/:id',
   auth,
   authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
-    try { // ✅ Added try-catch
-      const scheme = await Scheme.findByIdAndDelete(req.params.id);
+    try {
+      const schemeId = req.params.id;
+      
+      // First, check if the scheme exists
+      const scheme = await Scheme.findById(schemeId);
       if (!scheme) {
         return res
           .status(404)
           .json({ success: false, message: 'Scheme not found' });
       }
-      res.json({ success: true, message: 'Scheme deleted' });
+
+      console.log(`🔍 Checking references for scheme: ${scheme.name} (ID: ${schemeId})`);
+
+      // ✅ COMPREHENSIVE CHECK: Get ALL work proposals and check manually
+      const allWorkProposals = await WorkProposal.find({}, 
+        'scheme nameOfWork serialNumber currentStatus'
+      );
+      
+      // Filter work proposals that use this scheme
+      const workProposalsWithScheme = allWorkProposals.filter(wp => {
+        if (wp.scheme && wp.scheme._id) {
+          const workProposalSchemeId = wp.scheme._id.toString();
+          return workProposalSchemeId === schemeId;
+        }
+        return false;
+      });
+
+      console.log(`🔍 Checked ${allWorkProposals.length} total work proposals`);
+      console.log(`📊 Found ${workProposalsWithScheme.length} work proposals using scheme "${scheme.name}" (ID: ${schemeId})`);
+
+      // Log the matching work proposals for debugging
+      if (workProposalsWithScheme.length > 0) {
+        console.log(`🚫 Work proposals using this scheme:`);
+        workProposalsWithScheme.forEach(wp => {
+          console.log(`   - ${wp.serialNumber}: ${wp.nameOfWork} (Scheme: ${wp.scheme.name})`);
+        });
+      }
+
+      // ✅ PREVENT DELETION if scheme is being used
+      if (workProposalsWithScheme.length > 0) {
+        const workProposalDetails = workProposalsWithScheme.map(wp => ({
+          id: wp._id,
+          serialNumber: wp.serialNumber,
+          nameOfWork: wp.nameOfWork,
+          currentStatus: wp.currentStatus,
+          schemeName: wp.scheme?.name
+        }));
+
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete scheme "${scheme.name}": It is being used by ${workProposalsWithScheme.length} work proposal(s)`,
+          details: {
+            schemeId: schemeId,
+            schemeName: scheme.name,
+            totalReferences: workProposalsWithScheme.length,
+            referencedBy: {
+              collection: "Work Proposals",
+              count: workProposalsWithScheme.length,
+              workProposals: workProposalDetails
+            },
+            suggestions: [
+              "Update the scheme field in all referenced work proposals before deleting this scheme",
+              "Consider reassigning work proposals to a different scheme",
+              "Contact the system administrator if this scheme needs to be merged with another scheme"
+            ]
+          }
+        });
+      }
+
+      // ✅ NO REFERENCES FOUND - Safe to delete
+      console.log(`✅ No references found for scheme "${scheme.name}". Safe to delete.`);
+      
+      await Scheme.findByIdAndDelete(schemeId);
+      
+      console.log(`🗑️ Successfully deleted scheme: ${scheme.name} (ID: ${schemeId})`);
+      
+      res.json({ 
+        success: true, 
+        message: `Scheme "${scheme.name}" deleted successfully`,
+        data: {
+          deletedScheme: {
+            id: scheme._id,
+            name: scheme.name,
+            deletedAt: new Date()
+          }
+        }
+      });
+
     } catch (error) {
-      console.error('Error deleting scheme:', error);
+      console.error("❌ Error deleting scheme:", error);
       res.status(500).json({ 
         success: false, 
-        message: 'Internal server error',
+        message: "Internal server error",
         error: error.message 
       });
     }
   }
 );
+
 
 module.exports = router;

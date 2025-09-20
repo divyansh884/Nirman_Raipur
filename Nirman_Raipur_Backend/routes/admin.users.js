@@ -16,7 +16,7 @@ const User = require("../models/User");
 const { auth, authorizeRole } = require("../middleware/auth");
 const mongoose = require("mongoose");
 const Department = require("../models/Department");
-
+const WorkProposal = require('../models/WorkProposal'); 
 const router = express.Router();
 
 // --- helper: validation glue ---
@@ -328,19 +328,104 @@ router.post(
 // DELETE /api/admin/user/:id
 router.delete("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const userId = req.params.id;
 
+    // First, check if the User exists
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    await user.deleteOne();
-    res.json({ message: "User deleted successfully" });
+    console.log(`🔍 Checking references for User: ${user.fullName} (ID: ${userId})`);
+
+    // ✅ COMPREHENSIVE CHECK: Get ALL work proposals and check for appointed engineer
+    const allWorkProposals = await WorkProposal.find({}, 
+      'appointedEngineer nameOfWork serialNumber currentStatus'
+    );
+    
+    // Filter work proposals that have this user as appointed engineer
+    const workProposalsWithUser = allWorkProposals.filter(wp => {
+      if (wp.appointedEngineer && wp.appointedEngineer._id) {
+        const appointedEngineerId = wp.appointedEngineer._id.toString();
+        return appointedEngineerId === userId;
+      }
+      return false;
+    });
+
+    console.log(`🔍 Checked ${allWorkProposals.length} total work proposals`);
+    console.log(`📊 Found ${workProposalsWithUser.length} work proposals where "${user.fullName}" is appointed as engineer (ID: ${userId})`);
+
+    // Log the matching work proposals for debugging
+    if (workProposalsWithUser.length > 0) {
+      console.log(`🚫 Work proposals where this user is appointed engineer:`);
+      workProposalsWithUser.forEach(wp => {
+        console.log(`   - ${wp.serialNumber}: ${wp.nameOfWork} (Engineer: ${wp.appointedEngineer.fullName || wp.appointedEngineer.displayName})`);
+      });
+    }
+
+    // ✅ PREVENT DELETION if user is appointed as engineer in work proposals
+    if (workProposalsWithUser.length > 0) {
+      const workProposalDetails = workProposalsWithUser.map(wp => ({
+        id: wp._id,
+        serialNumber: wp.serialNumber,
+        nameOfWork: wp.nameOfWork,
+        currentStatus: wp.currentStatus,
+        appointedEngineer: wp.appointedEngineer?.fullName || wp.appointedEngineer?.displayName
+      }));
+
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete User "${user.fullName}": This user is appointed as engineer in ${workProposalsWithUser.length} work proposal(s)`,
+        details: {
+          userId: userId,
+          userFullName: user.fullName,
+          userEmail: user.email,
+          totalReferences: workProposalsWithUser.length,
+          referencedBy: {
+            collection: "Work Proposals",
+            count: workProposalsWithUser.length,
+            field: "appointedEngineer",
+            workProposals: workProposalDetails
+          },
+          suggestions: [
+            "Reassign all work proposals to a different engineer before deleting this user",
+            "Update the appointed engineer field in all referenced work proposals",
+            "Consider deactivating the user instead of deleting if they have historical data"
+          ]
+        }
+      });
+    }
+
+    // ✅ NO REFERENCES FOUND - Safe to delete
+    console.log(`✅ No work proposals found where "${user.fullName}" is appointed as engineer. Safe to delete.`);
+    
+    await User.findByIdAndDelete(userId);
+    
+    console.log(`🗑️ Successfully deleted User: ${user.fullName} (${user.email}) - ID: ${userId}`);
+    
+    res.json({ 
+      success: true, 
+      message: `User "${user.fullName}" deleted successfully`,
+      data: {
+        deletedUser: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          deletedAt: new Date()
+        }
+      }
+    });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("❌ Error deleting User:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 });
+
 
 module.exports = router;
 

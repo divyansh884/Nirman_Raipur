@@ -852,211 +852,220 @@ const WorkDetails = ({ onLogout, onBack }) => {
         <div className="content-grid-two">
           {/* Main Work Details Section */}
           <div className="main-section">
-            <section className="panel work-info">
-              <div className="panel-header">
-                <h3>कार्य सूची - {safeRender(workData.typeOfWork)}</h3>
-                <div style={{fontSize:'12px', opacity:0.9}}>
-                  Serial: {safeRender(workData.serialNumber)}
-                  {selectedEntry !== 'all' && (
-                    <span style={{marginLeft: '10px', color: '#ff6b35'}}>
-                      • Entry {selectedEntry} Selected
-                    </span>
-                  )}
+  <section className="panel work-info">
+    <div className="panel-header">
+      <h3>कार्य सूची - {safeRender(workData.typeOfWork)}</h3>
+      <div className="header-actions">
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          Serial: {safeRender(workData.serialNumber)}
+          {selectedEntry !== 'all' && (
+            <span style={{marginLeft: '10px', color: '#ff6b35'}}>
+              • Entry {selectedEntry} Selected
+            </span>
+          )}
+        </div>
+        <button 
+          className="btn btn-edit"
+          onClick={() => navigate(`/Edit-Work/${workData._id}`)}
+          title="कार्य विवरण संपादित करें"
+        >
+          <i className="fa-solid fa-edit"></i> Edit
+        </button>
+      </div>
+    </div>
+    <div className="p-body">
+      <div className="work-details-grid">
+        <div className="detail-row">
+          <label>कार्य का नाम</label>
+          <span>{safeRender(workData.nameOfWork, 'Unnamed Work')}</span>
+        </div>
+        <div className="detail-row">
+          <label>कार्य के प्रकार</label>
+          <span>{safeRender(workData.typeOfWork)}</span>
+        </div>
+        <div className="detail-row">
+          <label>ग्राम/वार्ड</label>
+          <span>{safeRender(workData.ward || workData.nameOfGPWard)}</span>
+        </div>
+        <div className="detail-row">
+          <label>कार्य एजेंसी</label>
+          <span>{safeRender(workData.workAgency)}</span>
+        </div>
+        <div className="detail-row">
+          <label>स्वीकृत वर्ष</label>
+          <span>{safeRender(workData.financialYear)}</span>
+        </div>
+        <div className="detail-row">
+          <label>योजना</label>
+          <span>{safeRender(workData.scheme)}</span>
+        </div>
+        <div className="detail-row">
+          <label>राशि (लाख रुपये)</label>
+          <span>{formatCurrency(workData.sanctionAmount)}</span>
+        </div>
+        <div className="detail-row">
+          <label>कार्य विभाग</label>
+          <span>{safeRender(workData.workDepartment)}</span>
+        </div>
+        <div className="detail-row">
+          <label>स्वीकृतकर्ता विभाग</label>
+          <span>{safeRender(workData.approvingDepartment)}</span>
+        </div>
+        <div className="detail-row">
+          <label>शहर</label>
+          <span>{safeRender(workData.city)}</span>
+        </div>
+        <div className="detail-row">
+          <label>स्थान का प्रकार</label>
+          <span>{safeRender(workData.typeOfLocation)}</span>
+        </div>
+        <div className="detail-row">
+          <label>नियुक्त इंजीनियर</label>
+          <span>{safeRender(workData.appointedEngineer?.fullName || workData.appointedEngineer)}</span>
+        </div>
+        <div className="detail-row">
+          <label>नियुक्त एस.डी.ओ</label>
+          <span>{safeRender(workData.appointedSDO)}</span>
+        </div>
+        <div className="detail-row">
+          <label>वर्तमान स्थिति</label>
+          <span>{safeRender(workData.currentStatus)}</span>
+        </div>
+        <div className="detail-row">
+          <label>कार्य विवरण</label>
+          <span>{safeRender(workData.workDescription)}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ✅ FIXED Progress Details Section - Unchanged */}
+  {workData.workProgress && workData.workProgress.length > 0 && (
+    <section className="panel progress-section">
+      <div className="panel-header">
+        <h3>प्रगति विवरण 📊</h3>
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          {selectedEntry === 'all' 
+            ? `Total Entries: ${(originalWorkData?.workProgress?.length || 0) - 1}`
+            : `Entry ${selectedEntry} of ${(originalWorkData?.workProgress?.length || 0) - 1}`
+          }
+        </div>
+      </div>
+      <div className="p-body">
+        {(() => {
+          console.log('🔍 Rendering progress. Selected entry:', selectedEntry);
+          console.log('📊 WorkData progress length:', workData.workProgress?.length);
+          console.log('📊 WorkData progress:', workData.workProgress);
+          
+          if (selectedEntry === 'all') {
+            // Show all entries except index 0
+            const progressEntries = originalWorkData.workProgress?.slice(1) || [];
+            console.log('📋 Showing all entries:', progressEntries.length);
+            
+            return progressEntries.map((progress, index) => (
+              <div key={progress._id || `all-${index}`} className="progress-detail-card">
+                <div className="progress-header">
+                  <h4>Progress Entry {index + 1}</h4>
+                  <span className="progress-date">{formatDate(progress.createdAt)}</span>
+                </div>
+                
+                <div className="progress-grid">
+                  <div className="progress-item">
+                    <label>विवरण</label>
+                    <span>{safeRender(progress.desc)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>स्वीकृत राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(progress.sanctionedAmount)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>कुल जारी राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(progress.totalAmountReleasedSoFar)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>शेष राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(progress.remainingBalance)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>व्यय राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(progress.expenditureAmount)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>MB स्टेज</label>
+                    <span>{safeRender(progress.mbStageMeasurementBookStag)}</span>
+                  </div>
+                  <div className="progress-item">
+                    <label>दस्तावेज़</label>
+                    <DocumentButton 
+                      document={progress.progressDocuments} 
+                      title={`प्रगति दस्तावेज़ ${index + 1}`}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="p-body">
-                <div className="work-details-grid">
-                  <div className="detail-row">
-                    <label>कार्य का नाम</label>
-                    <span>{safeRender(workData.nameOfWork, 'Unnamed Work')}</span>
+            ));
+          } else {
+            // ✅ FIXED: Show specific entry - workData.workProgress[0] contains the selected entry
+            const specificProgress = workData.workProgress[0];
+            console.log('📌 Showing specific entry:', selectedEntry, specificProgress);
+            
+            if (!specificProgress) {
+              return (
+                <div className="no-progress">
+                  <p>कोई प्रगति डेटा उपलब्ध नहीं है</p>
+                </div>
+              );
+            }
+            
+            return (
+              <div key={specificProgress._id || `entry-${selectedEntry}`} className="progress-detail-card">
+                <div className="progress-header">
+                  <h4>Progress Entry {selectedEntry}</h4>
+                  <span className="progress-date">{formatDate(specificProgress.createdAt)}</span>
+                </div>
+                
+                <div className="progress-grid">
+                  <div className="progress-item">
+                    <label>विवरण</label>
+                    <span>{safeRender(specificProgress.desc)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>कार्य के प्रकार</label>
-                    <span>{safeRender(workData.typeOfWork)}</span>
+                  <div className="progress-item">
+                    <label>स्वीकृत राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(specificProgress.sanctionedAmount)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>ग्राम/वार्ड</label>
-                    <span>{safeRender(workData.ward || workData.nameOfGPWard)}</span>
+                  <div className="progress-item">
+                    <label>कुल जारी राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(specificProgress.totalAmountReleasedSoFar)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>कार्य एजेंसी</label>
-                    <span>{safeRender(workData.workAgency)}</span>
+                  <div className="progress-item">
+                    <label>शेष राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(specificProgress.remainingBalance)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>स्वीकृत वर्ष</label>
-                    <span>{safeRender(workData.financialYear)}</span>
+                  <div className="progress-item">
+                    <label>व्यय राशि (लाख रुपये)</label>
+                    <span>{formatCurrency(specificProgress.expenditureAmount)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>योजना</label>
-                    <span>{safeRender(workData.scheme)}</span>
+                  <div className="progress-item">
+                    <label>MB स्टेज</label>
+                    <span>{safeRender(specificProgress.mbStageMeasurementBookStag)}</span>
                   </div>
-                  <div className="detail-row">
-                    <label>राशि (लाख रुपये)</label>
-                    <span>{formatCurrency(workData.sanctionAmount)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>कार्य विभाग</label>
-                    <span>{safeRender(workData.workDepartment)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>स्वीकृतकर्ता विभाग</label>
-                    <span>{safeRender(workData.approvingDepartment)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>शहर</label>
-                    <span>{safeRender(workData.city)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>स्थान का प्रकार</label>
-                    <span>{safeRender(workData.typeOfLocation)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>नियुक्त इंजीनियर</label>
-                    <span>{safeRender(workData.appointedEngineer?.fullName || workData.appointedEngineer)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>नियुक्त एस.डी.ओ</label>
-                    <span>{safeRender(workData.appointedSDO)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>वर्तमान स्थिति</label>
-                    <span>{safeRender(workData.currentStatus)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>कार्य विवरण</label>
-                    <span>{safeRender(workData.workDescription)}</span>
+                  <div className="progress-item">
+                    <label>दस्तावेज़</label>
+                    <DocumentButton 
+                      document={specificProgress.progressDocuments} 
+                      title={`प्रगति दस्तावेज़ ${selectedEntry}`}
+                    />
                   </div>
                 </div>
               </div>
-            </section>
+            );
+          }
+        })()}
+      </div>
+    </section>
+  )}
+</div>
 
-            {/* ✅ FIXED Progress Details Section */}
-            {workData.workProgress && workData.workProgress.length > 0 && (
-              <section className="panel progress-section">
-                <div className="panel-header">
-                  <h3>प्रगति विवरण 📊</h3>
-                  <div style={{fontSize:'12px', opacity:0.9}}>
-                    {selectedEntry === 'all' 
-                      ? `Total Entries: ${(originalWorkData?.workProgress?.length || 0) - 1}`
-                      : `Entry ${selectedEntry} of ${(originalWorkData?.workProgress?.length || 0) - 1}`
-                    }
-                  </div>
-                </div>
-                <div className="p-body">
-                  {(() => {
-                    console.log('🔍 Rendering progress. Selected entry:', selectedEntry);
-                    console.log('📊 WorkData progress length:', workData.workProgress?.length);
-                    console.log('📊 WorkData progress:', workData.workProgress);
-                    
-                    if (selectedEntry === 'all') {
-                      // Show all entries except index 0
-                      const progressEntries = originalWorkData.workProgress?.slice(1) || [];
-                      console.log('📋 Showing all entries:', progressEntries.length);
-                      
-                      return progressEntries.map((progress, index) => (
-                        <div key={progress._id || `all-${index}`} className="progress-detail-card">
-                          <div className="progress-header">
-                            <h4>Progress Entry {index + 1}</h4>
-                            <span className="progress-date">{formatDate(progress.createdAt)}</span>
-                          </div>
-                          
-                          <div className="progress-grid">
-                            <div className="progress-item">
-                              <label>विवरण</label>
-                              <span>{safeRender(progress.desc)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>स्वीकृत राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(progress.sanctionedAmount)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>कुल जारी राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(progress.totalAmountReleasedSoFar)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>शेष राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(progress.remainingBalance)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>व्यय राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(progress.expenditureAmount)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>MB स्टेज</label>
-                              <span>{safeRender(progress.mbStageMeasurementBookStag)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>दस्तावेज़</label>
-                              <DocumentButton 
-                                document={progress.progressDocuments} 
-                                title={`प्रगति दस्तावेज़ ${index + 1}`}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ));
-                    } else {
-                      // ✅ FIXED: Show specific entry - workData.workProgress[0] contains the selected entry
-                      const specificProgress = workData.workProgress[0];
-                      console.log('📌 Showing specific entry:', selectedEntry, specificProgress);
-                      
-                      if (!specificProgress) {
-                        return (
-                          <div className="no-progress">
-                            <p>कोई प्रगति डेटा उपलब्ध नहीं है</p>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div key={specificProgress._id || `entry-${selectedEntry}`} className="progress-detail-card">
-                          <div className="progress-header">
-                            <h4>Progress Entry {selectedEntry}</h4>
-                            <span className="progress-date">{formatDate(specificProgress.createdAt)}</span>
-                          </div>
-                          
-                          <div className="progress-grid">
-                            <div className="progress-item">
-                              <label>विवरण</label>
-                              <span>{safeRender(specificProgress.desc)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>स्वीकृत राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(specificProgress.sanctionedAmount)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>कुल जारी राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(specificProgress.totalAmountReleasedSoFar)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>शेष राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(specificProgress.remainingBalance)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>व्यय राशि (लाख रुपये)</label>
-                              <span>{formatCurrency(specificProgress.expenditureAmount)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>MB स्टेज</label>
-                              <span>{safeRender(specificProgress.mbStageMeasurementBookStag)}</span>
-                            </div>
-                            <div className="progress-item">
-                              <label>दस्तावेज़</label>
-                              <DocumentButton 
-                                document={specificProgress.progressDocuments} 
-                                title={`प्रगति दस्तावेज़ ${selectedEntry}`}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  })()}
-                </div>
-              </section>
-)}
-
-          </div>
 
           {/* ✅ UPDATED: Slideshow Section - Shows ALL images */}
           <div className="slideshow-section">
@@ -1080,176 +1089,218 @@ const WorkDetails = ({ onLogout, onBack }) => {
         <div className="bottom-sections">
           <div className="approval-sections">
             {/* Technical Approval */}
-            {workData.technicalApproval && (
-              <section className="panel approval-section">
-                <div className="panel-header approval-header">
-                  <h3>तकनीकी स्वीकृति 📝</h3>
-                  <div style={{fontSize:'12px', opacity:0.9}}>
-                     <span>Approved Date:{formatDate(workData.technicalApproval.createdAt)}</span>
-                  </div>
-                </div>
-                <div className="p-body">
-                  <div className="approval-grid">
-                    <div className="approval-item">
-                      <label>तकनीकी स्वीकृति क्रमांक</label>
-                      <span>{safeRender(workData.technicalApproval.approvalNumber)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>तकनीकी स्वीकृति दिनांक</label>
-                      <span>{formatDate(workData.technicalApproval.approvalDate)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>स्वीकृतकर्ता</label>
-                      <span>{safeRender(workData.technicalApproval.approvedBy.fullName)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>टिप्पणी</label>
-                      <span>{safeRender(workData.technicalApproval.remarks)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>दस्तावेज़</label>
-                      <DocumentButton 
-                        document={workData.technicalApproval.attachedFile} 
-                        title="तकनीकी स्वीकृति दस्तावेज़"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
+{workData.technicalApproval && (
+  <section className="panel approval-section">
+    <div className="panel-header approval-header">
+      <h3>तकनीकी स्वीकृति 📝</h3>
+      <div className="header-actions">
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          <span>Approved Date: {formatDate(workData.technicalApproval.createdAt)}</span>
+        </div>
+        <button 
+          className="btn btn-edit"
+          onClick={() => navigate(`/Edit-Technical/${workData._id}`)}
+          title="तकनीकी स्वीकृति संपादित करें"
+        >
+          <i className="fa-solid fa-edit"></i> Edit
+        </button>
+      </div>
+    </div>
+    <div className="p-body">
+      <div className="approval-grid">
+        <div className="approval-item">
+          <label>तकनीकी स्वीकृति क्रमांक</label>
+          <span>{safeRender(workData.technicalApproval.approvalNumber)}</span>
+        </div>
+        <div className="approval-item">
+          <label>तकनीकी स्वीकृति दिनांक</label>
+          <span>{formatDate(workData.technicalApproval.approvalDate)}</span>
+        </div>
+        <div className="approval-item">
+          <label>स्वीकृतकर्ता</label>
+          <span>{safeRender(workData.technicalApproval.approvedBy.fullName)}</span>
+        </div>
+        <div className="approval-item">
+          <label>टिप्पणी</label>
+          <span>{safeRender(workData.technicalApproval.remarks)}</span>
+        </div>
+        <div className="approval-item">
+          <label>दस्तावेज़</label>
+          <DocumentButton 
+            document={workData.technicalApproval.attachedFile} 
+            title="तकनीकी स्वीकृति दस्तावेज़"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+)}
+
 
             {/* Administrative Approval */}
-            {workData.administrativeApproval && (
-              <section className="panel approval-section">
-                <div className="panel-header approval-header">
-                  <h3>प्रशासकीय स्वीकृति 📝</h3>
-                  <div style={{fontSize:'12px', opacity:0.9}}>
-                     <span>Approved Date:{formatDate(workData.administrativeApproval.createdAt)}</span>
-                  </div>
-                </div>
-                <div className="p-body">
-                  <div className="approval-grid">
-                    <div className="approval-item">
-                      <label>स्वीकृतकर्ता</label>
-                      <span>{safeRender(workData.administrativeApproval.byGovtDistrictAS)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>प्रशासकीय स्वीकृति क्रमांक</label>
-                      <span>{safeRender(workData.administrativeApproval.approvalNumber)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>प्रशासकीय स्वीकृति दिनांक</label>
-                      <span>{formatDate(workData.administrativeApproval.approvalDate)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>स्वीकृतकर्ता</label>
-                      <span>{safeRender(workData.administrativeApproval.approvedBy.fullName)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>टिप्पणी</label>
-                      <span>{safeRender(workData.administrativeApproval.remarks)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>दस्तावेज़</label>
-                      <DocumentButton 
-                        document={workData.administrativeApproval.attachedFile} 
-                        title="प्रशासकीय स्वीकृति दस्तावेज़"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
+           {workData.administrativeApproval && (
+  <section className="panel approval-section">
+    <div className="panel-header approval-header">
+      <h3>प्रशासकीय स्वीकृति 📝</h3>
+      <div className="header-actions">
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          <span>Approved Date: {formatDate(workData.administrativeApproval.createdAt)}</span>
+        </div>
+        <button 
+          className="btn btn-edit"
+          onClick={() => navigate(`/Edit-Administrative/${workData._id}`)}
+          title="प्रशासकीय स्वीकृति संपादित करें"
+        >
+          <i className="fa-solid fa-edit"></i> Edit
+        </button>
+      </div>
+    </div>
+    <div className="p-body">
+      <div className="approval-grid">
+        <div className="approval-item">
+          <label>स्वीकृतकर्ता</label>
+          <span>{safeRender(workData.administrativeApproval.byGovtDistrictAS)}</span>
+        </div>
+        <div className="approval-item">
+          <label>प्रशासकीय स्वीकृति क्रमांक</label>
+          <span>{safeRender(workData.administrativeApproval.approvalNumber)}</span>
+        </div>
+        <div className="approval-item">
+          <label>प्रशासकीय स्वीकृति दिनांक</label>
+          <span>{formatDate(workData.administrativeApproval.approvalDate)}</span>
+        </div>
+        <div className="approval-item">
+          <label>स्वीकृतकर्ता</label>
+          <span>{safeRender(workData.administrativeApproval.approvedBy.fullName)}</span>
+        </div>
+        <div className="approval-item">
+          <label>टिप्पणी</label>
+          <span>{safeRender(workData.administrativeApproval.remarks)}</span>
+        </div>
+        <div className="approval-item">
+          <label>दस्तावेज़</label>
+          <DocumentButton 
+            document={workData.administrativeApproval.attachedFile} 
+            title="प्रशासकीय स्वीकृति दस्तावेज़"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+)}
+
 
             {/* Tender Process */}
             {workData.tenderProcess && (
-              <section className="panel approval-section">
-                <div className="panel-header approval-header">
-                  <h3>निविदा प्रक्रिया 📋</h3>
-                  <div style={{fontSize:'12px', opacity:0.9}}>
-                    <span>Issused Date:{formatDate(workData.tenderProcess.issuedDates)}</span>
-                  </div>
-                </div>
-                <div className="p-body">
-                  <div className="approval-grid">
-                    <div className="approval-item">
-                      <label>निविदा शीर्षक</label>
-                      <span>{safeRender(workData.tenderProcess.tenderTitle)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>निविदा आईडी</label>
-                      <span>{safeRender(workData.tenderProcess.tenderID)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>विभाग</label>
-                      <span>{safeRender(workData.tenderProcess.department)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>जारी तिथि</label>
-                      <span>{formatDate(workData.tenderProcess.issuedDates)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>टिप्पणी</label>
-                      <span>{safeRender(workData.tenderProcess.remark)}</span>
-                    </div>
-                    <div className="approval-item">
-                      <label>दस्तावेज़</label>
-                      <DocumentButton 
-                        document={workData.tenderProcess.attachedFile} 
-                        title="निविदा दस्तावेज़"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
+  <section className="panel approval-section">
+    <div className="panel-header approval-header">
+      <h3>निविदा प्रक्रिया 📋</h3>
+      <div className="header-actions">
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          <span>Issued Date: {formatDate(workData.tenderProcess.issuedDates)}</span>
+        </div>
+        <button 
+          className="btn btn-edit"
+          onClick={() => navigate(`/Edit-Tender/${workData._id}`)}
+          title="निविदा प्रक्रिया संपादित करें"
+        >
+          <i className="fa-solid fa-edit"></i> Edit
+        </button>
+      </div>
+    </div>
+    <div className="p-body">
+      <div className="approval-grid">
+        <div className="approval-item">
+          <label>निविदा शीर्षक</label>
+          <span>{safeRender(workData.tenderProcess.tenderTitle)}</span>
+        </div>
+        <div className="approval-item">
+          <label>निविदा आईडी</label>
+          <span>{safeRender(workData.tenderProcess.tenderID)}</span>
+        </div>
+        <div className="approval-item">
+          <label>विभाग</label>
+          <span>{safeRender(workData.tenderProcess.department)}</span>
+        </div>
+        <div className="approval-item">
+          <label>जारी तिथि</label>
+          <span>{formatDate(workData.tenderProcess.issuedDates)}</span>
+        </div>
+        <div className="approval-item">
+          <label>टिप्पणी</label>
+          <span>{safeRender(workData.tenderProcess.remark)}</span>
+        </div>
+        <div className="approval-item">
+          <label>दस्तावेज़</label>
+          <DocumentButton 
+            document={workData.tenderProcess.attachedFile} 
+            title="निविदा दस्तावेज़"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+)}
+
               
             {/* Work Order Section */}
             {workData.workOrder && (
-              <section className="panel approval-section">
-                <div className="panel-header approval-header">
-                  <h3>कार्य आदेश 📄</h3>
-                  <span>Issused Date:{formatDate(workData.tenderProcess.issuedDates)}</span>
-                </div>
-                <div className="p-body">
-                  <div className="custom-table-container">
-                    <table className="custom-table">
-                      <tbody>
-                        <tr>
-                          <td>कार्य आदेश क्रमांक</td>
-                          <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.workOrderNumber)}</td>
-                        </tr>
-                        <tr>
-                          <td>कार्य आदेश की दिनांक</td>
-                          <td style={{fontWeight:'bold'}}>{formatDate(workData.workOrder.dateOfWorkOrder)}</td>
-                        </tr>
-                        {/* <tr>
-                          <td>कार्य आदेश राशि</td>
-                          <td style={{fontWeight:'bold'}}>{formatCurrency(workData.workOrderAmount)}</td>
-                        </tr> */}
-                        <tr>
-                          <td>ठेकेदार / ग्रामपंचायत</td>
-                          <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.contractorOrGramPanchayat)}</td>
-                        </tr>
-                        <tr>
-                          <td>टिप्पणी</td>
-                          <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.remark)}</td>
-                        </tr>
-                        <tr>
-                          <td>दस्तावेज़</td>
-                          <td>
-                            <DocumentButton 
-                              document={workData.workOrder.attachedFile} 
-                              title="कार्य आदेश दस्तावेज़"
-                            />
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </section>
-            )}
+  <section className="panel approval-section">
+    <div className="panel-header approval-header">
+      <h3>कार्य आदेश 📄</h3>
+      <div className="header-actions">
+        <div style={{fontSize:'12px', opacity:0.9}}>
+          <span>Issued Date: {formatDate(workData.workOrder.dateOfWorkOrder)}</span>
+        </div>
+        <button 
+          className="btn btn-edit"
+          onClick={() => navigate(`/Edit-Work-Order/${workData._id}`)}
+          title="कार्य आदेश संपादित करें"
+        >
+          <i className="fa-solid fa-edit"></i> Edit
+        </button>
+      </div>
+    </div>
+    <div className="p-body">
+      <div className="custom-table-container">
+        <table className="custom-table">
+          <tbody>
+            <tr>
+              <td>कार्य आदेश क्रमांक</td>
+              <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.workOrderNumber)}</td>
+            </tr>
+            <tr>
+              <td>कार्य आदेश की दिनांक</td>
+              <td style={{fontWeight:'bold'}}>{formatDate(workData.workOrder.dateOfWorkOrder)}</td>
+            </tr>
+            {/* <tr>
+              <td>कार्य आदेश राशि</td>
+              <td style={{fontWeight:'bold'}}>{formatCurrency(workData.workOrderAmount)}</td>
+            </tr> */}
+            <tr>
+              <td>ठेकेदार / ग्रामपंचायत</td>
+              <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.contractorOrGramPanchayat)}</td>
+            </tr>
+            <tr>
+              <td>टिप्पणी</td>
+              <td style={{fontWeight:'bold'}}>{safeRender(workData.workOrder.remark)}</td>
+            </tr>
+            <tr>
+              <td>दस्तावेज़</td>
+              <td>
+                <DocumentButton 
+                  document={workData.workOrder.attachedFile} 
+                  title="कार्य आदेश दस्तावेज़"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+)}
+
           </div>
         </div>
       </div>

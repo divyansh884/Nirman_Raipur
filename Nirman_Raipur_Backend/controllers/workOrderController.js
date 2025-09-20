@@ -96,7 +96,12 @@ const createWorkOrder = async (req, res) => {
 // @access  Private (Work Order Manager)
 const updateWorkOrder = async (req, res) => {
   try {
-    const { workOrderAmount, contractorOrGramPanchayat, remark } = req.body;
+    const {
+      workOrderNumber,
+      dateOfWorkOrder,
+      contractorOrGramPanchayat,
+      remark,
+    } = req.body;
 
     const workProposal = await WorkProposal.findById(req.params.id);
 
@@ -107,52 +112,102 @@ const updateWorkOrder = async (req, res) => {
       });
     }
 
+    // Check if work order exists
     if (!workProposal.workOrder || !workProposal.workOrder.workOrderNumber) {
       return res.status(400).json({
         success: false,
-        message: "Work order does not exist",
+        message: "Work order does not exist. Please create work order first.",
       });
     }
 
-    // Check if work has started (prevent major changes after work starts)
-    if (
-      workProposal.currentStatus === "Work In Progress" ||
-      workProposal.currentStatus === "Work Completed"
-    ) {
+    // Allow updates at ALL workflow stages (no status restrictions)
+    const allowedStatuses = [
+      "Pending Technical Approval",
+      "Rejected Technical Approval",
+      "Pending Administrative Approval",
+      "Rejected Administrative Approval",
+      "Pending Tender",
+      "Tender In Progress",
+      "Pending Work Order",
+      "Work Order Created",
+      "Work In Progress",
+      "Work Completed",
+      "Work Cancelled",
+    ];
+
+    if (!allowedStatuses.includes(workProposal.currentStatus)) {
       return res.status(400).json({
         success: false,
-        message: "Cannot update work order after work has started",
+        message: "Work order cannot be updated at current stage",
       });
     }
 
-    // Update allowed fields
-    if (workOrderAmount) {
-      workProposal.workOrder.workOrderAmount = workOrderAmount;
-      // Update sanctioned amount in work progress
-      if (workProposal.workProgress) {
-        workProposal.workProgress.sanctionedAmount = workOrderAmount;
-        workProposal.workProgress.remainingBalance =
-          workOrderAmount -
-          (workProposal.workProgress.totalAmountReleasedSoFar || 0);
+    // Check department permission (uncomment if needed)
+    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'You can only update work orders for your department'
+    //   });
+    // }
+
+    const currentWorkOrder = workProposal.workOrder;
+
+    // Check if work order number already exists (only if being updated)
+    if (workOrderNumber !== undefined && workOrderNumber !== currentWorkOrder.workOrderNumber) {
+      const existingWorkOrder = await WorkProposal.findOne({
+        "workOrder.workOrderNumber": workOrderNumber,
+        _id: { $ne: req.params.id } // Exclude current work proposal
+      });
+
+      if (existingWorkOrder) {
+        return res.status(400).json({
+          success: false,
+          message: "Work order number already exists",
+        });
       }
     }
 
-    if (contractorOrGramPanchayat) {
-      workProposal.workOrder.contractorOrGramPanchayat =
-        contractorOrGramPanchayat;
+    // Update work order fields only if provided (partial update)
+    if (workOrderNumber !== undefined) {
+      currentWorkOrder.workOrderNumber = workOrderNumber;
     }
 
-    if (remark) {
-      workProposal.workOrder.remark = remark;
+    if (dateOfWorkOrder !== undefined) {
+      currentWorkOrder.dateOfWorkOrder = new Date(dateOfWorkOrder);
     }
+
+    if (contractorOrGramPanchayat !== undefined) {
+      currentWorkOrder.contractorOrGramPanchayat = contractorOrGramPanchayat;
+    }
+
+    if (remark !== undefined) {
+      currentWorkOrder.remark = remark;
+    }
+
+    // Update attached file if uploaded
+    if (req.s3Uploads?.document) {
+      currentWorkOrder.attachedFile = req.s3Uploads.document;
+    }
+
+    // Update modification timestamp and user
+    currentWorkOrder.lastModified = new Date();
+    currentWorkOrder.modifiedBy = req.user.id;
+
+    // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+    // No work progress initialization on update (only on create)
 
     await workProposal.save();
 
     res.json({
       success: true,
       message: "Work order updated successfully",
-      data: workProposal,
+      data: {
+        id: workProposal._id,
+        currentStatus: workProposal.currentStatus,
+        workOrder: workProposal.workOrder
+      },
     });
+
   } catch (error) {
     console.error("Error updating work order:", error);
     res.status(500).json({

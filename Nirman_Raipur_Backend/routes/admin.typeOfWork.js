@@ -2,7 +2,8 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const TypeOfWork = require('../models/subSchema/typeOfWork'); // ✅ Fixed: Remove destructuring
 const { auth, authorizeRole } = require('../middleware/auth');
-
+const WorkProposal = require('../models/WorkProposal'); 
+const mongoose = require('mongoose');
 const router = express.Router();
 
 // Helper for validation
@@ -173,23 +174,104 @@ router.delete(
   authorizeRole('Super Admin'),
   validate([param('id').isMongoId()]),
   async (req, res) => {
-    try { // ✅ Added try-catch
-      const type = await TypeOfWork.findByIdAndDelete(req.params.id);
-      if (!type) {
+    try {
+      const typeOfWorkId = req.params.id;
+      
+      // First, check if the TypeOfWork exists
+      const typeOfWork = await TypeOfWork.findById(typeOfWorkId);
+      if (!typeOfWork) {
         return res
           .status(404)
           .json({ success: false, message: 'Type of Work not found' });
       }
-      res.json({ success: true, message: 'Type of Work deleted' });
+
+      console.log(`🔍 Checking references for Type of Work: ${typeOfWork.name} (ID: ${typeOfWorkId})`);
+
+      // ✅ COMPREHENSIVE CHECK: Get ALL work proposals and check manually
+      const allWorkProposals = await WorkProposal.find({}, 
+        'typeOfWork nameOfWork serialNumber currentStatus'
+      );
+      
+      // Filter work proposals that use this type of work
+      const workProposalsWithTypeOfWork = allWorkProposals.filter(wp => {
+        if (wp.typeOfWork && wp.typeOfWork._id) {
+          const workProposalTypeOfWorkId = wp.typeOfWork._id.toString();
+          return workProposalTypeOfWorkId === typeOfWorkId;
+        }
+        return false;
+      });
+
+      console.log(`🔍 Checked ${allWorkProposals.length} total work proposals`);
+      console.log(`📊 Found ${workProposalsWithTypeOfWork.length} work proposals using Type of Work "${typeOfWork.name}" (ID: ${typeOfWorkId})`);
+
+      // Log the matching work proposals for debugging
+      if (workProposalsWithTypeOfWork.length > 0) {
+        console.log(`🚫 Work proposals using this Type of Work:`);
+        workProposalsWithTypeOfWork.forEach(wp => {
+          console.log(`   - ${wp.serialNumber}: ${wp.nameOfWork} (Type: ${wp.typeOfWork.name})`);
+        });
+      }
+
+      // ✅ PREVENT DELETION if Type of Work is being used
+      if (workProposalsWithTypeOfWork.length > 0) {
+        const workProposalDetails = workProposalsWithTypeOfWork.map(wp => ({
+          id: wp._id,
+          serialNumber: wp.serialNumber,
+          nameOfWork: wp.nameOfWork,
+          currentStatus: wp.currentStatus,
+          typeOfWorkName: wp.typeOfWork?.name
+        }));
+
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete Type of Work "${typeOfWork.name}": It is being used by ${workProposalsWithTypeOfWork.length} work proposal(s)`,
+          details: {
+            typeOfWorkId: typeOfWorkId,
+            typeOfWorkName: typeOfWork.name,
+            totalReferences: workProposalsWithTypeOfWork.length,
+            referencedBy: {
+              collection: "Work Proposals",
+              count: workProposalsWithTypeOfWork.length,
+              workProposals: workProposalDetails
+            },
+            suggestions: [
+              "Update the type of work field in all referenced work proposals before deleting this type of work",
+              "Consider reassigning work proposals to a different type of work",
+              "Contact the system administrator if this type of work needs to be merged with another type"
+            ]
+          }
+        });
+      }
+
+      // ✅ NO REFERENCES FOUND - Safe to delete
+      console.log(`✅ No references found for Type of Work "${typeOfWork.name}". Safe to delete.`);
+      
+      await TypeOfWork.findByIdAndDelete(typeOfWorkId);
+      
+      console.log(`🗑️ Successfully deleted Type of Work: ${typeOfWork.name} (ID: ${typeOfWorkId})`);
+      
+      res.json({ 
+        success: true, 
+        message: `Type of Work "${typeOfWork.name}" deleted successfully`,
+        data: {
+          deletedTypeOfWork: {
+            id: typeOfWork._id,
+            name: typeOfWork.name,
+            deletedAt: new Date()
+          }
+        }
+      });
+
     } catch (error) {
-      console.error('Error deleting TypeOfWork:', error);
+      console.error("❌ Error deleting Type of Work:", error);
       res.status(500).json({ 
         success: false, 
-        message: 'Internal server error',
+        message: "Internal server error",
         error: error.message 
       });
     }
   }
 );
+
 
 module.exports = router;

@@ -10,6 +10,8 @@ const {
   deleteWorkProposal,
   technicalApproval,
   administrativeApproval,
+  updateTechnicalApproval,
+  updateAdministrativeApproval,
 } = require("../controllers/workProposalController");
 const {
   uploadFields,
@@ -136,6 +138,16 @@ router.post(
   technicalApproval,
 );
 
+router.put(
+  "/:id/technical-approval",
+  auth,
+  // authorizeRole("Technical Approver"),
+  uploadFields,
+  s3UploadDoc,
+  s3UploadImages,
+  technicalApprovalValidation,
+  updateTechnicalApproval,
+);
 // @route   POST /api/work-proposals/:id/administrative-approval
 // @desc    Administrative approval/rejection
 // @access  Private (Administrative Approver)
@@ -147,5 +159,16 @@ router.post(
   administrativeApprovalValidation,
   administrativeApproval,
 );
+
+router.put(
+  "/:id/administrative-approval",
+  auth,
+  // authorizeRole("Administrative Approver"),
+  uploadFields,
+  s3UploadDoc,
+  administrativeApprovalValidation,
+  updateAdministrativeApproval,
+);
+
 
 module.exports = router;

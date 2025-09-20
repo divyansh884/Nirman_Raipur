@@ -189,7 +189,7 @@ const updateWorkProposal = async (req, res) => {
     }
 
     // Check if user can update
-    if (workProposal.submittedBy.toString() !== req.user.id && req.user.role !== "Super Admin" && req.user.role !== "Technical Approver") {
+    if (req.user.role !== "Super Admin") {
       return res.status(403).json({
         success: false,
         message: "Only the submitter can update the proposal",
@@ -197,13 +197,13 @@ const updateWorkProposal = async (req, res) => {
     }
 
     // Check if proposal can be updated (only before technical approval)
-    if (workProposal.currentStatus !== "Pending Technical Approval") {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot update proposal after technical approval process has started",
-      });
-    }
+    // if (workProposal.currentStatus !== "Pending Technical Approval") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message:
+    //       "Cannot update proposal after technical approval process has started",
+    //   });
+    // }
 
     const allowedUpdates = [
       "typeOfWork",
@@ -405,6 +405,149 @@ const technicalApproval = async (req, res) => {
   }
 };
 
+const updateTechnicalApproval = async (req, res) => {
+  try {
+    const { 
+      approvalNumber, 
+      remarks, 
+      rejectionReason,
+      technicalSanctionAmount 
+    } = req.body;
+
+    const workProposal = await WorkProposal.findById(req.params.id);
+
+    if (!workProposal) {
+      return res.status(404).json({
+        success: false,
+        message: "Work proposal not found",
+      });
+    }
+
+    // Check if technical approval exists
+    if (!workProposal.technicalApproval || !workProposal.technicalApproval.status) {
+      return res.status(400).json({
+        success: false,
+        message: "Technical approval does not exist. Please create approval first.",
+      });
+    }
+
+    // Check if proposal status allows updates
+    const allowedStatuses = [
+      "Pending Technical Approval",
+      "Rejected Technical Approval",
+      "Pending Administrative Approval",
+      "Rejected Administrative Approval",
+      "Pending Tender",
+      "Tender In Progress",
+      "Pending Work Order",
+      "Work Order Created",
+      "Work In Progress",
+      "Work Completed",
+      "Work Cancelled",
+    ];
+
+    if (!allowedStatuses.includes(workProposal.currentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Technical approval cannot be updated at current stage",
+      });
+    }
+
+    // Check department permission (uncomment if needed)
+    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'You can only update approvals for your department'
+    //   });
+    // }
+
+    const currentApproval = workProposal.technicalApproval;
+
+    // Update based on current approval status
+    if (currentApproval.status === "Approved") {
+      // Updating approved technical approval
+      if (approvalNumber !== undefined) {
+        currentApproval.approvalNumber = approvalNumber;
+      }
+      
+      if (technicalSanctionAmount !== undefined) {
+        currentApproval.technicalSanctionAmount = technicalSanctionAmount;
+      }
+
+      if (remarks !== undefined) {
+        currentApproval.remarks = remarks;
+      }
+
+      // Update files if uploaded
+      if (req.s3Uploads?.document) {
+        currentApproval.attachedFile = req.s3Uploads.document;
+      }
+
+      if (req.s3Uploads?.images) {
+        currentApproval.attachedImages = { images: req.s3Uploads.images };
+      }
+
+      // Update modification timestamp
+      currentApproval.lastModified = new Date();
+      currentApproval.modifiedBy = req.user.id;
+
+      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+
+    } else if (currentApproval.status === "Rejected") {
+      // Updating rejected technical approval
+      if (rejectionReason !== undefined) {
+        currentApproval.rejectionReason = rejectionReason;
+      }
+
+      if (remarks !== undefined) {
+        currentApproval.remarks = remarks;
+      }
+
+      // Update modification timestamp
+      currentApproval.lastModified = new Date();
+      currentApproval.modifiedBy = req.user.id;
+
+      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+    }
+
+    // Validate required fields based on status
+    if (currentApproval.status === "Approved" && !currentApproval.approvalNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Approval number is required for approved technical approval",
+      });
+    }
+
+    if (currentApproval.status === "Rejected" && !currentApproval.rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required for rejected technical approval",
+      });
+    }
+
+    await workProposal.save();
+
+    res.json({
+      success: true,
+      message: "Technical approval updated successfully",
+      data: {
+        id: workProposal._id,
+        currentStatus: workProposal.currentStatus,
+        technicalApproval: workProposal.technicalApproval
+      },
+    });
+
+  } catch (error) {
+    console.error("Error updating technical approval:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating technical approval",
+      error: error.message,
+    });
+  }
+};
+
+
 // @desc    Administrative Approval/Rejection
 // @route   POST /api/work-proposals/:id/administrative-approval
 // @access  Private (Administrative Approver)
@@ -497,6 +640,143 @@ const administrativeApproval = async (req, res) => {
   }
 };
 
+const updateAdministrativeApproval = async (req, res) => {
+  try {
+    const {
+      byGovtDistrictAS,
+      approvalNumber,
+      remarks,
+      rejectionReason,
+    } = req.body;
+
+    const workProposal = await WorkProposal.findById(req.params.id);
+
+    if (!workProposal) {
+      return res.status(404).json({
+        success: false,
+        message: "Work proposal not found",
+      });
+    }
+
+    // Check if administrative approval exists
+    if (!workProposal.administrativeApproval || !workProposal.administrativeApproval.status) {
+      return res.status(400).json({
+        success: false,
+        message: "Administrative approval does not exist. Please create approval first.",
+      });
+    }
+
+    // Check if proposal status allows updates
+    const allowedStatuses = [
+      "Pending Administrative Approval",
+      "Rejected Administrative Approval", 
+      "Pending Tender",
+      "Tender In Progress",
+      "Pending Work Order",
+      "Work Order Created",
+      "Work In Progress",
+      "Work Completed",
+      "Work Cancelled",
+    ];
+
+    if (!allowedStatuses.includes(workProposal.currentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Administrative approval cannot be updated at current stage",
+      });
+    }
+
+    // Check department permission (uncomment if needed)
+    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'You can only update approvals for your department'
+    //   });
+    // }
+
+    const currentApproval = workProposal.administrativeApproval;
+
+    // Update based on current approval status
+    if (currentApproval.status === "Approved") {
+      // Updating approved administrative approval
+      if (approvalNumber !== undefined) {
+        currentApproval.approvalNumber = approvalNumber;
+      }
+      
+      if (byGovtDistrictAS !== undefined) {
+        currentApproval.byGovtDistrictAS = byGovtDistrictAS;
+      }
+
+      if (remarks !== undefined) {
+        currentApproval.remarks = remarks;
+      }
+
+      // Update files if uploaded
+      if (req.s3Uploads?.document) {
+        currentApproval.attachedFile = req.s3Uploads.document;
+      }
+
+      // Update modification timestamp
+      currentApproval.lastModified = new Date();
+      currentApproval.modifiedBy = req.user.id;
+
+      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+
+    } else if (currentApproval.status === "Rejected") {
+      // Updating rejected administrative approval
+      if (rejectionReason !== undefined) {
+        currentApproval.rejectionReason = rejectionReason;
+      }
+
+      if (remarks !== undefined) {
+        currentApproval.remarks = remarks;
+      }
+
+      // Update modification timestamp
+      currentApproval.lastModified = new Date();
+      currentApproval.modifiedBy = req.user.id;
+
+      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
+    }
+
+    // Validate required fields based on status
+    if (currentApproval.status === "Approved" && !currentApproval.approvalNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Approval number is required for approved administrative approval",
+      });
+    }
+
+    if (currentApproval.status === "Rejected" && !currentApproval.rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required for rejected administrative approval",
+      });
+    }
+
+    await workProposal.save();
+
+    res.json({
+      success: true,
+      message: "Administrative approval updated successfully",
+      data: {
+        id: workProposal._id,
+        currentStatus: workProposal.currentStatus,
+        administrativeApproval: workProposal.administrativeApproval
+      },
+    });
+
+  } catch (error) {
+    console.error("Error updating administrative approval:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating administrative approval",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   createWorkProposal,
   getWorkProposals,
@@ -505,4 +785,6 @@ module.exports = {
   deleteWorkProposal,
   technicalApproval,
   administrativeApproval,
+  updateTechnicalApproval,
+  updateAdministrativeApproval,
 };

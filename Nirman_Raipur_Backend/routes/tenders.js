@@ -5,7 +5,7 @@ const { auth } = require("../middleware/auth");
 const { uploadFields, s3UploadDoc } = require("../middleware/upload");
 const {
   startTenderProcess,
-  updateTenderStatus,
+  updateTenderProcess,
   awardTender,
   getAllTenders,
 } = require("../controllers/tenderController");
@@ -53,11 +53,15 @@ router.post(
 // @desc    Update tender status
 // @access  Private (Tender Manager)
 router.put(
-  "/:id/tender/status",
+  "/:id/tender-process",
   auth,
-  updateTenderStatusValidation,
-  updateTenderStatus,
+  // authorizeRole("Tender Handler"),
+  uploadFields,
+  s3UploadDoc,
+  startTenderValidation,
+  updateTenderProcess,
 );
+
 
 // @route   POST /api/work-proposals/:id/tender/award
 // @desc    Award tender to contractor
