@@ -26,11 +26,20 @@ const AdminWorkForm = ({ onLogout }) => {
   const [error, setError] = useState(null);
   const [activeDialog, setActiveDialog] = useState(null);
   const [dialogData, setDialogData] = useState('');
+  
+  // ✅ ADDED: Edit dialog states
+  const [activeEditDialog, setActiveEditDialog] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editDialogData, setEditDialogData] = useState('');
+  
   const [searchTerms, setSearchTerms] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(null); // Track which item is being deleted
+  const [updating, setUpdating] = useState(false); // ✅ ADDED: Update loading state
+  const [deleting, setDeleting] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({}); // ✅ ADDED: Edit validation errors
 
-  // ✅ Schema configurations
+  // ✅ UPDATED: Schema configurations (removed canDelete restriction - all can be deleted)
   const schemaConfigs = [
     {
       key: 'cities',
@@ -44,16 +53,14 @@ const AdminWorkForm = ({ onLogout }) => {
       title: 'योजना',
       endpoint: '/admin/scheme',
       field: 'name',
-      placeholder: 'योजना का नाम दर्ज करें',
-      canDelete: true // ✅ Enable delete for schemes
+      placeholder: 'योजना का नाम दर्ज करें'
     },
     {
       key: 'sdos',
       title: 'SDO',
       endpoint: '/admin/sdo',
       field: 'name',
-      placeholder: 'SDO का नाम दर्ज करें',
-      canDelete: true // ✅ Enable delete for SDOs
+      placeholder: 'SDO का नाम दर्ज करें'
     },
     {
       key: 'typeOfLocations',
@@ -102,7 +109,7 @@ const AdminWorkForm = ({ onLogout }) => {
     fetchAllData();
   }, [isAuthenticated, token, navigate, canAccessPage]);
 
-  // ✅ Enhanced fetch with better error handling and logging
+  // Enhanced fetch with better error handling and logging
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -176,10 +183,20 @@ const AdminWorkForm = ({ onLogout }) => {
     }
   };
 
+  // ✅ ADDED: Validation function
+  const validateData = (data, isEdit = false) => {
+    const tempErrors = {};
+    if (!data.trim()) {
+      tempErrors.data = 'यह फ़ील्ड आवश्यक है।';
+    }
+    return tempErrors;
+  };
+
   // Handle adding new data
   const handleAddData = async (schemaKey) => {
-    if (!dialogData.trim()) {
-      alert('कृपया डेटा दर्ज करें।');
+    const validationErrors = validateData(dialogData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
@@ -188,6 +205,7 @@ const AdminWorkForm = ({ onLogout }) => {
 
     try {
       setSubmitting(true);
+      setErrors({});
       const body = { [config.field]: dialogData.trim() };
 
       console.log(`📤 Posting to ${config.endpoint}:`, body);
@@ -219,6 +237,7 @@ const AdminWorkForm = ({ onLogout }) => {
       // Close dialog and reset
       setActiveDialog(null);
       setDialogData('');
+      setErrors({});
       alert('डेटा सफलतापूर्वक जोड़ा गया!');
       
     } catch (err) {
@@ -233,13 +252,86 @@ const AdminWorkForm = ({ onLogout }) => {
     }
   };
 
-  // ✅ NEW: Handle delete data (ONLY for SDOs and Schemes)
+  // ✅ ADDED: Handle edit data (open edit dialog)
+  const handleEditData = (schemaKey, item) => {
+    const itemId = item._id || item.id;
+    const config = schemaConfigs.find(c => c.key === schemaKey);
+    
+    setEditingId(itemId);
+    setActiveEditDialog(schemaKey);
+    setEditDialogData(item[config.field] || '');
+    setEditErrors({});
+  };
+
+  // ✅ ADDED: Handle update data (submit edit form)
+  const handleUpdateData = async (schemaKey) => {
+    const validationErrors = validateData(editDialogData, true);
+    if (Object.keys(validationErrors).length > 0) {
+      setEditErrors(validationErrors);
+      return;
+    }
+
+    const config = schemaConfigs.find(c => c.key === schemaKey);
+    if (!config || !editingId) return;
+
+    try {
+      setUpdating(true);
+      setEditErrors({});
+      const body = { [config.field]: editDialogData.trim() };
+
+      console.log(`📤 Updating ${config.title} ${editingId}:`, body);
+
+      const response = await fetch(`${BASE_SERVER_URL}${config.endpoint}/${editingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update data');
+      }
+
+      const result = await response.json();
+      console.log('✅ Update result:', result);
+      
+      // Update local state
+      const updatedItem = result.data || result;
+      setSchemaData(prev => ({
+        ...prev,
+        [schemaKey]: prev[schemaKey].map(item => 
+          ((item._id || item.id) === editingId) ? updatedItem : item
+        )
+      }));
+
+      // Close edit dialog and reset
+      setActiveEditDialog(null);
+      setEditingId(null);
+      setEditDialogData('');
+      setEditErrors({});
+      alert('डेटा सफलतापूर्वक अपडेट किया गया!');
+      
+    } catch (err) {
+      console.error('❌ Update data error:', err);
+      alert(`अपडेट करने में त्रुटि: ${err.message}`);
+      if (err.message.includes('401')) {
+        logout();
+        navigate('/login');
+      }
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // ✅ UPDATED: Handle delete data (for ALL schema types)
   const handleDeleteData = async (schemaKey, itemId, itemName) => {
     const config = schemaConfigs.find(c => c.key === schemaKey);
     
-    // ✅ Only allow deletion for SDOs and Schemes
-    if (!config || !config.canDelete) {
-      alert('इस आइटम को डिलीट करने की अनुमति नहीं है।');
+    if (!config) {
+      alert('Invalid configuration.');
       return;
     }
 
@@ -263,9 +355,21 @@ const AdminWorkForm = ({ onLogout }) => {
 
       console.log(`📊 Delete ${config.title} response:`, response.status);
 
+      const responseData = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to delete ${config.title}. Status: ${response.status}`);
+        // ✅ ADDED: Handle specific delete error messages (referential integrity)
+        const message = responseData.message || `Failed to delete ${config.title}. Status: ${response.status}`;
+        
+        if (response.status === 400 && responseData.details) {
+          // Show detailed error message for referential integrity issues
+          const details = responseData.details;
+          const suggestions = details.suggestions ? details.suggestions.join('\n• ') : '';
+          alert(`${message}\n\nसुझाव:\n• ${suggestions}`);
+          return;
+        }
+        
+        throw new Error(message);
       }
 
       // Update local state by removing the deleted item
@@ -290,6 +394,14 @@ const AdminWorkForm = ({ onLogout }) => {
     } finally {
       setDeleting(null);
     }
+  };
+
+  // ✅ ADDED: Handle cancel edit
+  const handleCancelEdit = () => {
+    setActiveEditDialog(null);
+    setEditingId(null);
+    setEditDialogData('');
+    setEditErrors({});
   };
 
   // Enhanced filter with null safety
@@ -354,10 +466,7 @@ const AdminWorkForm = ({ onLogout }) => {
             return (
               <div key={config.key} className="schema-card">
                 <div className="schema-header">
-                  <h3>
-                    {config.title}
-                    {config.canDelete }
-                  </h3>
+                  <h3>{config.title}</h3>
                   <div className="schema-actions">
                     <span className="count-badge">{data.length}</span>
                     <button
@@ -394,28 +503,29 @@ const AdminWorkForm = ({ onLogout }) => {
                             <span className="data-text">{itemName}</span>
                           </div>
                           <div className="data-actions">
-                            {/* <button className="action-btn view-btn" title="देखें">
-                              <Eye size={14} />
-                            </button>
-                            <button className="action-btn edit-btn" title="संपादित करें">
+                            {/* ✅ ADDED: Edit button for all items */}
+                            <button 
+                              className="action-btn edit-btn" 
+                              title="संपादित करें"
+                              onClick={() => handleEditData(config.key, item)}
+                              disabled={updating}
+                            >
                               <Edit size={14} />
-                            </button> */}
+                            </button>
                             
-                            {/* ✅ CONDITIONAL DELETE BUTTON - Only for SDOs and Schemes */}
-                            {config.canDelete && (
-                              <button 
-                                className="action-btn delete-btn" 
-                                title="मिटाएं"
-                                onClick={() => handleDeleteData(config.key, itemId, itemName)}
-                                disabled={deleting === itemId}
-                              >
-                                {deleting === itemId ? (
-                                  <div className="delete-spinner"></div>
-                                ) : (
-                                  <Trash2 size={14} />
-                                )}
-                              </button>
-                            )}
+                            {/* ✅ UPDATED: Delete button for all items */}
+                            <button 
+                              className="action-btn delete-btn" 
+                              title="मिटाएं"
+                              onClick={() => handleDeleteData(config.key, itemId, itemName)}
+                              disabled={deleting === itemId}
+                            >
+                              {deleting === itemId ? (
+                                <div className="delete-spinner"></div>
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                            </button>
                           </div>
                         </div>
                       );
@@ -432,7 +542,7 @@ const AdminWorkForm = ({ onLogout }) => {
         </div>
       </div>
 
-      {/* Add Data Dialog */}
+      {/* ✅ ADD DATA DIALOG */}
       {activeDialog && (
         <div className="dialog-overlay">
           <div className="dialog-box">
@@ -444,6 +554,7 @@ const AdminWorkForm = ({ onLogout }) => {
                 onClick={() => {
                   setActiveDialog(null);
                   setDialogData('');
+                  setErrors({});
                 }}
                 className="close-btn"
               >
@@ -459,7 +570,10 @@ const AdminWorkForm = ({ onLogout }) => {
                 <input
                   type="text"
                   value={dialogData}
-                  onChange={(e) => setDialogData(e.target.value)}
+                  onChange={(e) => {
+                    setDialogData(e.target.value);
+                    setErrors({});
+                  }}
                   placeholder={schemaConfigs.find(c => c.key === activeDialog)?.placeholder}
                   autoFocus
                   onKeyPress={(e) => {
@@ -468,6 +582,9 @@ const AdminWorkForm = ({ onLogout }) => {
                     }
                   }}
                 />
+                {errors.data && (
+                  <span className="error-msg">{errors.data}</span>
+                )}
               </div>
             </div>
             
@@ -476,6 +593,7 @@ const AdminWorkForm = ({ onLogout }) => {
                 onClick={() => {
                   setActiveDialog(null);
                   setDialogData('');
+                  setErrors({});
                 }}
                 className="cancel-btn"
                 disabled={submitting}
@@ -488,6 +606,68 @@ const AdminWorkForm = ({ onLogout }) => {
                 disabled={submitting || !dialogData.trim()}
               >
                 {submitting ? 'जोड़ा जा रहा है...' : 'जोड़ें'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ ADDED: EDIT DATA DIALOG */}
+      {activeEditDialog && (
+        <div className="dialog-overlay">
+          <div className="dialog-box">
+            <div className="dialog-header">
+              <h3>
+                {schemaConfigs.find(c => c.key === activeEditDialog)?.title} संपादित करें
+              </h3>
+              <button
+                onClick={handleCancelEdit}
+                className="close-btn"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="dialog-body">
+              <div className="form-group">
+                <label>
+                  {schemaConfigs.find(c => c.key === activeEditDialog)?.title} का नाम:
+                </label>
+                <input
+                  type="text"
+                  value={editDialogData}
+                  onChange={(e) => {
+                    setEditDialogData(e.target.value);
+                    setEditErrors({});
+                  }}
+                  placeholder={schemaConfigs.find(c => c.key === activeEditDialog)?.placeholder}
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && editDialogData.trim()) {
+                      handleUpdateData(activeEditDialog);
+                    }
+                  }}
+                />
+                {editErrors.data && (
+                  <span className="error-msg">{editErrors.data}</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="dialog-footer">
+              <button
+                onClick={handleCancelEdit}
+                className="cancel-btn"
+                disabled={updating}
+              >
+                रद्द करें
+              </button>
+              <button
+                onClick={() => handleUpdateData(activeEditDialog)}
+                className="submit-btn"
+                disabled={updating || !editDialogData.trim()}
+              >
+                {updating ? 'अपडेट हो रहा है...' : 'अपडेट करें'}
               </button>
             </div>
           </div>

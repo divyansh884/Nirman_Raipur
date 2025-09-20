@@ -34,7 +34,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Update
-router.put("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
+router.patch("/:id", auth, authorizeRole("Super Admin"), async (req, res) => {
   try {
     const doc = await Ward.findByIdAndUpdate(req.params.id, req.body, {
       new: true,

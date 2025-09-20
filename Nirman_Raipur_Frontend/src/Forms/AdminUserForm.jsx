@@ -13,8 +13,10 @@ function AdminUserForm({ onLogout }) {
   const { token, isAuthenticated, logout, isAdmin, canAccessPage } = useAuthStore();
   
   const [users, setUsers] = useState([]);
-  const [departments, setDepartments] = useState([]); // ✅ ADDED: State for department options
+  const [departments, setDepartments] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false); // ✅ ADDED: Edit modal state
+  const [editingUserId, setEditingUserId] = useState(null); // ✅ ADDED: Track which user is being edited
   const [isLoading, setIsLoading] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -22,13 +24,23 @@ function AdminUserForm({ onLogout }) {
     password: "",
     fullName: "",
     role: "",
-    department: "",     // This will store department ObjectId
+    department: "",
+    designation: "",
+    contactNumber: "",
+  });
+  const [editUser, setEditUser] = useState({ // ✅ ADDED: State for editing user
+    username: "",
+    email: "",
+    fullName: "",
+    role: "",
+    department: "",
     designation: "",
     contactNumber: "",
   });
   const [errors, setErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({}); // ✅ ADDED: Separate errors for edit form
 
-  // ✅ UPDATED: Check authentication and fetch both users and departments
+  // ✅ Check authentication and fetch both users and departments
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
       // Check if user is authenticated
@@ -45,13 +57,13 @@ function AdminUserForm({ onLogout }) {
         return;
       }
 
-      await Promise.all([fetchUsers(), fetchDepartments()]); // ✅ Fetch both users and departments
+      await Promise.all([fetchUsers(), fetchDepartments()]);
     };
 
     checkAuthAndFetchData();
   }, [isAuthenticated, token, navigate, canAccessPage]);
 
-  // ✅ ADDED: Fetch departments for dropdown
+  // Fetch departments for dropdown
   const fetchDepartments = async () => {
     if (!isAuthenticated || !token) return;
 
@@ -91,11 +103,10 @@ function AdminUserForm({ onLogout }) {
       console.log("✅ Departments loaded:", normalizedDepartments);
     } catch (error) {
       console.error("❌ Failed to fetch departments:", error);
-      // Don't alert for department fetch failure, just log it
     }
   };
 
-  // Existing fetchUsers function remains the same
+  // Fetch users
   const fetchUsers = async () => {
     if (!isAuthenticated || !token) {
       navigate("/login");
@@ -139,7 +150,7 @@ function AdminUserForm({ onLogout }) {
     }
   };
 
-  // ✅ ADDED: Helper function to get department name by ID
+  // Helper function to get department name by ID
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return '-';
     
@@ -156,12 +167,21 @@ function AdminUserForm({ onLogout }) {
     return department ? department.name : departmentId;
   };
 
+  // ✅ UPDATED: Handle input change for both add and edit forms
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewUser((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
+  // ✅ ADDED: Handle input change for edit form
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditUser((prev) => ({ ...prev, [name]: value }));
+    setEditErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  // ✅ UPDATED: Validation for add form
   const validateForm = () => {
     let tempErrors = {};
     if (!newUser.username.trim()) tempErrors.username = "यह फ़ील्ड आवश्यक है।";
@@ -180,6 +200,25 @@ function AdminUserForm({ onLogout }) {
     return tempErrors;
   };
 
+  // ✅ ADDED: Validation for edit form (password not required)
+  const validateEditForm = () => {
+    let tempErrors = {};
+    if (!editUser.username.trim()) tempErrors.username = "यह फ़ील्ड आवश्यक है।";
+    if (!editUser.email.trim()) tempErrors.email = "यह फ़ील्ड आवश्यक है।";
+    if (!editUser.fullName.trim()) tempErrors.fullName = "यह फ़ील्ड आवश्यक है।";
+    if (!editUser.role.trim()) tempErrors.role = "भूमिका आवश्यक है।";
+    if (!editUser.department.trim()) tempErrors.department = "विभाग आवश्यक है।";
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (editUser.email && !emailRegex.test(editUser.email)) {
+      tempErrors.email = "वैध ईमेल पता दर्ज करें।";
+    }
+    
+    return tempErrors;
+  };
+
+  // Handle add user
   const handleAddUser = async (e) => {
     e.preventDefault();
     
@@ -252,6 +291,100 @@ function AdminUserForm({ onLogout }) {
     }
   };
 
+  // ✅ ADDED: Handle edit user (open edit modal)
+  const handleEditUser = (user) => {
+    setEditingUserId(user.id);
+    setEditUser({
+      username: user.username || "",
+      email: user.email || "",
+      fullName: user.fullName || "",
+      role: user.role || "",
+      department: (typeof user.department === 'object' ? user.department._id || user.department.id : user.department) || "",
+      designation: user.designation || "",
+      contactNumber: user.contactNumber || "",
+    });
+    setEditErrors({});
+    setShowEditUser(true);
+  };
+
+  // ✅ ADDED: Handle update user (submit edit form)
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    
+    const validationErrors = validateEditForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setEditErrors(validationErrors);
+      return;
+    }
+
+    // Check authentication before updating user
+    if (!isAuthenticated || !token) {
+      logout();
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log("📤 Updating user data:", editUser);
+      
+      const res = await fetch(`${BASE_SERVER_URL}/admin/user/${editingUserId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(editUser),
+      });
+
+      const responseData = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          navigate("/login");
+          return;
+        }
+        
+        const message =
+          responseData.message ||
+          (responseData.errors && responseData.errors.map((e) => e.msg).join(", ")) ||
+          "Failed to update user";
+        throw new Error(message);
+      }
+
+      const updatedUser = responseData.data;
+      const normalizedUser = { id: updatedUser.id || updatedUser._id, ...updatedUser };
+      
+      // Update the user in the list
+      setUsers((prev) => prev.map(user => 
+        user.id === editingUserId ? normalizedUser : user
+      ));
+
+      // Reset edit form
+      setEditUser({
+        username: "",
+        email: "",
+        fullName: "",
+        role: "",
+        department: "",
+        designation: "",
+        contactNumber: "",
+      });
+      setShowEditUser(false);
+      setEditingUserId(null);
+      setEditErrors({});
+      
+      alert("उपयोगकर्ता सफलतापूर्वक अपडेट किया गया!");
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("उपयोगकर्ता अपडेट करने में त्रुटि: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle delete user
   const handleDelete = async (id) => {
     if (!window.confirm("क्या आप वाकई इस उपयोगकर्ता को हटाना चाहते हैं?")) {
       return;
@@ -274,13 +407,27 @@ function AdminUserForm({ onLogout }) {
         },
       });
 
+      const responseData = await res.json();
+
       if (!res.ok) {
         if (res.status === 401) {
           logout();
           navigate("/login");
           return;
         }
-        throw new Error("Failed to delete user");
+        
+        // ✅ ADDED: Handle specific delete error messages (like user being appointed as engineer)
+        const message = responseData.message || "Failed to delete user";
+        
+        if (res.status === 400 && responseData.details) {
+          // Show detailed error message for referential integrity issues
+          const details = responseData.details;
+          const suggestions = details.suggestions ? details.suggestions.join('\n• ') : '';
+          alert(`${message}\n\nसुझाव:\n• ${suggestions}`);
+          return;
+        }
+        
+        throw new Error(message);
       }
       
       setUsers((prev) => prev.filter((user) => user.id !== id));
@@ -291,6 +438,22 @@ function AdminUserForm({ onLogout }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ✅ ADDED: Handle cancel edit
+  const handleCancelEdit = () => {
+    setShowEditUser(false);
+    setEditingUserId(null);
+    setEditUser({
+      username: "",
+      email: "",
+      fullName: "",
+      role: "",
+      department: "",
+      designation: "",
+      contactNumber: "",
+    });
+    setEditErrors({});
   };
 
   // Show authentication error if not authenticated
@@ -368,6 +531,7 @@ function AdminUserForm({ onLogout }) {
               </button>
             </div>
 
+            {/* ✅ ADD USER MODAL */}
             {showAddUser && (
               <div className="modal-overlay">
                 <div className="modal-content">
@@ -447,7 +611,6 @@ function AdminUserForm({ onLogout }) {
                       <span className="error-msg">{errors.role}</span>
                     )}
 
-                    {/* ✅ UPDATED: Department dropdown instead of text input */}
                     <select
                       name="department"
                       value={newUser.department}
@@ -497,6 +660,132 @@ function AdminUserForm({ onLogout }) {
               </div>
             )}
 
+            {/* ✅ ADDED: EDIT USER MODAL */}
+            {showEditUser && (
+              <div className="modal-overlay">
+                <div className="modal-content">
+                  <button
+                    className="modal-close-btn"
+                    onClick={handleCancelEdit}
+                    aria-label="Close"
+                    disabled={isLoading}
+                  >
+                    ×
+                  </button>
+                  <h2>उपयोगकर्ता संपादित करें</h2>
+                  <form className="user-form" onSubmit={handleUpdateUser}>
+                    <input
+                      type="text"
+                      name="username"
+                      placeholder="उपयोगकर्ता नाम"
+                      value={editUser.username}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    />
+                    {editErrors.username && (
+                      <span className="error-msg">{editErrors.username}</span>
+                    )}
+
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="ईमेल"
+                      value={editUser.email}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    />
+                    {editErrors.email && (
+                      <span className="error-msg">{editErrors.email}</span>
+                    )}
+
+                    <input
+                      type="text"
+                      name="fullName"
+                      placeholder="पूरा नाम"
+                      value={editUser.fullName}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    />
+                    {editErrors.fullName && (
+                      <span className="error-msg">{editErrors.fullName}</span>
+                    )}
+
+                    <select
+                      name="role"
+                      value={editUser.role}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    >
+                      <option value="">भूमिका चुनें</option>
+                      <option value="Super Admin">Super Admin</option>
+                      <option value="Administrative Approver">Administrative Approver</option>
+                      <option value="Technical Approver">Technical Approver</option>
+                      <option value="Engineer">Engineer</option>
+                      <option value="Tender Manager">Tender Manager</option>
+                      <option value="Work Order Manager">Work Order Manager</option>
+                    </select>
+                    {editErrors.role && (
+                      <span className="error-msg">{editErrors.role}</span>
+                    )}
+
+                    <select
+                      name="department"
+                      value={editUser.department}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    >
+                      <option value="">-- विभाग चुनें --</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id || dept._id} value={dept.id || dept._id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                    {editErrors.department && (
+                      <span className="error-msg">{editErrors.department}</span>
+                    )}
+
+                    <input
+                      type="text"
+                      name="designation"
+                      placeholder="पदनाम"
+                      value={editUser.designation}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    />
+
+                    <input
+                      type="text"
+                      name="contactNumber"
+                      placeholder="संपर्क नंबर"
+                      value={editUser.contactNumber}
+                      onChange={handleEditInputChange}
+                      disabled={isLoading}
+                    />
+
+                    <center>
+                      <button 
+                        type="submit" 
+                        className="btn-primary"
+                        disabled={isLoading}
+                        style={{ marginRight: '10px' }}
+                      >
+                        {isLoading ? "अपडेट हो रहा है..." : "अपडेट करें"}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn-secondary"
+                        onClick={handleCancelEdit}
+                        disabled={isLoading}
+                      >
+                        रद्द करें
+                      </button>
+                    </center>
+                  </form>
+                </div>
+              </div>
+            )}
+
             <section className="user-table-section">
               <h2>मौजूदा उपयोगकर्ता</h2>
               {isLoading ? (
@@ -522,37 +811,34 @@ function AdminUserForm({ onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(
-                      ({
-                        id,
-                        username,
-                        email,
-                        fullName,
-                        role,
-                        department,
-                        designation,
-                        contactNumber,
-                      }) => (
-                        <tr key={id}>
-                          <td>{username}</td>
-                          <td>{email}</td>
-                          <td>{fullName}</td>
-                          <td>{role}</td>
-                          <td>{getDepartmentName(department)}</td> {/* ✅ UPDATED: Show department name */}
-                          <td>{designation}</td>
-                          <td>{contactNumber}</td>
-                          <td>
-                            <button
-                              className="btn-danger"
-                              onClick={() => handleDelete(id)}
-                              disabled={isLoading}
-                            >
-                              {isLoading ? "..." : "हटाएं"}
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    )}
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td>{user.username}</td>
+                        <td>{user.email}</td>
+                        <td>{user.fullName}</td>
+                        <td>{user.role}</td>
+                        <td>{getDepartmentName(user.department)}</td>
+                        <td>{user.designation}</td>
+                        <td>{user.contactNumber}</td>
+                        <td>
+                          {/* ✅ ADDED: Edit button */}
+                          <button
+                            className="btn-edit"
+                            onClick={() => handleEditUser(user)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "..." : "संपादित करें"}
+                          </button>
+                          <button
+                            className="btn-danger"
+                            onClick={() => handleDelete(user.id)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "..." : "हटाएं"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}

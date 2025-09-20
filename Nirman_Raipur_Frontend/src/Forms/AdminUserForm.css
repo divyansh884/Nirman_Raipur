@@ -70,6 +70,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.25s ease;
+  width: 70px;
 }
 
 .admin-user-form .btn-danger:hover {
@@ -235,7 +236,7 @@
   }
 
   .admin-user-form .btn-danger {
-    padding: 6px 8px;
+    padding: px 8px;
     font-size: 0.85rem;
   }
 }
@@ -288,3 +289,23 @@
     text-align: center;
   }
 }
+/* Alternative Orange Edit Button */
+.btn-edit {
+  background: linear-gradient(135deg, #FF9800, #F57C00);
+  border: none;
+  color: white;
+  padding: 8px 10px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+  margin: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(255, 152, 0, 0.2);
+  margin-bottom: 2px;
+}
+
+
