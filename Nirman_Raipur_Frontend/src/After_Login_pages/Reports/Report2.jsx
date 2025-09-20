@@ -267,7 +267,7 @@ const Report2 = ({ onLogout }) => {
                   </div>
                 </div>
 
-                <div className="financial-card approved">
+                {/* <div className="financial-card approved">
                   <div className="financial-content">
                     <h3>कुल अनुमोदित राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</p>
@@ -279,7 +279,7 @@ const Report2 = ({ onLogout }) => {
                     <h3>कुल जारी राशि (लाख रुपये)</h3>
                     <p className="financial-amount">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -319,14 +319,14 @@ const Report2 = ({ onLogout }) => {
                       <td>कुल स्वीकृत राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalSanctionAmount)}</td>
                     </tr>
-                    <tr className="financial-row">
+                    {/* <tr className="financial-row">
                       <td>कुल अनुमोदित राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalApprovedAmount)}</td>
                     </tr>
                     <tr className="financial-row">
                       <td>कुल जारी राशि (लाख रुपये)</td>
                       <td className="amount-cell">{formatCurrency(dashboardData.financial.totalReleasedAmount)}</td>
-                    </tr>
+                    </tr> */}
                   </tbody>
                 </table>
               </div>
