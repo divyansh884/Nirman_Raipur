@@ -188,13 +188,17 @@ const updateWorkProposal = async (req, res) => {
       });
     }
 
-    // Check if user can update
-    if (req.user.role !== "Super Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only the submitter can update the proposal",
-      });
-    }
+     const isAppointedEngineer = workProposal.appointedEngineer && 
+                                 req.user.id == workProposal.appointedEngineer;
+      const isAdmin = req.user.role === 'Technical Approver';
+      const isSuperAdmin = req.user.role === 'Super Admin' || req.user.role === 'superadmin';
+
+      if (!isAppointedEngineer && !isAdmin && !isSuperAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: "Proposal can only be updated by the appointed engineer, Technical Approver, or superadmin",
+        });
+      }
 
     // Check if proposal can be updated (only before technical approval)
     // if (workProposal.currentStatus !== "Pending Technical Approval") {

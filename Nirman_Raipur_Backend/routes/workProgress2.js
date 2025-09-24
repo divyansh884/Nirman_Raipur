@@ -128,9 +128,9 @@ router.post(
         });
       }
 
-      // ✅ Check authorization - Allow appointed engineer, admin, and superadmin
+  
       const isAppointedEngineer = workProposal.appointedEngineer && 
-                                 req.user.id === workProposal.appointedEngineer.id.toString();
+                                 req.user.id == workProposal.appointedEngineer;
       const isAdmin = req.user.role === 'admin';
       const isSuperAdmin = req.user.role === 'Super Admin' || req.user.role === 'superadmin';
 

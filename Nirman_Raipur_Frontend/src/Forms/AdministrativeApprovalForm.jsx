@@ -285,7 +285,7 @@ export default function AdministrativeApprovalPage({ onLogout }) {
               {/* Document Upload - Required */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
-                  दस्तावेज़ संलग्न करें <span className="req">*</span>
+                  दस्तावेज़ संलग्न करें
                 </label>
                 <input
                   type="file"

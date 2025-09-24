@@ -551,7 +551,7 @@ export default function WorkInProgressForm({ onLogout }) {
               {/* Document Upload */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
-                  दस्तावेज़ संलग्न करें <span className="req">*</span>
+                  दस्तावेज़ संलग्न करें 
                 </label>
                 <input
                   type="file"
@@ -575,7 +575,7 @@ export default function WorkInProgressForm({ onLogout }) {
               {/* Images Upload */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
-                  छवियां संलग्न करें <span className="req">*</span>
+                  छवियां संलग्न करें 
                 </label>
                 <input
                   type="file"

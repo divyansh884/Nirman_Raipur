@@ -225,12 +225,12 @@ const workProgressSchema = new mongoose.Schema(
 // Main Work Proposal Schema
 const workProposalSchema = new mongoose.Schema(
   {
-    // Serial Number (Auto-generated)
-    serialNumber: {
-      type: String,
-      unique: true,
-      required: false,
-    },
+    // // Serial Number (Auto-generated)
+    // serialNumber: {
+    //   type: String,
+    //   unique: true,
+    //   required: false,
+    // },
 
     // Image/Photo of work location
     workLocationImage: imageSchema,
@@ -504,34 +504,34 @@ const workProposalSchema = new mongoose.Schema(
 );
 
 // Pre-save middleware to generate serial number
-workProposalSchema.pre("save", async function (next) {
-  if (this.isNew) {
-    const count = await this.constructor.countDocuments();
-    const year = new Date().getFullYear();
-    this.serialNumber = `WP${year}${String(count + 1).padStart(6, "0")}`;
-  }
+// workProposalSchema.pre("save", async function (next) {
+//   if (this.isNew) {
+//     const count = await this.constructor.countDocuments();
+//     const year = new Date().getFullYear();
+//     this.serialNumber = `WP${year}${String(count + 1).padStart(6, "0")}`;
+//   }
 
-  if (
-    this.isModified("currentStatus") ||
-    this.isModified("workProgressStage")
-  ) {
-    this.lastStatusUpdate = new Date();
-    this.lastRevision = new Date();
-  }
+//   if (
+//     this.isModified("currentStatus") ||
+//     this.isModified("workProgressStage")
+//   ) {
+//     this.lastStatusUpdate = new Date();
+//     this.lastRevision = new Date();
+//   }
 
-  // Auto-calculate remaining balance
-  if (
-    this.workProgress &&
-    this.workProgress.sanctionedAmount &&
-    this.workProgress.totalAmountReleasedSoFar
-  ) {
-    this.workProgress.remainingBalance =
-      this.workProgress.sanctionedAmount -
-      this.workProgress.totalAmountReleasedSoFar;
-  }
+//   // Auto-calculate remaining balance
+//   if (
+//     this.workProgress &&
+//     this.workProgress.sanctionedAmount &&
+//     this.workProgress.totalAmountReleasedSoFar
+//   ) {
+//     this.workProgress.remainingBalance =
+//       this.workProgress.sanctionedAmount -
+//       this.workProgress.totalAmountReleasedSoFar;
+//   }
 
-  next();
-});
+//   next();
+// });
 
 // Virtual for calculating work duration
 workProposalSchema.virtual("workDuration").get(function () {

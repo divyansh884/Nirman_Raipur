@@ -375,7 +375,7 @@ export default function TenderForm({ onLogout }) {
               {/* Document Upload - Now Required */}
               <div className="form-group file-input-wrapper">
                 <label className="form-label">
-                  संलग्न दस्तावेज़ <span className="req">*</span>
+                  संलग्न दस्तावेज़ 
                 </label>
                 <input
                   type="file"

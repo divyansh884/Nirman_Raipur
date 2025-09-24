@@ -372,7 +372,7 @@ export default function WorkOrderForm({ onLogout }) {
 
             <div className="form-group full">
               <label className="form-label">
-                टिप्पणी <span className="req">*</span>
+                टिप्पणी 
               </label>
               <textarea
                 name="remark"
