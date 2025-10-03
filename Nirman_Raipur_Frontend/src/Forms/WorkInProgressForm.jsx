@@ -30,7 +30,7 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   }, [workId, navigate, isAuthenticated, token]);
 
-  // ✅ Updated form state to include currentStatus
+  // ✅ Updated form state to include currentStatus, longitude, latitude
   const [form, setForm] = useState({
     desc: "",
     sanctionedAmount: "",
@@ -38,7 +38,9 @@ export default function WorkInProgressForm({ onLogout }) {
     remainingBalance: "",
     mbStageMeasurementBookStag: "",
     expenditureAmount: "",
-    currentStatus: "", // ✅ ADDED: Current status field
+    currentStatus: "", // ✅ Required field
+    longitude: "", // ✅ ADDED: Optional field
+    latitude: "", // ✅ ADDED: Optional field
     document: null,
     images: []
   });
@@ -107,7 +109,7 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
-  // ✅ Enhanced form validation with currentStatus
+  // ✅ Enhanced form validation with currentStatus (required) and longitude/latitude (optional)
   const validateForm = () => {
     const newErrors = {};
     
@@ -135,9 +137,18 @@ export default function WorkInProgressForm({ onLogout }) {
       newErrors.expenditureAmount = 'वैध व्यय राशि दर्ज करें';
     }
 
-    // ✅ ADDED: Validate currentStatus (required field)
+    // ✅ REQUIRED: Validate currentStatus
     if (!form.currentStatus.trim()) {
       newErrors.currentStatus = 'कार्य स्थिति चुनना आवश्यक है';
+    }
+
+    // ✅ OPTIONAL: Validate longitude and latitude (only if provided)
+    if (form.longitude && (isNaN(parseFloat(form.longitude)) || parseFloat(form.longitude) < -180 || parseFloat(form.longitude) > 180)) {
+      newErrors.longitude = 'वैध देशांतर दर्ज करें (-180 से 180 के बीच)';
+    }
+    
+    if (form.latitude && (isNaN(parseFloat(form.latitude)) || parseFloat(form.latitude) < -90 || parseFloat(form.latitude) > 90)) {
+      newErrors.latitude = 'वैध अक्षांश दर्ज करें (-90 से 90 के बीच)';
     }
 
     setErrors(newErrors);
@@ -159,14 +170,40 @@ export default function WorkInProgressForm({ onLogout }) {
     }
   };
 
-  // ✅ ADDED: Function to update work status
-  const updateWorkStatus = async (statusValue) => {
+  // ✅ UPDATED: Function to update work status, longitude, and latitude
+  const updateWorkStatus = async (statusValue, longitudeValue, latitudeValue) => {
     try {
-      console.log("📤 Updating work status to:", statusValue);
+      console.log("📤 Updating work data...");
+      console.log("🏷️ Status:", statusValue);
+      console.log("🌐 Longitude:", longitudeValue);
+      console.log("🌐 Latitude:", latitudeValue);
+      
+      // ✅ Build update object - only include fields that have values
+      const updateData = {
+        currentStatus: statusValue // Always required
+      };
+
+      // ✅ Only add longitude if it has a value
+      if (longitudeValue && longitudeValue.trim() !== '') {
+        const longNum = parseFloat(longitudeValue);
+        if (!isNaN(longNum)) {
+          updateData.longitude = longNum;
+        }
+      }
+
+      // ✅ Only add latitude if it has a value
+      if (latitudeValue && latitudeValue.trim() !== '') {
+        const latNum = parseFloat(latitudeValue);
+        if (!isNaN(latNum)) {
+          updateData.latitude = latNum;
+        }
+      }
+
+      console.log("📦 Update data payload:", updateData);
       
       const response = await axios.put(
         `${BASE_SERVER_URL}/work-proposals/${workId}`,
-        { currentStatus: statusValue },
+        updateData,
         {
           headers: {
             "Content-Type": "application/json",
@@ -175,10 +212,10 @@ export default function WorkInProgressForm({ onLogout }) {
         }
       );
 
-      console.log("✅ Work status updated successfully:", response.data);
+      console.log("✅ Work data updated successfully:", response.data);
       return response.data;
     } catch (error) {
-      console.error("❌ Status update error:", error);
+      console.error("❌ Work data update error:", error);
       throw error;
     }
   };
@@ -194,7 +231,7 @@ export default function WorkInProgressForm({ onLogout }) {
     navigate(-1);
   };
 
-  // ✅ Enhanced Submit Handler with status update
+  // ✅ Enhanced Submit Handler with status, longitude, and latitude update
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -216,9 +253,9 @@ export default function WorkInProgressForm({ onLogout }) {
 
       setIsSubmitting(true);
 
-      // ✅ STEP 1: Update work status first
-      console.log("🚀 Step 1: Updating work status...");
-      await updateWorkStatus(form.currentStatus);
+      // ✅ STEP 1: Update work status, longitude, and latitude
+      console.log("🚀 Step 1: Updating work data (status, longitude, latitude)...");
+      await updateWorkStatus(form.currentStatus, form.longitude, form.latitude);
 
       // ✅ STEP 2: Submit progress data
       console.log("🚀 Step 2: Submitting progress data...");
@@ -226,7 +263,7 @@ export default function WorkInProgressForm({ onLogout }) {
       // Create FormData for file upload
       const formData = new FormData();
       
-      // Add text fields (excluding currentStatus as it's already updated)
+      // Add text fields (excluding currentStatus, longitude, latitude as they're already updated)
       formData.append("desc", form.desc);
       formData.append("sanctionedAmount", parseFloat(form.sanctionedAmount));
       formData.append("totalAmountReleasedSoFar", parseFloat(form.totalAmountReleasedSoFar));
@@ -264,6 +301,8 @@ export default function WorkInProgressForm({ onLogout }) {
       console.log("📊 MB Stage:", form.mbStageMeasurementBookStag);
       console.log("💸 Expenditure Amount:", form.expenditureAmount);
       console.log("🏷️ Current Status:", form.currentStatus);
+      console.log("🌐 Longitude:", form.longitude);
+      console.log("🌐 Latitude:", form.latitude);
       console.log("📁 Document:", form.document?.name);
       console.log("🖼️ Images:", form.images.length);
       console.log("📋 Installments:", processedInstallments);
@@ -281,7 +320,7 @@ export default function WorkInProgressForm({ onLogout }) {
       );
 
       console.log("✅ Progress submitted successfully:", progressResponse.data);
-      alert("राशि प्रगति प्रपत्र और कार्य स्थिति सफलतापूर्वक सहेजी गई!");
+      alert("राशि प्रगति प्रपत्र और कार्य विवरण सफलतापूर्वक सहेजे गए!");
       
       // Reset form
       setForm({
@@ -291,7 +330,9 @@ export default function WorkInProgressForm({ onLogout }) {
         remainingBalance: "",
         mbStageMeasurementBookStag: "",
         expenditureAmount: "",
-        currentStatus: "", // ✅ ADDED: Reset status field
+        currentStatus: "", // ✅ Reset status field
+        longitude: "", // ✅ ADDED: Reset longitude field
+        latitude: "", // ✅ ADDED: Reset latitude field
         document: null,
         images: []
       });
@@ -393,7 +434,7 @@ export default function WorkInProgressForm({ onLogout }) {
           </div>
           
           <form className="p-body" onSubmit={handleSubmit}>
-            {/* ✅ ADDED: Current Status Field */}
+            {/* ✅ Current Status Field - REQUIRED */}
             <div className="form-group full">
               <label className="form-label">
                 कार्य की वर्तमान स्थिति <span className="req">*</span>
@@ -416,6 +457,53 @@ export default function WorkInProgressForm({ onLogout }) {
               {errors.currentStatus && (
                 <span className="error-text">{errors.currentStatus}</span>
               )}
+            </div>
+
+            {/* ✅ ADDED: Location Information - OPTIONAL */}
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">
+                  देशांतर (Longitude) <span className="optional">(वैकल्पिक)</span>
+                </label>
+                <input
+                  type="number"
+                  name="longitude"
+                  value={form.longitude}
+                  onChange={handleChange}
+                  className={`form-input ${errors.longitude ? 'error' : ''}`}
+                  placeholder="81.6296"
+                  step="0.000001"
+                  min="-180"
+                  max="180"
+                  disabled={isSubmitting}
+                />
+                {errors.longitude && (
+                  <span className="error-text">{errors.longitude}</span>
+                )}
+                <small className="help-text">-180 से 180 के बीच का मान</small>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  अक्षांश (Latitude) <span className="optional">(वैकल्पिक)</span>
+                </label>
+                <input
+                  type="number"
+                  name="latitude"
+                  value={form.latitude}
+                  onChange={handleChange}
+                  className={`form-input ${errors.latitude ? 'error' : ''}`}
+                  placeholder="21.25"
+                  step="0.000001"
+                  min="-90"
+                  max="90"
+                  disabled={isSubmitting}
+                />
+                {errors.latitude && (
+                  <span className="error-text">{errors.latitude}</span>
+                )}
+                <small className="help-text">-90 से 90 के बीच का मान</small>
+              </div>
             </div>
 
             {/* Progress Description */}
@@ -677,7 +765,7 @@ export default function WorkInProgressForm({ onLogout }) {
                 className="btn btn-primary"
                 disabled={isSubmitting || !workId}
               >
-                {isSubmitting ? "सबमिट हो रहा है..." : "Save Progress & Update Status"}
+                {isSubmitting ? "सबमिट हो रहा है..." : "Save Progress & Update Details"}
               </button>
               <button
                 type="button"
