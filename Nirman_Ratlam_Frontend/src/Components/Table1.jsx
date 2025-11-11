@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./Table.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import TopBar from "../Components/TopBar.jsx";
+import TopBar from "./TopBar.jsx";
 import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';
 

@@ -4,7 +4,7 @@ import useAuthStore from '../Store/useAuthStore.js';
 import TopBar from '../Components/TopBar.jsx';
 import './Profile.css';
 import { BASE_SERVER_URL } from '../constants.jsx';
-import defaultProfileAvatar from '../assets/defaultProfileAvatar';
+import defaultProfileAvatar from '../assets/defaultProfileAvatar.js';
 
 const Profile = ({ onLogout }) => {
   const navigate = useNavigate();

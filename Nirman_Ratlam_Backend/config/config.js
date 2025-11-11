@@ -15,10 +15,15 @@ module.exports = {
   },
   
   // CORS configuration
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true
-  },
+cors: {
+  origin: [
+    process.env.WEB_FRONTEND_URL,
+    ...(process.env.APP_FRONTEND_URL ? process.env.APP_FRONTEND_URL.split(',') : [])
+  ].filter(Boolean),
+  credentials: true
+},
+
+
   
   // Rate limiting configuration
   rateLimit: {

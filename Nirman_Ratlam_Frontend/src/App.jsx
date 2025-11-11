@@ -246,9 +246,9 @@ const TopNavbar = () => {
         <div className="logo-group">
           <div className="logo-text">
             <span className="logo-cg">CG</span>
-            <span className="logo-name">निर्माण रायपुर</span>
+            <span className="logo-name">निर्माण रतलाम</span>
           </div>
-          <span className="jashpur-text">Raipur</span>
+          <span className="jashpur-text">Ratlam</span>
         </div>
         <nav className="nav-desktop">
           <NavLink to="/" label="मुखपृष्ठ" icon={<Home />} />
@@ -313,8 +313,8 @@ const SideNavbar = () => {
           <i className="fa-solid fa-certificate" style={{ color: "#fff" }}></i>
         </div>
         <div className="hide-sm">
-          <div className="s-name">Raipur — निर्माण</div>
-          <div className="s-sub">जिला प्रशासन रायपुर</div>
+          <div className="s-name">Ratlam — निर्माण</div>
+          <div className="s-sub">जिला प्रशासन रतलाम</div>
         </div>
       </div>
       <nav
