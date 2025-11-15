@@ -18,8 +18,8 @@ const HomePage = () => {
       <section className="section">
         <div className="about-container">
           <div className="about-text">
-            <p>डिजिटल - रतलाम</p>
-            <h1>निर्माण रतलाम पोर्टल</h1>
+            <p>डिजिटल - रायपुर</p>
+            <h1>निर्माण रायपुर पोर्टल</h1>
             <button
               className="link-forward"
               onClick={() => navigate("/login")}
@@ -47,7 +47,7 @@ const HomePage = () => {
         </div>
         <div className="info-text">
           <h1>परिचय</h1>
-          <h2>निर्माण रतलाम को जानें</h2>
+          <h2>निर्माण रायपुर को जानें</h2>
           <ul>
             <li>
               <i className="fa-solid fa-hand-point-right pe-2 pb-3"></i>
@@ -74,9 +74,9 @@ const HomePage = () => {
       {/* 🔹 Details Section */}
       <section className="details">
         <div className="details-text">
-          <h1>निर्माण रतलाम संबंधी</h1>
+          <h1>निर्माण रायपुर संबंधी</h1>
           <p>
-            निर्माण रतलाम पोर्टल जिला प्रशासन की एक अनोखी पहल है, जिसका
+            निर्माण रायपुर पोर्टल जिला प्रशासन की एक अनोखी पहल है, जिसका
             उद्देश्य जिले का डिजिटलीकरण और सशक्तिकरण करना है। यह पोर्टल
             जिले की जनसंख्या को जोड़कर, योजना निर्माण में उनकी भागीदारी
             सुनिश्चित करता है और उन्हें वास्तविक समय में डेटा तक पहुंच
@@ -112,7 +112,7 @@ const HomePage = () => {
                 <i className="fas fa-envelope"></i>
                 Email :
                 <a href="mailto:dplc-jashpur@cg.gov.in">
-                  dplc-ratlam@cg.gov.in
+                  dplc-raipur@cg.gov.in
                 </a>
               </p>
               <p>
@@ -128,19 +128,19 @@ const HomePage = () => {
               <li>
                 <a href="https://jashpur.nic.in/" target="_blank" rel="noreferrer">
                   <i className="fas-solid fa-chevron-right"></i>
-                  रतलाम जिला आधिकारिक वेबसाइट
+                  रायपुर जिला आधिकारिक वेबसाइट
                 </a>
               </li>
               <li>
                 <a href="https://jashpur.nic.in/" target="_blank" rel="noreferrer">
                   <i className="fas-solid fa-chevron-right"></i>
-                  स्वास्थ्य रतलाम
+                  स्वास्थ्य रायपुर
                 </a>
               </li>
               <li>
                 <a href="https://jashpur.nic.in/" target="_blank" rel="noreferrer">
                   <i className="fas-solid fa-chevron-right"></i>
-                  समय-सीमा रतलाम
+                  समय-सीमा रायपुर
                 </a>
               </li>
             </ul>
@@ -148,7 +148,7 @@ const HomePage = () => {
 
           <div className="footer-social">
             <h1>तकनीकी सहायता</h1>
-            <p>निर्माण रतलाम वेबसाइट से संबंधित किसी भी सहायता हेतु:</p>
+            <p>निर्माण रायपुर वेबसाइट से संबंधित किसी भी सहायता हेतु:</p>
             <button>
               <a href="tel:7049790009">7049790009</a>
             </button>
@@ -157,14 +157,14 @@ const HomePage = () => {
 
         <div className="footer-bottom">
           <p>
-            Copyright © 2025. निर्माण रतलाम | Designed & Developed By{" "}
+            Copyright © 2025. निर्माण रायपुर | Designed & Developed By{" "}
             <a
               href="https://www.linkedin.com/company/turing-club-of-programmers-nitrr/?originalSubdomain=in"
               className="turingclub"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Divyansh Sharma
+              Turing Club of Programmers NIT Raipur
             </a>
           </p>
         </div>

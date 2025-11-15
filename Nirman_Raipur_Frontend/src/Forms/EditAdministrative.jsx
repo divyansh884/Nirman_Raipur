@@ -375,7 +375,7 @@ export default function EditAdministrative({ onLogout }) {
                       type="text"
                       name="byGovtDistrictAS"
                       className={`form-input ${errors.byGovtDistrictAS ? 'error' : ''}`}
-                      placeholder="Commissioner, Ratlam Municipal Corporation"
+                      placeholder="Commissioner, Raipur Municipal Corporation"
                       value={form.byGovtDistrictAS}
                       onChange={handleChange}
                       disabled={isSubmitting}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import TopBar from "../Components/TopBar.jsx";
+import TopBar from "../Components/TopBar";
 import "./AdminDepartmentForms.css";
 import useAuthStore from '../Store/useAuthStore.js';
 import { BASE_SERVER_URL } from '../constants.jsx';

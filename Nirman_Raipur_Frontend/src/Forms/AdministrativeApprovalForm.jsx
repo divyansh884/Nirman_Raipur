@@ -250,7 +250,7 @@ export default function AdministrativeApprovalPage({ onLogout }) {
                   type="text"
                   name="govtDistrictAS"
                   className={`form-input ${errors.govtDistrictAS ? 'error' : ''}`}
-                  placeholder="Commissioner, Ratlam Municipal Corporation"
+                  placeholder="Commissioner, Raipur Municipal Corporation"
                   value={form.govtDistrictAS}
                   onChange={handleChange}
                   disabled={isSubmitting}

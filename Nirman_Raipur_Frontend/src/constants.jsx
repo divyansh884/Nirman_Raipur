@@ -1,0 +1,1 @@
+export const BASE_SERVER_URL = "https://nirmanapi.rdmp.in/api"

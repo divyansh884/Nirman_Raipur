@@ -195,7 +195,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           fontSize: "12px"
         }}>
           <strong>Demo Credentials:</strong><br/>
-          Email: technical2.approver@Ratlam.gov.in<br/>
+          Email: technical2.approver@raipur.gov.in<br/>
           Password: Tech@54321
         </div>
       </div>
