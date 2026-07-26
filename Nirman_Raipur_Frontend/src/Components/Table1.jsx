@@ -753,7 +753,7 @@ if (!isAuthenticated) {
 
               {/* Ward Dropdown */}
               <div className="field">
-                <label>वार्ड</label>
+                <label>ग्राम/वार्ड</label>
                 <select
                   className="select"
                   value={filters.ward}
@@ -761,7 +761,7 @@ if (!isAuthenticated) {
                     setFilters((f) => ({ ...f, ward: e.target.value }));
                   }}
                 >
-                  <option value="">--वार्ड चुने--</option>
+                  <option value="">--ग्राम/वार्ड चुने--</option>
                   {dropdownData.wards.map((item) => (
                     <option key={item._id || item.id || Math.random()} value={String(item.name || '')}>
                       {String(item.name || 'N/A')}

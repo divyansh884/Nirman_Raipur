@@ -78,10 +78,10 @@ const AdminWorkForm = ({ onLogout }) => {
     },
     {
       key: 'wards',
-      title: 'वार्ड',
+      title: 'ग्राम/वार्ड',
       endpoint: '/admin/ward',
       field: 'name',
-      placeholder: 'वार्ड का नाम दर्ज करें'
+      placeholder: 'ग्राम/वार्ड का नाम दर्ज करें'
     },
     {
       key: 'workAgencies',

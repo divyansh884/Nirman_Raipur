@@ -648,7 +648,7 @@ export default function AddToWork({ onWorkAdded, prefilledData, currentUser }) {
             <div className="fld">
               <label>वार्ड / ग्राम</label>
               <select name="ward" value={form.ward} onChange={update} disabled={isSubmitting}>
-                <option value="">-- वार्ड चुने --</option>
+                <option value="">-- ग्राम/वार्ड चुने --</option>
                 {dropdownData.wards.map((ward) => (
                   <option key={ward._id || ward.id} value={ward._id || ward.id}>
                     {ward.name}
