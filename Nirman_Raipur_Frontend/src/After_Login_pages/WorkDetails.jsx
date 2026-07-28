@@ -1118,7 +1118,7 @@ const WorkDetails = ({ onLogout, onBack }) => {
         </div>
         <div className="approval-item">
           <label>स्वीकृतकर्ता</label>
-          <span>{safeRender(workData.technicalApproval.approvedBy.fullName)}</span>
+          <span>{safeRender(workData.technicalApproval.approvedBy?.fullName || workData.technicalApproval.approvedBy)}</span>
         </div>
         <div className="approval-item">
           <label>टिप्पणी</label>
@@ -1171,7 +1171,7 @@ const WorkDetails = ({ onLogout, onBack }) => {
         </div>
         <div className="approval-item">
           <label>स्वीकृतकर्ता</label>
-          <span>{safeRender(workData.administrativeApproval.approvedBy.fullName)}</span>
+          <span>{safeRender(workData.administrativeApproval.approvedBy?.fullName || workData.administrativeApproval.approvedBy)}</span>
         </div>
         <div className="approval-item">
           <label>टिप्पणी</label>

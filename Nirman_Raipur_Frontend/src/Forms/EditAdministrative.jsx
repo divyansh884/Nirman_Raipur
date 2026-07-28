@@ -63,18 +63,11 @@ export default function EditAdministrative({ onLogout }) {
         }
       });
 
+      const proposalData = response.data?.data || response.data;
       console.log("📥 Full API response:", response.data);
-      console.log("📥 Administrative approval data:", response.data?.administrativeApproval);
+      console.log("📥 Administrative approval data:", proposalData?.administrativeApproval);
 
-      // ✅ FIXED: Better condition checking
-    //   if (!response.data?.administrativeApproval) {
-    //     console.log("❌ No administrativeApproval object found");
-    //     alert("प्रशासकीय स्वीकृति मौजूद नहीं है। पहले स्वीकृति बनाएं।");
-    //     navigate(-1);
-    //     return;
-    //   }
-
-      const adminApproval = response.data.administrativeApproval;
+      const adminApproval = proposalData?.administrativeApproval;
       console.log("📊 Administrative approval object:", adminApproval);
 
       // ✅ FIXED: Safeguard against undefined values

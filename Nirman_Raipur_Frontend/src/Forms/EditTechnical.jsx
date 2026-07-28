@@ -64,12 +64,13 @@ export default function EditTechnical({ onLogout }) {
         }
       });
 
+      const proposalData = response.data?.data || response.data;
       console.log("📥 Full API response:", response.data);
-      console.log("📥 Technical approval data:", response.data?.technicalApproval);
-      console.log("📥 Current sanctionAmount:", response.data?.sanctionAmount); // ✅ UPDATED: Log sanctionAmount
+      console.log("📥 Technical approval data:", proposalData?.technicalApproval);
+      console.log("📥 Current sanctionAmount:", proposalData?.sanctionAmount);
 
-      const techApproval = response.data.technicalApproval;
-      const workData = response.data;
+      const techApproval = proposalData?.technicalApproval;
+      const workData = proposalData;
 
       console.log("📊 Technical approval object:", techApproval);
       console.log("📊 Current work data:", workData);

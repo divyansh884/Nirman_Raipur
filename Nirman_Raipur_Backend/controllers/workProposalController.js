@@ -421,7 +421,17 @@ const updateTechnicalApproval = async (req, res) => {
       technicalSanctionAmount 
     } = req.body;
 
-    const workProposal = await WorkProposal.findById(req.params.id);
+    let workProposal = await WorkProposal.findById(req.params.id);
+
+    if (!workProposal) {
+      // Fallback: lookup by subdocument ID in case frontend passed technicalApproval._id or administrativeApproval._id
+      workProposal = await WorkProposal.findOne({
+        $or: [
+          { "technicalApproval._id": req.params.id },
+          { "administrativeApproval._id": req.params.id }
+        ]
+      });
+    }
 
     if (!workProposal) {
       return res.status(404).json({
@@ -451,6 +461,8 @@ const updateTechnicalApproval = async (req, res) => {
       "Work In Progress",
       "Work Completed",
       "Work Cancelled",
+      "Work Stopped",
+      "Work Not Started",
     ];
 
     if (!allowedStatuses.includes(workProposal.currentStatus)) {
@@ -460,29 +472,21 @@ const updateTechnicalApproval = async (req, res) => {
       });
     }
 
-    // Check department permission (uncomment if needed)
-    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'You can only update approvals for your department'
-    //   });
-    // }
-
     const currentApproval = workProposal.technicalApproval;
 
     // Update based on current approval status
     if (currentApproval.status === "Approved") {
       // Updating approved technical approval
-      if (approvalNumber !== undefined) {
-        currentApproval.approvalNumber = approvalNumber;
+      if (approvalNumber !== undefined && approvalNumber.trim() !== "") {
+        currentApproval.approvalNumber = approvalNumber.trim();
       }
       
-      if (technicalSanctionAmount !== undefined) {
-        currentApproval.technicalSanctionAmount = technicalSanctionAmount;
+      if (technicalSanctionAmount !== undefined && technicalSanctionAmount !== "") {
+        currentApproval.amountOfTechnicalSanction = Number(technicalSanctionAmount);
       }
 
-      if (remarks !== undefined) {
-        currentApproval.remarks = remarks;
+      if (remarks !== undefined && remarks.trim() !== "") {
+        currentApproval.remarks = remarks.trim();
       }
 
       // Update files if uploaded
@@ -498,23 +502,28 @@ const updateTechnicalApproval = async (req, res) => {
       currentApproval.lastModified = new Date();
       currentApproval.modifiedBy = req.user.id;
 
-      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
-
     } else if (currentApproval.status === "Rejected") {
       // Updating rejected technical approval
-      if (rejectionReason !== undefined) {
-        currentApproval.rejectionReason = rejectionReason;
+      if (rejectionReason !== undefined && rejectionReason.trim() !== "") {
+        currentApproval.rejectionReason = rejectionReason.trim();
       }
 
-      if (remarks !== undefined) {
-        currentApproval.remarks = remarks;
+      if (remarks !== undefined && remarks.trim() !== "") {
+        currentApproval.remarks = remarks.trim();
+      }
+
+      // Update files if uploaded
+      if (req.s3Uploads?.document) {
+        currentApproval.attachedFile = req.s3Uploads.document;
+      }
+
+      if (req.s3Uploads?.images) {
+        currentApproval.attachedImages = { images: req.s3Uploads.images };
       }
 
       // Update modification timestamp
       currentApproval.lastModified = new Date();
       currentApproval.modifiedBy = req.user.id;
-
-      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
     }
 
     // Validate required fields based on status
@@ -563,10 +572,13 @@ const administrativeApproval = async (req, res) => {
     const {
       action,
       byGovtDistrictAS,
+      govtDistrictAS,
       approvalNumber,
       remarks,
       rejectionReason,
     } = req.body;
+
+    const govtDistrictASVal = byGovtDistrictAS || govtDistrictAS || "";
 
     if (!["approve", "reject"].includes(action)) {
       return res.status(400).json({
@@ -575,7 +587,16 @@ const administrativeApproval = async (req, res) => {
       });
     }
 
-    const workProposal = await WorkProposal.findById(req.params.id);
+    let workProposal = await WorkProposal.findById(req.params.id);
+
+    if (!workProposal) {
+      workProposal = await WorkProposal.findOne({
+        $or: [
+          { "administrativeApproval._id": req.params.id },
+          { "technicalApproval._id": req.params.id }
+        ]
+      });
+    }
 
     if (!workProposal) {
       return res.status(404).json({
@@ -602,7 +623,7 @@ const administrativeApproval = async (req, res) => {
 
       workProposal.administrativeApproval = {
         status: "Approved",
-        byGovtDistrictAS,
+        byGovtDistrictAS: govtDistrictASVal,
         approvalNumber,
         approvalDate: new Date(),
         remarks,
@@ -651,12 +672,25 @@ const updateAdministrativeApproval = async (req, res) => {
   try {
     const {
       byGovtDistrictAS,
+      govtDistrictAS,
       approvalNumber,
       remarks,
       rejectionReason,
     } = req.body;
 
-    const workProposal = await WorkProposal.findById(req.params.id);
+    const govtDistrictASVal = byGovtDistrictAS || govtDistrictAS;
+
+    let workProposal = await WorkProposal.findById(req.params.id);
+
+    if (!workProposal) {
+      // Fallback: lookup by subdocument ID in case frontend passed administrativeApproval._id or technicalApproval._id
+      workProposal = await WorkProposal.findOne({
+        $or: [
+          { "administrativeApproval._id": req.params.id },
+          { "technicalApproval._id": req.params.id }
+        ]
+      });
+    }
 
     if (!workProposal) {
       return res.status(404).json({
@@ -684,6 +718,8 @@ const updateAdministrativeApproval = async (req, res) => {
       "Work In Progress",
       "Work Completed",
       "Work Cancelled",
+      "Work Stopped",
+      "Work Not Started",
     ];
 
     if (!allowedStatuses.includes(workProposal.currentStatus)) {
@@ -693,29 +729,21 @@ const updateAdministrativeApproval = async (req, res) => {
       });
     }
 
-    // Check department permission (uncomment if needed)
-    // if (workProposal.approvingDepartment !== req.user.department && req.user.role !== 'Super Admin') {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'You can only update approvals for your department'
-    //   });
-    // }
-
     const currentApproval = workProposal.administrativeApproval;
 
     // Update based on current approval status
     if (currentApproval.status === "Approved") {
       // Updating approved administrative approval
-      if (approvalNumber !== undefined) {
-        currentApproval.approvalNumber = approvalNumber;
+      if (approvalNumber !== undefined && approvalNumber.trim() !== "") {
+        currentApproval.approvalNumber = approvalNumber.trim();
       }
       
-      if (byGovtDistrictAS !== undefined) {
-        currentApproval.byGovtDistrictAS = byGovtDistrictAS;
+      if (govtDistrictASVal !== undefined && govtDistrictASVal.trim() !== "") {
+        currentApproval.byGovtDistrictAS = govtDistrictASVal.trim();
       }
 
-      if (remarks !== undefined) {
-        currentApproval.remarks = remarks;
+      if (remarks !== undefined && remarks.trim() !== "") {
+        currentApproval.remarks = remarks.trim();
       }
 
       // Update files if uploaded
@@ -727,23 +755,24 @@ const updateAdministrativeApproval = async (req, res) => {
       currentApproval.lastModified = new Date();
       currentApproval.modifiedBy = req.user.id;
 
-      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
-
     } else if (currentApproval.status === "Rejected") {
       // Updating rejected administrative approval
-      if (rejectionReason !== undefined) {
-        currentApproval.rejectionReason = rejectionReason;
+      if (rejectionReason !== undefined && rejectionReason.trim() !== "") {
+        currentApproval.rejectionReason = rejectionReason.trim();
       }
 
-      if (remarks !== undefined) {
-        currentApproval.remarks = remarks;
+      if (remarks !== undefined && remarks.trim() !== "") {
+        currentApproval.remarks = remarks.trim();
+      }
+
+      // Update files if uploaded
+      if (req.s3Uploads?.document) {
+        currentApproval.attachedFile = req.s3Uploads.document;
       }
 
       // Update modification timestamp
       currentApproval.lastModified = new Date();
       currentApproval.modifiedBy = req.user.id;
-
-      // STATUS REMAINS UNCHANGED - No modification to currentStatus or workProgressStage
     }
 
     // Validate required fields based on status

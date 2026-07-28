@@ -145,7 +145,6 @@ router.put(
   uploadFields,
   s3UploadDoc,
   s3UploadImages,
-  technicalApprovalValidation,
   updateTechnicalApproval,
 );
 // @route   POST /api/work-proposals/:id/administrative-approval
@@ -166,7 +165,6 @@ router.put(
   // authorizeRole("Administrative Approver"),
   uploadFields,
   s3UploadDoc,
-  administrativeApprovalValidation,
   updateAdministrativeApproval,
 );
 
