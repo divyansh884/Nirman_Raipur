@@ -637,26 +637,37 @@ const WorkDetails = ({ onLogout, onBack }) => {
   };
 
   // Document viewing function
-  const viewDocument = (documentUrl, title = 'Document') => {
-    if (documentUrl) {
-      window.open(documentUrl, '_blank');
-    } else {
+  const viewDocument = (docObj, title = 'Document') => {
+    if (!docObj) {
       alert('दस्तावेज़ उपलब्ध नहीं है');
+      return;
     }
+
+    const url = typeof docObj === 'string' ? docObj : (docObj.url || docObj.Location || docObj.location || '');
+    const key = typeof docObj === 'object' ? (docObj.key || '') : '';
+
+    if (!url && !key) {
+      alert('दस्तावेज़ उपलब्ध नहीं है');
+      return;
+    }
+
+    // Open via backend view endpoint (generates AWS S3 presigned URL)
+    const viewUrl = `${BASE_SERVER_URL}/upload/view?url=${encodeURIComponent(url)}&key=${encodeURIComponent(key)}`;
+    window.open(viewUrl, '_blank');
   };
 
   // Document button component
   const DocumentButton = ({ document, title }) => {
     if (!document) return <span className="no-document">कोई दस्तावेज़ नहीं</span>;
     
-    const documentUrl = document.url || document.Location || document.location;
+    const documentUrl = typeof document === 'string' ? document : (document.url || document.Location || document.location || document.key);
     
     if (!documentUrl) return <span className="no-document">कोई दस्तावेज़ नहीं</span>;
     
     return (
       <button 
         className="document-btn"
-        onClick={() => viewDocument(documentUrl, title)}
+        onClick={() => viewDocument(document, title)}
         title={`${title} देखें`}
       >
         <i className="fa-solid fa-file-pdf"></i>

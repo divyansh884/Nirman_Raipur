@@ -563,13 +563,10 @@ workProposalSchema.index({ lastStatusUpdate: -1 });
 workProposalSchema.index({ financialYear: 1 });
 workProposalSchema.index({ city: 1, ward: 1 });
 
-// Text search index
+// Text search index (only String fields can be text indexed)
 workProposalSchema.index({
   nameOfWork: "text",
   workDescription: "text",
-  workAgency: "text",
-  scheme: "text",
-  workDepartment: "text",
 });
 
 module.exports = mongoose.model("WorkProposal", workProposalSchema);

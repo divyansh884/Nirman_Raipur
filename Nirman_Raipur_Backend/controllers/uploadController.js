@@ -26,7 +26,6 @@ const uploadImage = async (req, res, next) => {
           Key: `images/${Date.now()}_${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
-          ACL: "public-read",
         };
 
         const data = await s3.upload(params).promise();
@@ -60,4 +59,66 @@ const uploadImage = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadImageMiddleware, uploadImage };
+const getFileView = async (req, res) => {
+  try {
+    let { key, url } = req.query;
+
+    if (!key && url) {
+      try {
+        const parsed = new URL(url);
+        key = decodeURIComponent(parsed.pathname.substring(1));
+      } catch (e) {
+        key = url;
+      }
+    }
+
+    if (!key) {
+      return res.status(400).json({
+        success: false,
+        message: "File key or URL is required",
+      });
+    }
+
+    const bucket = process.env.AWS_S3_BUCKET;
+
+    // Generate AWS S3 Presigned URL (valid for 1 hour)
+    const params = {
+      Bucket: bucket,
+      Key: key,
+      Expires: 3600,
+    };
+
+    s3.getSignedUrl("getObject", params, (err, signedUrl) => {
+      if (err || !signedUrl) {
+        console.error("S3 getSignedUrl Error, falling back to stream:", err);
+        // Fallback: stream file directly from S3
+        s3.getObject({ Bucket: bucket, Key: key })
+          .createReadStream()
+          .on("error", (streamErr) => {
+            console.error("S3 Stream Error:", streamErr);
+            if (!res.headersSent) {
+              return res.status(404).json({
+                success: false,
+                message: "File not found or access denied in storage",
+              });
+            }
+          })
+          .pipe(res);
+      } else {
+        // Redirect browser to signed S3 URL
+        res.redirect(signedUrl);
+      }
+    });
+  } catch (error) {
+    console.error("Get File View Error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Error retrieving file",
+        error: error.message,
+      });
+    }
+  }
+};
+
+module.exports = { uploadImageMiddleware, uploadImage, getFileView };

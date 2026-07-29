@@ -23,7 +23,6 @@ const uploadDocument = async (req, res, next) => {
       Key: `documents/${Date.now()}_${req.file.originalname}`,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
-      ACL: "public-read", // makes file permanently public
     };
 
     const data = await s3.upload(params).promise();

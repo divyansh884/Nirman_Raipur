@@ -418,8 +418,11 @@ const updateTechnicalApproval = async (req, res) => {
       approvalNumber, 
       remarks, 
       rejectionReason,
-      technicalSanctionAmount 
+      technicalSanctionAmount,
+      sanctionAmount
     } = req.body;
+
+    const sanctionAmtVal = sanctionAmount !== undefined ? sanctionAmount : technicalSanctionAmount;
 
     let workProposal = await WorkProposal.findById(req.params.id);
 
@@ -481,8 +484,12 @@ const updateTechnicalApproval = async (req, res) => {
         currentApproval.approvalNumber = approvalNumber.trim();
       }
       
-      if (technicalSanctionAmount !== undefined && technicalSanctionAmount !== "") {
-        currentApproval.amountOfTechnicalSanction = Number(technicalSanctionAmount);
+      if (sanctionAmtVal !== undefined && sanctionAmtVal !== "") {
+        const parsedAmt = Number(sanctionAmtVal);
+        if (!isNaN(parsedAmt) && parsedAmt > 0) {
+          currentApproval.amountOfTechnicalSanction = parsedAmt;
+          workProposal.sanctionAmount = parsedAmt;
+        }
       }
 
       if (remarks !== undefined && remarks.trim() !== "") {

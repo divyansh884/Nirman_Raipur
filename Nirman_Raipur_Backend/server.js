@@ -23,13 +23,30 @@ const app = express();
 // Connect to database
 connectDB();
 
+// Trust proxy (required for rate limiter behind Nginx/ALB/Cloudflare)
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors(config.cors));
 
-// Rate limiting
-const limiter = rateLimit(config.rateLimit);
-// app.use(limiter);
+// Rate limiting (active in production for external IPs, skipped in development)
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.max,
+  skip: (req) => {
+    if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) return true;
+    if (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1') return true;
+    return false;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "अत्यधिक अनुरोध (Too Many Requests). कृपया कुछ समय बाद पुनः प्रयास करें।",
+  }
+});
+app.use('/api', limiter);
 
 // Middleware
 app.use(morgan("combined"));
@@ -77,6 +94,15 @@ app.use(notFound);
 
 // Error handling middleware
 app.use(errorHandler);
+
+// Unhandled Promise Rejection & Uncaught Exception Safety
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Promise Rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 
 app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);

@@ -23,7 +23,6 @@ const s3UploadDoc = async (req, res, next) => {
       Key: `documents/${Date.now()}_${file.originalname}`,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: "public-read",
     };
 
     const data = await s3.upload(params).promise();
@@ -57,7 +56,6 @@ const s3UploadImages = async (req, res, next) => {
           Key: `images/${Date.now()}_${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
-          ACL: "public-read",
         };
         const data = await s3.upload(params).promise();
         return {

@@ -14,7 +14,8 @@ const auth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = process.env.JWT_SECRET || config.jwt.secret;
+    const decoded = jwt.verify(token, jwtSecret);
     
     // Get user from database to ensure they still exist and are active
     const user = await User.findById(decoded.userId);
@@ -80,7 +81,8 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const jwtSecret = process.env.JWT_SECRET || config.jwt.secret;
+      const decoded = jwt.verify(token, jwtSecret);
       const user = await User.findById(decoded.userId);
       
       if (user && user.isActive) {

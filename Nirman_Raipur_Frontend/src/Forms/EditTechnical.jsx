@@ -192,68 +192,50 @@ export default function EditTechnical({ onLogout }) {
     try {
       // ✅ UPDATED: Two separate API calls - technical approval and work proposal
       
-      // 1. Update Technical Approval (if needed)
-      if (form.approvalNumber.trim() || form.remarks.trim() || form.document || form.images.length > 0) {
-        const techFormData = new FormData();
+      const techFormData = new FormData();
 
-        if (form.approvalNumber.trim()) {
-          techFormData.append("approvalNumber", form.approvalNumber);
-        }
-
-        if (form.remarks.trim()) {
-          techFormData.append("remarks", form.remarks);
-        }
-
-        // Add document file if selected
-        if (form.document) {
-          techFormData.append("document", form.document);
-        }
-
-        // Add multiple images if selected
-        form.images.forEach((image, index) => {
-          techFormData.append("images", image);
-        });
-
-        console.log("📤 Updating technical approval:", {
-          approvalNumber: form.approvalNumber,
-          remarks: form.remarks,
-          hasDocument: !!form.document,
-          imageCount: form.images.length
-        });
-
-        await axios.put(
-          `${BASE_SERVER_URL}/work-proposals/${workId}/technical-approval`,
-          techFormData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              "Authorization": `Bearer ${token}`
-            },
-          }
-        );
-
-        console.log("✅ Technical approval updated successfully");
+      if (form.approvalNumber.trim()) {
+        techFormData.append("approvalNumber", form.approvalNumber);
       }
 
-      // 2. ✅ ADDED: Update Work Proposal sanctionAmount (separate API call)
+      if (form.remarks.trim()) {
+        techFormData.append("remarks", form.remarks);
+      }
+
       if (form.sanctionAmount && parseFloat(form.sanctionAmount) > 0) {
-        console.log("📤 Updating work proposal sanctionAmount:", form.sanctionAmount);
-
-        const workUpdateResponse = await axios.put(
-          `${BASE_SERVER_URL}/work-proposals/${workId}`, // ✅ Main work proposal endpoint
-          {
-            sanctionAmount: parseFloat(form.sanctionAmount)
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-          }
-        );
-
-        console.log("✅ Work proposal sanctionAmount updated successfully:", workUpdateResponse.data);
+        techFormData.append("sanctionAmount", form.sanctionAmount);
       }
+
+      // Add document file if selected
+      if (form.document) {
+        techFormData.append("document", form.document);
+      }
+
+      // Add multiple images if selected
+      form.images.forEach((image) => {
+        techFormData.append("images", image);
+      });
+
+      console.log("📤 Updating technical approval and sanction amount:", {
+        approvalNumber: form.approvalNumber,
+        sanctionAmount: form.sanctionAmount,
+        remarks: form.remarks,
+        hasDocument: !!form.document,
+        imageCount: form.images.length
+      });
+
+      await axios.put(
+        `${BASE_SERVER_URL}/work-proposals/${workId}/technical-approval`,
+        techFormData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "Authorization": `Bearer ${token}`
+          },
+        }
+      );
+
+      console.log("✅ Technical approval & sanction amount updated successfully");
 
       // Success handling
       alert("तकनीकी स्वीकृति और कार्य राशि सफलतापूर्वक अपडेट की गई!");
